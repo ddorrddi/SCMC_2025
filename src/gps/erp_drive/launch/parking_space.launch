@@ -1,0 +1,5 @@
+<launch>
+  <include file="$(find static_obstacle_detection)/launch/static_obstacle.launch" />
+  <node pkg="erp_drive" type="wgs84_to_utmk_imu.py" name="wgs84_to_utmk_imu" args="$(arg target)"/>
+  <node pkg="erp_drive" type="parking_space_detector.py" name="parking_space_detector"/>
+</launch>

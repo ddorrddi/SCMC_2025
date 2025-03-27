@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>traffic_light</name>
+  <version>0.0.0</version>
+  <description>The traffic_light package</description>
+  <maintainer email="foscar@todo.todo">foscar</maintainer>
+  <license>TODO</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <build_depend>rospy</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>cv_bridge</build_depend>
+  <build_depend>image_transport</build_depend>
+
+  <exec_depend>rospy</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>cv_bridge</exec_depend>
+  <exec_depend>image_transport</exec_depend>
+  <exec_depend>torch</exec_depend>
+  <exec_depend>opencv-python</exec_depend>
+</package>

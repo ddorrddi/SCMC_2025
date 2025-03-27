@@ -1,0 +1,3 @@
+<launch>
+    <node name="detect_traffic_light_morai" pkg="traffic_light" type="detect_traffic_light_morai.py"/>
+</launch>

@@ -1,0 +1,7 @@
+[submodule "src/gps/PythonRobotics"]
+	path = src/gps/PythonRobotics
+	url = https://github.com/powerslam/PythonRobotics.git
+
+[submodule "src/MORAI-ROS_morai_msgs"]
+	path = src/MORAI-ROS_morai_msgs
+	url = https://github.com/MORAI-Autonomous/MORAI-ROS_morai_msgs.git

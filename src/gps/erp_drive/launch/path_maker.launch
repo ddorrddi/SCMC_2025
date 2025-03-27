@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<launch>
+    <!-- <include file="$(find handsfree_ros_imu)/launch/handsfree_imu.launch"/> -->
+  	<include file="$(find ublox_gps)/launch/ublox_zed-f9p_base.launch"/>
+	<node pkg="erp_drive" type="wgs84_to_utmk.py" name="wgs84_to_utmk" output="screen" args="$(arg target)"/>
+	<node pkg="erp_drive" type="path_maker.py" name="path_maker" output="screen" args="$(arg target)"/>
+</launch>

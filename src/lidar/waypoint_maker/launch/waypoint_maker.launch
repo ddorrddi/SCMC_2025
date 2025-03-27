@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+    <!-- 다른 런치 파일을 포함 -->
+    <include file="$(find velodyne_pointcloud)/launch/VLP16_points.launch" />
+    <!-- pkg 속성은 노드가 속한 패키지를 지정 -->
+    <!-- type 속성은 실행 파일 이름 -->
+    <!-- name 속성은 노드의 이름을 지정 -->
+    <node pkg="lidar_trafficcone_detection" type="traffic_cone" name="traffic_cone" output="screen"/>
+    <node pkg="waypoint_maker" type="waypoint_maker" name="waypoint_maker" output="screen"/>
+    <!-- <node pkg="rviz" type="rviz" name="rviz" /> -->
+</launch>
