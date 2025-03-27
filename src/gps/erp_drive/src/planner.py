@@ -83,11 +83,11 @@ if __name__ == '__main__':
         if planner.g_path_planner.is_path_set:
             planner.g_path_planner.publish_global_path(planner.obstacle_avoidance_planner.curr_lane)
 
-        # if planner.obstacle_avoidance_planner.is_local_waypoint_set:
-        #     planner.obstacle_avoidance_planner.publish_avoidance_path()
+        if planner.obstacle_avoidance_planner.is_local_waypoint_set:
+             planner.obstacle_avoidance_planner.publish_avoidance_path()
         
-        planner.parking_planner.parking_space_num_pub.publish(planner.parking_planner.parking_space_num)
-        planner.delivery_planner.publish_delivery_path()
+        # planner.parking_planner.parking_space_num_pub.publish(planner.parking_planner.parking_space_num)
+        # planner.delivery_planner.publish_delivery_path()
             
         log = [
             {
