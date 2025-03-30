@@ -103,7 +103,7 @@ bool Controller::isLeftTurn() {
     geometry_msgs::Pose curr_waypoint, target_waypoint;
     
     curr_waypoint = this->g_path.path.at(this->g_curr_idx).pose;
-    target_waypoint = this->g_path.path.at(std::max(this->g_curr_idx + 30, this->g_path_size - 1)).pose;
+    target_waypoint = this->g_path.path.at(std::min(this->g_curr_idx + 30, this->g_path_size - 1)).pose;
     
     double roll, pitch, curr_yaw, target_yaw;
 
