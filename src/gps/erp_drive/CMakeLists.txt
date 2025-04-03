@@ -51,7 +51,6 @@ add_executable(
   control
   src/controller.cpp
   src/pure_pursuit.cpp
-  src/stanley_method.cpp
   src/controller_node.cpp
 )
 
@@ -59,12 +58,3 @@ target_link_libraries(control ${catkin_LIBRARIES})
 add_dependencies(control ${catkin_EXPORTED_TARGETS})
 add_dependencies(control ${PROJECT_NAME}_gencfg)
 add_dependencies(control ${PROJECT_NAME}_generate_messages_cpp)
-
-# Specify where the Python scripts are located
-catkin_install_python(PROGRAMS
-  src/planner.py
-  scripts/path_visualizer.py
-  scripts/odometry_visualizer.py
-  scripts/gps_to_navsatfix_converter.py
-  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-)
