@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<launch>
-    <include file="$(find velodyne_pointcloud)/launch/VLP16_points.launch" />
-    <node pkg="static_obstacle_detection" type="static_obstacle_detection" name="static_obstacle_detection" output="screen"/>
-</launch>

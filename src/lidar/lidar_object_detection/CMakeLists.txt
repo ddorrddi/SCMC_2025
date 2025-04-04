@@ -42,6 +42,7 @@ generate_dynamic_reconfigure_options(
   cfg/config_tunnel_dynamic_morai.cfg
   cfg/config_tunnel_dynamic.cfg
   cfg/config_tunnel_static.cfg
+  cfg/config_delivery_info.cfg
 )
 
 

@@ -55,6 +55,7 @@ class TransformCoordinate:
             rospy.Subscriber('/gps_front/fix_velocity', TwistWithCovarianceStamped, self.velocity_callback)
 
         else:
+            print('hi?')
             self.transformer = Transformer.from_crs(proj_UTM52N, proj_UTMK, always_xy=True)
             rospy.Subscriber('/Ego_topic', EgoVehicleStatus, self.morai_callback)
 

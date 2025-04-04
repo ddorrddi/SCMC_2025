@@ -95,13 +95,13 @@ def color_filter(img):
 def bird_eye_view(img,width,height):
     src = np.float32([[0,0],
                   [width,0],
-                  [0,160],
-                  [width,160]])
+                  [0,480],
+                  [width,480]])
 
     dst = np.float32([[0,0],
                   [width,0],
-                  [185,height],
-                  [460,height]])   #src, dst는 모두 순서대로 왼쪽위, 오른쪽위, 왼쪽아래, 오른쪽 아래 점입니다.230, 415
+                  [0,height],
+                  [640,height]])   #src, dst는 모두 순서대로 왼쪽위, 오른쪽위, 왼쪽아래, 오른쪽 아래 점입니다.230, 415
                                     #원본의 점인 src를 상단보다 하단이 좁은 사다리꼴 형태의 dst점으로 변환시킴으로서 bird-eye-view가 완성됩니다.
          
     M = cv2.getPerspectiveTransform(src,dst)
@@ -117,7 +117,7 @@ def region_of_interest(img):
     height = 480
     width = 640
     mask = np.zeros((height,width),dtype="uint8")
-    pts = np.array([[100,0],[500,0],[500,480],[100,480]])  # 차례대로 왼쪽위, 오른쪽위, 오른쪽아래,왼쪽아래 점이며 저희는 하나의 차선만 인식되어도 안정적으로 주행할 수 있도록 구현하였기에 roi를 보수적으로 설정하여 노이즈를 가능한 줄여주었습니다.
+    pts = np.array([[0,0],[640,0],[640,480],[0,480]])  # 차례대로 왼쪽위, 오른쪽위, 오른쪽아래,왼쪽아래 점이며 저희는 하나의 차선만 인식되어도 안정적으로 주행할 수 있도록 구현하였기에 roi를 보수적으로 설정하여 노이즈를 가능한 줄여주었습니다.
 	
 
     mask= cv2.fillPoly(mask,[pts],(255,255,255),cv2.LINE_AA)

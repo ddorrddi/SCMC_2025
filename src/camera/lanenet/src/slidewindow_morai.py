@@ -33,7 +33,7 @@ class SlideWindow:
 
         # 윈도우 개수 및 높이 초기화
         window_height = 15  # 윈도우 높이
-        nwindows = height // window_height  # 윈도우 개수
+        nwindows = 30  # 윈도우 개수
         
         # 이미지에서 비영점 위치 찾기
         nonzero = img.nonzero()  # 이미지에서 비영점 찾기
@@ -55,17 +55,24 @@ class SlideWindow:
 
         # 윈도우 설정 값 초기화
         # ----------------- 기본값 -------------------- #
+        # win_h1 = height - 50  # 윈도우 높이 1
+        # win_h2 = height  # 윈도우 높이 2
+        # win_l_w_l = 180 - 95  # 왼쪽 윈도우 왼쪽 경계
+        # win_l_w_r = 180 + 50  # 왼쪽 윈도우 오른쪽 경계
+        # win_r_w_l = 480 - 65  # 오른쪽 윈도우 왼쪽 경계
+        # win_r_w_r = 480 + 65  # 오른쪽 윈도우 오른쪽 경계
+        # ---------------------------------------------
+
         win_h1 = height - 50  # 윈도우 높이 1
         win_h2 = height  # 윈도우 높이 2
-        win_l_w_l = 180 - 65  # 왼쪽 윈도우 왼쪽 경계
-        win_l_w_r = 180 + 50  # 왼쪽 윈도우 오른쪽 경계
-        win_r_w_l = 480 - 50  # 오른쪽 윈도우 왼쪽 경계
-        win_r_w_r = 480 + 50  # 오른쪽 윈도우 오른쪽 경계
-        # ---------------------------------------------
+        win_l_w_l = 180 - 95  # 왼쪽 윈도우 왼쪽 경계
+        win_l_w_r = 180 + 95  # 왼쪽 윈도우 오른쪽 경계
+        win_r_w_l = 480 - 95  # 오른쪽 윈도우 왼쪽 경계
+        win_r_w_r = 480 + 95  # 오른쪽 윈도우 오른쪽 경계
 
         circle_height = 100  # 원 높이 설정
         
-        road_width = 0.415  # 도로 너비 설정
+        road_width = 0.375  # 도로 너비 설정
         half_road_width = 0.5 * road_width  # 도로 반 너비 설정
 
         # 왼쪽 폴리라인 설정
@@ -154,5 +161,4 @@ class SlideWindow:
                 cv2.circle(out_img, (x_location, circle_height), 10, (0, 0, 255), 5)
 
             self.x_previous = x_location  # 이전 x 위치 갱신
-
         return out_img, x_location, self.current_line  # 출력 이미지, x 위치, 현재 라인 반환

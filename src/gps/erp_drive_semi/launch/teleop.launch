@@ -1,0 +1,13 @@
+<launch>
+    <node pkg="tf2_ros" type="static_transform_publisher" name="base_link_to_imu"
+    args="0.0 0.0 0.5 0.0 0.0 0.0 1.0 base_link imu"/>
+    <node pkg="tf2_ros" type="static_transform_publisher" name="base_link_to_gps"
+    args="0.0 0.0 0.5 0.0 0.0 0.0 1.0 base_link gps"/>
+    <node pkg="tf2_ros" type="static_transform_publisher" name="base_link_to_lidar"
+    args="0.5 0.0 1.0 0.0 0.0 0.0 1.0 base_link velodyne"/>
+
+    <node pkg="erp_drive" type="gps_to_navsatfix_converter.py" name="gps_to_navsatfix_converter" output="screen"/>
+
+    <include file="$(find racecar)/launch/teleop.launch"/>
+    <include file="$(find erp_localization)/launch/ekf.launch"/>
+</launch>

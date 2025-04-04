@@ -1,0 +1,28 @@
+<launch>
+    <!-- 카메라 실행 노드 -->
+    <!-- <node name="usb_cam" pkg="usb_cam" type="usb_cam_node" output="screen" >
+        <param name="video_device" value="/dev/video0" />
+        <param name="image_width" value="640" />
+        <param name="image_height" value="480" />
+        <param name="pixel_format" value="yuyv" />
+        <param name="camera_frame_id" value="usb_cam" />
+        <param name="io_method" value="mmap"/>
+    </node>
+
+    <node name="image_view" pkg="image_view" type="image_view" respawn="false" output="screen">
+        <remap from="image" to="/usb_cam/image_raw"/>
+        <param name="autosize" value="true" />
+    </node> -->
+
+    <!-- 라이다 실행 노드 -->
+    <include file="$(find lidar_object_detection)/launch/object_detection_tunnel.launch" />
+    
+    <!-- 모터값 제어 관련 노드 -->
+    <!-- <node pkg="race" type="serial_control_node" name="serial_control_node" /> -->
+
+    <!-- Run RViz -->
+    <!-- <node name="rviz" pkg="rvizgit " type="rviz" args="-d $(find lane_pkg)/rviz/tunnel.rviz" output="screen"/> -->
+    
+    <!-- 차선인식 및 장애물 회피 알고리즘 노드 -->
+    <node pkg="lanenet" type="lanenet_drive_erp42_heading.py" name="lane" output="screen"/>
+</launch>

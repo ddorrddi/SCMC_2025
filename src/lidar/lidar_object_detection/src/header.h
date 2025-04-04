@@ -61,6 +61,7 @@
 
 #include <lidar_object_detection/objectDetectorTunnelDynamicConfig.h>
 #include <lidar_object_detection/objectDetectorTunnelStaticConfig.h>
+#include <lidar_object_detection/objectDetectorDeliveryConfig.h>
 
 // #include <lidar_object_detection/objectDetectorLatticeConfig.h>
 // #include <lidar_object_detection/objectDetectorRotaryConfig.h>
