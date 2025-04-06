@@ -8,7 +8,7 @@
   <node pkg="waypoint_maker" type="waypoint_maker_right_only.py" name="waypoint_maker_right_only" />
   <node pkg="waypoint_maker" type="drawing_path.py" name="drawing_path" />
 
-
+  <include file="$(find lidar_object_detection)/launch/object_detection_semi.launch" />
   <!-- <node pkg="race" type="serial_control_node" name="serial_control_node" /> -->
   <node pkg="erp_drive_semi" type="wgs84_to_utmk.py" name="wgs84_to_utmk" args="$(arg target)"/>
   <node pkg="erp_drive_semi" type="planner.py" name="planner"/>

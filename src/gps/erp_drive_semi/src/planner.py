@@ -18,9 +18,6 @@ from constant import const, Lane
 
 # 각종 Planner 관련 클래스
 from global_path_planner import GlobalPathPlanner
-# from obstacle_avoidance_planner import ObstacleAvoidancePlanner
-# from parking_planner import ParkingPlanner
-# from delivery_planner import DeliveryPlanner
 from waypoint_maker.msg import Waypoint
 from std_msgs.msg import String
 from erp_drive.msg import PathReference, PathReferenceElement
@@ -36,7 +33,7 @@ class Planner(object):
         rospy.init_node('planner', argv=file_name)
         self.rate = rospy.Rate(30)
 
-        self.g_path_planner = GlobalPathPlanner('erp_drive')
+        self.g_path_planner = GlobalPathPlanner('erp_drive_semi')
         self.g_path_planner.set_g_path(file_name)
         
         self.rviz_curr_pose = PoseStamped()

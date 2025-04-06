@@ -25,7 +25,6 @@ from visualization_msgs.msg import Marker, MarkerArray
 
 from constant import Lane, const
 
-from static_obstacle_detection.msg import ObstacleInfo
 
 # ros 관련 모듈
 import rospy

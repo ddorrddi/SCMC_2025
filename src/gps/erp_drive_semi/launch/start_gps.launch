@@ -1,5 +1,0 @@
-<launch>
-  	<include file="$(find handsfree_ros_imu)/launch/handsfree_imu.launch"/>
-  	<include file="$(find ublox_gps)/launch/ublox_zed-f9p_base.launch"/>
-    <node pkg="erp_drive" type="wgs84_to_utmk_imu.py" name="wgs84_to_utmk_imu" args="$(arg target)"/>
-</launch>

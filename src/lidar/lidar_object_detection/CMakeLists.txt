@@ -63,7 +63,9 @@ add_executable(object_detection_tunnel_dynamic_morai src/object_detection_tunnel
 target_link_libraries(object_detection_tunnel_dynamic_morai ${catkin_LIBRARIES})
 add_dependencies(object_detection_tunnel_dynamic_morai ${PROJECT_NAME}_gencfg)
 
-
+add_executable(object_detection_delivery src/object_detection_delivery.cpp)
+target_link_libraries(object_detection_delivery ${catkin_LIBRARIES})
+add_dependencies(object_detection_delivery ${PROJECT_NAME}_gencfg)
 
 add_executable(object_detection_tunnel_dynamic src/object_detection_tunnel_dynamic.cpp)
 target_link_libraries(object_detection_tunnel_dynamic ${catkin_LIBRARIES})

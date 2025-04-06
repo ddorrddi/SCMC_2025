@@ -53,7 +53,6 @@ add_executable(
   control2
   src/controller.cpp
   src/pure_pursuit.cpp
-  src/stanley_method.cpp
   src/controller_node.cpp
 )
 
@@ -67,7 +66,6 @@ add_executable(
   control_fmtc
   src/controller_fmtc.cpp
   src/pure_pursuit.cpp
-  src/stanley_method.cpp
   src/controller_node.cpp
 )
 

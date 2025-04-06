@@ -1,9 +1,0 @@
-<launch>
-  <node pkg="robot_localization" type="ekf_localization_node" name="ekf_localization_node" output="screen">
-    <param name="config" value="$(find erp_drive)/cfg/ekf_imu_gps.yaml"/>
-  </node>
-
-  <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher">
-    <param name="robot_description" value="$(find my_robot_description)/urdf/robot.urdf"/>
-  </node>
-</launch>

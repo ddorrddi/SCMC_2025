@@ -2,7 +2,7 @@
 import rospy
 from visualization_msgs.msg import Marker, MarkerArray
 from waypoint_maker.msg import Waypoint
-from lidar_trafficcone_detection.msg import ObjectInfo
+from lidar_object_detection.msg import ObjectInfo
 import numpy as np
 
 LEFT_OFFSET_DISTANCE = 2.0      # 좌측 오프셋 거리

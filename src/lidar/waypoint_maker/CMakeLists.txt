@@ -16,7 +16,6 @@ find_package(catkin REQUIRED COMPONENTS
   pcl_ros
   message_generation
   dynamic_reconfigure
-  lidar_trafficcone_detection
 )
 
 ## PCL 라이브러리 찾기

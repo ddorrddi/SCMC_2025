@@ -5,9 +5,10 @@
   <!-- <include file="$(find handsfree_ros_imu)/launch/handsfree_imu.launch"/>
   <include file="$(find ublox_gps)/launch/ublox_zed-f9p_base.launch"/>
   <node pkg="race" type="serial_control_node" name="serial_control_node" /> -->
+
   
-  <include file="$(find lidar_object_detection)/launch/object_detection_tunnel_static.launch" />
-  <!-- 어떤 라이다 인지코드를 쓸지는 나중에 선택-->
+  <!-- 어떤 라이다 인지코드를 쓸지 선택-->
+  <include file="$(find lidar_object_detection)/launch/object_detection.launch" />
 
 
   <node pkg="erp_drive" type="wgs84_to_utmk.py" name="wgs84_to_utmk" output="screen" args="$(arg target)"/>

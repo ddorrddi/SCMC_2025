@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+    <node pkg="lidar_object_detection" type="object_detection_delivery" name="object_detection_delivery"/>
+</launch>
