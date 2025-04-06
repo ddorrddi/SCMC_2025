@@ -18,13 +18,10 @@ Controller::Controller(char control_target):
         this->g_path_sub = nh.subscribe("/global_path", 1, &Controller::globalPathCallback, this);
         
         this->l_path_sub = nh.subscribe("/local_path", 1, &Controller::localPathCallback, this);
-        this->l_path_done_sub = nh.subscribe("/local_path_done", 1, &Controller::localPathDoneCallback, this); 
 
         this->curr_pose_sub = nh.subscribe("/current_pose", 1, &Controller::currentPoseCallback, this);
 
         this->imu_sub = nh.subscribe("/handsfree/imu", 1, &Controller::imuCallback, this);
-
-        this->traffic_light_status_sub = nh.subscribe("/traffic_light_status", 1, &Controller::trafficLightStatusCallback, this);
 
         this->client = nh.serviceClient<erp_drive::InitializePose>("initialize_pose");
         this->client_for_parking_path = nh.serviceClient<erp_drive::PermitParking>("permit_parking");
@@ -45,12 +42,6 @@ void Controller::localPathCallback(const erp_drive::PathReference& l_path){
     this->l_path = l_path;
     this->l_path_size = l_path.path.size();
     this->is_local_path_set = true;
-}
-
-void Controller::localPathDoneCallback(const std_msgs::Int16& signal){
-    ROS_INFO("Controller::localPathDoneCallback() : Local Path Done, Global Path Again");
-    this->is_local_path_set = false;
-    this->l_curr_idx = 0;
 }
 
 void Controller::imuCallback(const sensor_msgs::Imu& imu_data){
@@ -118,9 +109,6 @@ bool Controller::isLeftTurn() {
     return std::abs(curr_yaw - target_yaw) >= 30;
 }
 
-void Controller::trafficLightStatusCallback(const std_msgs::String& msg){
-    this->traffic_light_status = msg.data;
-}
 
 void Controller::currentPoseCallback(const geometry_msgs::Pose& curr_pose){
     this->curr_pose = curr_pose;

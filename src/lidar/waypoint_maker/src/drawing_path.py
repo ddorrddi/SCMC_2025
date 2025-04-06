@@ -82,7 +82,7 @@ class drawing_path():
                     marker.pose.position.y = array[i][1]
                     marker.pose.position.z = 0.2
 
-                    local_path.x_arr.append(array[i][0] +1.3)
+                    local_path.x_arr.append(array[i][0] +1.3) #차 앞에서 부터
                     local_path.y_arr.append(array[i][1])
 
                     marker.lifetime = rospy.Duration(1.0)
