@@ -3,6 +3,22 @@
 #include "./processPointClouds.h"
 // using templates for processPointClouds so also include .cpp to help linker
 #include "./processPointClouds.cpp"
+#include <cstdlib>
+#include <ctime>
+
+struct Color {
+    int r;
+    int g;
+    int b;
+};
+
+Color getRandomColor() {
+    Color color;
+    color.r = rand() % 256; // 0~255
+    color.g = rand() % 256;
+    color.b = rand() % 256;
+    return color;
+}
 
 // pcl point type
 typedef pcl::PointXYZ PointT;
@@ -248,6 +264,8 @@ void cluster(pcl::PointCloud<PointT>::Ptr input) {
         }
 
     }
+
+    ROS_INFO_STREAM("cluster_id : " << cluster_id);
 
     objectInfoMsg.objectCounts = cluster_id;
     pubObjectInfo.publish(objectInfoMsg);

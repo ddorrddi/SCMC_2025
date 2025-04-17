@@ -118,13 +118,14 @@ class ObstacleAvoidancePlanner:
         return mat_v2g, mat_g2v, curr_yaw
         
     def obstacle_info_CB(self, msg : ObjectInfo):
-        if self.g_curr_idx >= 1240:
-            return
+        # if self.g_curr_idx >= 1240:
+        #     return
 
         self.objectCounts = msg.objectCounts
-    
+
         # msg에 내용물이 없는 경우
         if msg.objectCounts == 0:
+            rospy.loginfo('none')
             return
         
         ### lidar 좌표계 상의 정보를 global 좌표계 상 정보로 변경 ####
