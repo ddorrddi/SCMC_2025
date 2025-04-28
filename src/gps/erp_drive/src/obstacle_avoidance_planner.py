@@ -231,7 +231,7 @@ class ObstacleAvoidancePlanner:
         
         self.is_local_waypoint_set = False
         self.target_x, self.target_y = None, None
-
+        
         signal = Int16(data=1)
         self.local_path_done_signal_pub.publish(signal)
         

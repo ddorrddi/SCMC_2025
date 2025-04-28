@@ -265,8 +265,6 @@ void cluster(pcl::PointCloud<PointT>::Ptr input) {
 
     }
 
-    ROS_INFO_STREAM("cluster_id : " << cluster_id);
-
     objectInfoMsg.objectCounts = cluster_id;
     pubObjectInfo.publish(objectInfoMsg);
 
