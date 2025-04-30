@@ -3,6 +3,22 @@
 #include "./processPointClouds.h"
 // using templates for processPointClouds so also include .cpp to help linker
 #include "./processPointClouds.cpp"
+#include <cstdlib>
+#include <ctime>
+
+struct color{
+    int r;
+    int g;
+    int b;
+};
+
+Color getRandomcolor() {
+    Color color;
+    color.r = rand() % 256;
+    color.g = rand() % 256;
+    color.b = rand() % 256;
+    return color
+}
 
 // pcl point type
 typedef pcl::PointXYZ PointT;
