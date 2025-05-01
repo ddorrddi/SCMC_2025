@@ -124,9 +124,9 @@ class ObstacleAvoidancePlanner:
         self.objectCounts = msg.objectCounts
 
         # msg에 내용물이 없는 경우
-        if msg.objectCounts == 0:
-            rospy.loginfo('none')
-            return
+        # if msg.objectCounts == 0:
+        #     rospy.loginfo('none')
+        #     return
         
         ### lidar 좌표계 상의 정보를 global 좌표계 상 정보로 변경 ####
         self.rel_obstacle_info = np.array([msg.centerX, msg.centerY, msg.centerZ, msg.lengthX, msg.lengthY, msg.lengthZ])
@@ -141,6 +141,10 @@ class ObstacleAvoidancePlanner:
         self.rel_obstacle_info = self.rel_obstacle_info[:, angle_filter]
         
         if len(self.rel_obstacle_info[0]) == 0:
+            if self.avoidance_success_confirm():
+                self.avoidance_in_progress = False
+
+            rospy.loginfo('obstacle_info_CB: no obstacle')
             return
        
         self.obst_x = self.rel_obstacle_info[0][0]
@@ -164,10 +168,8 @@ class ObstacleAvoidancePlanner:
         ############################################################
 
         _marker_array = MarkerArray()
-
         for idx in range(len(self.rel_obstacle_info[0])):
             _marker = Marker()
-
             _marker.ns = 'hi'
             _marker.header.frame_id = 'map'
             _marker.header.stamp = rospy.Time.now()
@@ -199,20 +201,62 @@ class ObstacleAvoidancePlanner:
 
         # 이미 회피 경로가 생성되어 진행 중인 경우
         if self.avoidance_in_progress:
-            # rospy.loginfo('alreay avoidance')
-            if self.avoidance_success_confirm(mat_v2g):
+            if self.avoidance_success_confirm():
                 self.avoidance_in_progress = False 
+                
             return
 
         # 현재 주행 중인 global path 위에 장애물이 존재하지 않는 경우
-        is_blocked, is_big = self.is_obst_on_path()
+        is_blocked, is_big, ccw = self.is_obst_on_path()
         if not is_blocked:
             return
 
-        self.make_avoidance_path(is_big, mat_v2g, mat_g2v, curr_yaw)
-    
-    def avoidance_success_confirm(self, mat_v2g: np.ndarray):
+        self.make_avoidance_path(is_big, ccw, mat_v2g, mat_g2v, curr_yaw)
+
+
+    # def avoidance_success_confirm(self, mat_v2g: np.ndarray):
+    #     rospy.loginfo(f"target_x : {self.target_x}, target_y : {self.target_y}")
+    #     if self.target_x is None and self.target_y is None:
+    #         return False
+        
+
+    #     x_end = self.avoidance_path.path[-1].pose.position.x
+    #     y_end = self.avoidance_path.path[-1].pose.position.y      
+
+
+    #     dist_to_end = np.hypot(self.curr_pose.position.x - x_end, self.curr_pose.position.y - y_end)
+
+    #     rospy.loginfo(f"[Avoidance] End of avoidance path → x_end: {x_end:.2f}, y_end: {y_end:.2f}, distance to end = {dist_to_end:2f}")  
+    #     rospy.loginfo(f"[Avoidance] Current position → x: {self.curr_pose.position.x:.2f}, y: {self.curr_pose.position.y:.2f}")
+
+
+        
+    #     target_x = self.g_path[self.curr_lane][self.blocked_idx].pose.position.x
+    #     target_y = self.g_path[self.curr_lane][self.blocked_idx].pose.position.y
+        
+    #     # target_x, target_y = (mat_v2g @ np.array([self.target_x, self.target_y, 0., 1.]).T)[:2]
+    #     # rospy.loginfo(f'target_x : {target_x}, target_y : {target_y}')
+    #     # rospy.loginfo(f'self_target_x : {self.target_x}, self_target_y : {self.target_y}')
+
+    #     dist_to_target = np.hypot(self.curr_pose.position.x - target_x, self.curr_pose.position.y - target_y)
+
+    #     # rospy.loginfo(f'dist_to_target : {dist_to_target}, dist_to_self_target : {np.hypot(self.curr_pose.position.x - self.target_x, self.curr_pose.position.y - self.target_y)}')
+
+    #     if dist_to_target > const.AVOIDANCE_SUCCESS_RAIDUS or dist_to_end > 1:
+    #         return False
+
+
+    #     self.is_local_waypoint_set = False
+    #     self.target_x, self.target_y = None, None
+
+    #     signal = Int16(data=1)
+    #     self.local_path_done_signal_pub.publish(signal)
+        
+    #     return True
+
+    def avoidance_success_confirm(self):
         if self.target_x is None and self.target_y is None:
+            rospy.loginfo("avoidance_success_confirm: target_x, target_y is None")
             return False
         
         target_x = self.g_path[self.curr_lane][self.blocked_idx].pose.position.x
@@ -226,14 +270,19 @@ class ObstacleAvoidancePlanner:
 
         # rospy.loginfo(f'dist_to_target : {dist_to_target}, dist_to_self_target : {np.hypot(self.curr_pose.position.x - self.target_x, self.curr_pose.position.y - self.target_y)}')
 
+        # rospy.loginfo(f"dist_to_target : {dist_to_target}")
+        # rospy.loginfo(f"const.AVOIDANCE_SUCCESS_RAIDUS : {const.AVOIDANCE_SUCCESS_RAIDUS}")
+
         if dist_to_target > const.AVOIDANCE_SUCCESS_RAIDUS:
+            # rospy.loginfo("avoidance_success_confirm: dist_to_target > const.AVOIDANCE_SUCCESS_RAIDUS")
             return False
+    
+        # rospy.loginfo("avoidance_success_confirm: dist_to_target <= const.AVOIDANCE_SUCCESS_RAIDUS")
+        signal = Int16(data=1)
+        self.local_path_done_signal_pub.publish(signal)
         
         self.is_local_waypoint_set = False
         self.target_x, self.target_y = None, None
-        
-        signal = Int16(data=1)
-        self.local_path_done_signal_pub.publish(signal)
         
         return True
 
@@ -307,24 +356,24 @@ class ObstacleAvoidancePlanner:
             self.blocked_idx += max(blocked_left_idx, blocked_mid_idx, blocked_right_idx)
             self.blocked_idx //= 2
             # self.blocked_idx += 2
-            return True, True
+            return True, True, 0
 
         # 소형인 경우
         if blocked_left:
             # rospy.loginfo('left mid')
             self.blocked_idx = blocked_left_idx
-            return True, False
+            return True, False, 1
 
         # 소형인 경우
         if blocked_right:
             # rospy.loginfo('mid right')
             self.blocked_idx = blocked_right_idx
-            return True, False
+            return True, False, -1
         
         self.blocked_idx = -1
-        return False, False
+        return False, False, 0
     
-    def setting_target_point(self, is_big: bool, mat_g2v: np.ndarray, curr_yaw: float):
+    def setting_target_point(self, is_big: bool, ccw, mat_g2v: np.ndarray, curr_yaw: float):
         quat = self.g_path[self.curr_lane][self.blocked_idx].pose.orientation 
         orientation_list = [quat.x, quat.y, quat.z, quat.w]
         _, _, global_target_yaw = euler_from_quaternion(orientation_list)
@@ -336,7 +385,7 @@ class ObstacleAvoidancePlanner:
             g_y = self.g_path[self.curr_lane][self.blocked_idx].pose.position.y
             
             lane_width = const.LANE_WIDTH_SMALL
-            ccw = self.CCW((g_x, g_y), self.g_obstacle_info[:, 0])
+            # ccw = self.CCW((g_x, g_y), self.g_obstacle_info[:, 0])
             
             x, y, _, _ = mat_g2v @ np.array([g_x, g_y, 0., 1.]).T
             x += np.cos(yaw + np.pi / 2) * lane_width * ccw
@@ -365,8 +414,8 @@ class ObstacleAvoidancePlanner:
         return x, y, yaw
 
 
-    def make_avoidance_path(self, is_big: bool, mat_v2g: np.ndarray, mat_g2v: np.ndarray, curr_yaw: float):
-        target_coord = self.setting_target_point(is_big, mat_g2v, curr_yaw)
+    def make_avoidance_path(self, is_big: bool, ccw, mat_v2g: np.ndarray, mat_g2v: np.ndarray, curr_yaw: float):
+        target_coord = self.setting_target_point(is_big, ccw, mat_g2v, curr_yaw)
         
         self.target_x = target_coord[0]
         self.target_y = target_coord[1]
@@ -433,7 +482,7 @@ class ObstacleAvoidancePlanner:
             
             self.rviz_avoidance_path.poses.append(rviz_local_pose)
 
-        # rospy.loginfo(f'path_size {len(self.avoidance_path.path)}')
+        rospy.loginfo(f'path_size {len(self.avoidance_path.path)}')
 
         self.rviz_avoidance_path.header.stamp = rospy.Time.now()
         self.is_local_waypoint_set = True
@@ -441,6 +490,7 @@ class ObstacleAvoidancePlanner:
 
 
     def publish_avoidance_path(self):
+        rospy.loginfo(f'is_local_waypoint_set: {self.is_local_waypoint_set}')
         if self.is_local_waypoint_set:
             self.avoidance_path_pub.publish(self.avoidance_path)
             self.rviz_avoidance_path_pub.publish(self.rviz_avoidance_path)
