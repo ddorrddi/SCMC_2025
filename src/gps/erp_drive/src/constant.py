@@ -46,10 +46,11 @@ const = Constant()
 
 # 이 값은 optimal_velocity 에서 가져다 쓰는 함수에 따라 다름
 
-const.AVOIDANCE_SUCCESS_RAIDUS = 2.8
+const.AVOIDANCE_SUCCESS_RAIDUS = 1.75
+# const.AVOIDANCE_SWITCH_RADIUS = 0.5
 # const.OBSTACLE_RAIDUS = 2.0 >> obst on path에서 따로 관리
 const.DELIVERY_SUCCESS_RADIUS = 1.5 
 const.BLOCK_CHECK_LD = 8.0
 const.LANE_WIDTH = 3.2 # 원래 : 3.5
-const.LANE_WIDTH_SMALL = 0.75 # 1.0 #FMTC : 0.75 MORAI : 1.3
+const.LANE_WIDTH_SMALL = 0.75# 1.0 #FMTC : 0.75 MORAI : 1.3
 const.EVENT_THRESHOLD_DIST = 10.0
