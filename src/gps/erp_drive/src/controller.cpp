@@ -168,7 +168,7 @@ void Controller::flowControl(const geometry_msgs::Pose& curr_pose){
         case EventType::STOP_DELIVERY_A:
             if(stop_idx <= this->g_curr_idx){
                 this->optimal_throttle.shouldDecel = false;
-                this->optimal_throttle.shouldStop = false;
+                this->optimal_throttle.shouldStop = true;
             }
             
             break;
@@ -247,7 +247,7 @@ void Controller::flowControl(const geometry_msgs::Pose& curr_pose){
 
         case EventType::STOP_DELIVERY_A:
             this->timer.resetTimer(5);
-            this->optimal_throttle.shouldDecel = false;
+            this->optimal_throttle.shouldDecel = true;
             break;
 
         case EventType::STOP_DELIVERY_B:

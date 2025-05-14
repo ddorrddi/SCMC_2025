@@ -380,12 +380,14 @@ class ObstacleAvoidancePlanner:
         curr_x = self.curr_pose.position.x
         curr_y = self.curr_pose.position.y
         s0, l0 = cartesian_to_frenet(curr_x, curr_y, self.g_path[self.curr_lane], s_list)
-
-        lane_offset = 0.75
-        s1 = s_list[self.blocked_idx]  # 회피 경로 끝 지점 
+        #여기 만져봄
+        lane_offset = 0.75 #0.75
+        s1 = s_list[self.blocked_idx]#-0.5 # 회피 경로 끝 지점 
+        #s1 = s0+3.0
         l1 = ccw * lane_offset
 
         l_path = generate_quintic_path(s0, l0, s1, l1)
+        #l_path = generate_quintic_path(s0, l0, s1, l1, v0=0.0, v1=1.0, a0=0.0, a1=0.0)
 
         resolution = int((s1 - s0) / 0.2)
         self.avoidance_path = PathReference()
