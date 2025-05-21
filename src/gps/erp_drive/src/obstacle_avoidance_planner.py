@@ -362,7 +362,6 @@ class ObstacleAvoidancePlanner:
             g_y = self.g_path[self.curr_lane][self.blocked_idx].pose.position.y
             
             x, y, _, _ = mat_g2v @ np.array([g_x, g_y, 0., 1.]).T
-        
         else:
             x, y, _, _ = mat_g2v @ np.array([self.curr_pose.position.x, self.curr_pose.position.y, 0, 1]).T
 
@@ -371,7 +370,10 @@ class ObstacleAvoidancePlanner:
 
     # # avoidance_frenet_example.py (updated from make_avoidance_path)
 
-    def make_avoidance_path(self, is_big: bool, ccw, mat_v2g: np.ndarray, mat_g2v: np.ndarray, curr_yaw: float):
+
+
+
+    def make_avoidance_path(self, is_big: bool, ccw, mat_v2g: np.ndarray, mat_g2v: np.ndarray, curr_yaw: float):  # frenetframe 쓴거
         s_list, yaw_list = compute_s_and_yaw(self.g_path[self.curr_lane])
 
         rospy.loginfo(f"[회피 경로 생성] ccw: {ccw}, is_big: {is_big}, blocked_idx: {self.blocked_idx}")
@@ -381,7 +383,7 @@ class ObstacleAvoidancePlanner:
         curr_y = self.curr_pose.position.y
         s0, l0 = cartesian_to_frenet(curr_x, curr_y, self.g_path[self.curr_lane], s_list)
 
-        lane_offset = 0.75
+        lane_offset = 1.00 # 0.75
         s1 = s_list[self.blocked_idx]  # 회피 경로 끝 지점 
         l1 = ccw * lane_offset
 
@@ -423,7 +425,8 @@ class ObstacleAvoidancePlanner:
             rviz_local_pose.pose.orientation.w = quat[3]
             
             self.rviz_avoidance_path.poses.append(rviz_local_pose)
-
+        
+        
         target_marker = Marker()
         target_marker.header.frame_id = 'map'
         target_marker.header.stamp = rospy.Time.now()
@@ -463,7 +466,7 @@ class ObstacleAvoidancePlanner:
 
 
 
-    # def make_avoidance_path(self, is_big: bool, ccw, mat_v2g: np.ndarray, mat_g2v: np.ndarray, curr_yaw: float):
+    # def make_avoidance_path(self, is_big: bool, ccw, mat_v2g: np.ndarray, mat_g2v: np.ndarray, curr_yaw: float):  # 원래꺼
     #     target_coord = self.setting_target_point(is_big, ccw, mat_g2v, curr_yaw)
         
     #     self.target_x = target_coord[0]

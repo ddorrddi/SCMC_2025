@@ -142,6 +142,8 @@ class LanenetDetection:
 
         self.global_path_finish = False
         
+        self.obstacle_list_static = []
+
         rospy.Subscriber("/global_path_finish", Bool, self.global_path_finish_CB)
         rospy.Subscriber("/image_jpeg/compressed", CompressedImage, self.image_callback)
         rospy.Subscriber("/global_path_finish", Bool, self.global_path_finish_CB)
@@ -247,9 +249,9 @@ class LanenetDetection:
                 
                 cv2.waitKey(1)
 
-                if not self.global_path_finish:
-                    rate.sleep()
-                    continue
+                # if not self.global_path_finish:
+                #     rate.sleep()
+                #     continue
                 
                 # ---------------------- 정적 회피 주행 ---------------------- #
                 if self.is_dynamic == False:
@@ -364,7 +366,7 @@ class LanenetDetection:
                             self.dynamic_stop_flag = True
                             continue
                     
-                   
+                print(self.motor_msg)
                 self.publishCtrlCmd(self.motor_msg, servo_msg, 0)
                 # print("장애물 부피: ", obstacle.volume())
 
@@ -410,6 +412,7 @@ class LanenetDetection:
        
         # 장애물을 거리순으로 정렬
         self.obstacle_list_dynamic.sort(key=lambda obstacle: obstacle.distance())
+        
     def global_path_finish_CB(self, msg: Bool):
         self.global_path_finish = msg.data
 
@@ -522,8 +525,8 @@ class LanenetDetection:
         return frame
    
     def publishCtrlCmd(self, motor_msg, servo_msg, brake_msg):
-        if not self.global_path_finish:
-            return
+        # if not self.global_path_finish:
+        #     return
         
         self.ctrl_cmd_msg.velocity = motor_msg
         self.ctrl_cmd_msg.steering = servo_msg
