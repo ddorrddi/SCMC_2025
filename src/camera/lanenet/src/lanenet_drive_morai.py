@@ -146,7 +146,6 @@ class LanenetDetection:
 
         rospy.Subscriber("/global_path_finish", Bool, self.global_path_finish_CB)
         rospy.Subscriber("/image_jpeg/compressed", CompressedImage, self.image_callback)
-        rospy.Subscriber("/global_path_finish", Bool, self.global_path_finish_CB)
         rospy.Subscriber("imu", Imu, self.imuCB)
         rospy.Subscriber("/bounding_box_static", MarkerArray, self.objectCB_static)
         rospy.Subscriber("/bounding_box_dynamic", MarkerArray, self.objectCB_dynamic)
