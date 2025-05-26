@@ -142,10 +142,9 @@ class LanenetDetection:
 
         self.global_path_finish = False
         
-        self.obstacle_list_static = []
-
         rospy.Subscriber("/global_path_finish", Bool, self.global_path_finish_CB)
         rospy.Subscriber("/image_jpeg/compressed", CompressedImage, self.image_callback)
+        rospy.Subscriber("/global_path_finish", Bool, self.global_path_finish_CB)
         rospy.Subscriber("imu", Imu, self.imuCB)
         rospy.Subscriber("/bounding_box_static", MarkerArray, self.objectCB_static)
         rospy.Subscriber("/bounding_box_dynamic", MarkerArray, self.objectCB_dynamic)
@@ -249,7 +248,6 @@ class LanenetDetection:
                 cv2.waitKey(1)
 
                 if not self.global_path_finish:
-                    print("global path 작동중")
                     rate.sleep()
                     continue
                 
@@ -264,33 +262,28 @@ class LanenetDetection:
 
                             if self.static_state == 'L':
                                 # 전방 체크
-                                if 0.5 < obstacle.x < 8.5 and -1.5 <= obstacle.y <= 1.5:
+                                if 0.5 < obstacle.x < 5.5 and -2.0 <= obstacle.y <= 2.0:
                                     tunnel_statlc_roi_check_arr[1] = 1
-                                    self.motor_msg = 10
-                                    print("인식")
-                                    self.static_state = 'R'
-                                    self.avoid_heading = 35
-                                    self.return_heading = -17
+                                    self.motor_msg = 7
 
                                 # 왼쪽뒤 체크
-                        #         if -6 <= obstacle.x <= -0.5 and 0 < obstacle.y <= 3.5:
-                        #             tunnel_statlc_roi_check_arr[0] = 1
-                        #             self.motor_msg = 7
-                        #         # 시작 타이밍 체크
-                        # if tunnel_statlc_roi_check_arr == [0, 1, 0]:
-                        #     for obstacle in self.obstacle_list_static:
-                        #         if 1.0 < obstacle.x < 8.0:
-                        #             tunnel_statlc_roi_check_arr[2] = 1
-                        #             # flag
-                        #             self.static_state = 'R'
-                        #             self.motor_msg = 7
-                        #             # gt heading
-                        #             self.gt_heading = self.real_heading
+                                if -6 <= obstacle.x <= -0.5 and 0 < obstacle.y <= 3.5:
+                                    tunnel_statlc_roi_check_arr[0] = 1
+                                    self.motor_msg = 7
+                                # 시작 타이밍 체크
+                        if tunnel_statlc_roi_check_arr == [0, 1, 0]:
+                            for obstacle in self.obstacle_list_static:
+                                if 1.0 < obstacle.x < 7.0:
+                                    tunnel_statlc_roi_check_arr[2] = 1
+                                    # flag
+                                    self.static_state = 'A'
+                                    self.motor_msg = 7
+                                    # gt heading
+                                    self.gt_heading = self.real_heading
+                                    self.avoid_heading = 25
+                                    self.return_heading = -13
 
-                        #             self.avoid_heading = 30
-                        #             self.return_heading = -17
-
-                        #             break
+                                    break
                        
                     # 터널 내 장애물 회피 각도 조정
                     if self.static_state == 'A':
@@ -330,13 +323,12 @@ class LanenetDetection:
                     self.is_steer_stable = True
 
 
-                # print("flag list", tunnel_statlc_roi_check_arr)
-                # print("정적 회피 시작: ", self.static_state)
-                # print("local_heading", self.local_heading)
-                # print("gt_heading", self.gt_heading)
-                # print("real_heading", self.real_heading)
-                # print("steer_stable", self.is_steer_stable)
-                print("static_state",self.static_state)
+                print("flag list", tunnel_statlc_roi_check_arr)
+                print("정적 회피 시작: ", self.static_state)
+                print("local_heading", self.local_heading)
+                print("gt_heading", self.gt_heading)
+                print("real_heading", self.real_heading)
+                print("steer_stable", self.is_steer_stable)
                 # 동적 flag 올리기 위함 
                 # self.static_state + steering(변화량이 적을때)  -> is_dynamic(True)
                 if (self.static_state == 'R') and (self.is_steer_stable == True):
@@ -371,7 +363,7 @@ class LanenetDetection:
                             self.dynamic_stop_flag = True
                             continue
                     
-                print(self.motor_msg)
+                   
                 self.publishCtrlCmd(self.motor_msg, servo_msg, 0)
                 # print("장애물 부피: ", obstacle.volume())
 
@@ -417,7 +409,6 @@ class LanenetDetection:
        
         # 장애물을 거리순으로 정렬
         self.obstacle_list_dynamic.sort(key=lambda obstacle: obstacle.distance())
-        
     def global_path_finish_CB(self, msg: Bool):
         self.global_path_finish = msg.data
 
@@ -530,9 +521,9 @@ class LanenetDetection:
         return frame
    
     def publishCtrlCmd(self, motor_msg, servo_msg, brake_msg):
-        # if not self.global_path_finish:
-        #     return
-        #print("lanenet주행")
+        if not self.global_path_finish:
+            return
+        
         self.ctrl_cmd_msg.velocity = motor_msg
         self.ctrl_cmd_msg.steering = servo_msg
         self.ctrl_cmd_msg.brake = brake_msg

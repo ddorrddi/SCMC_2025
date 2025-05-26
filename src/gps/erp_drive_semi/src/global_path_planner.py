@@ -47,7 +47,7 @@ class GlobalPathPlanner:
     def set_g_path(self, file_name): 
         # with open(f'{self.pkg_path}/paths/kcity_semi_path_1019_1.txt', 'r') as f:
         
-        with open(f'{self.pkg_path}/paths/kcity_semi_path_1019_1.txt', 'r') as f: 
+        with open(f'{self.pkg_path}/paths/cone.txt', 'r') as f: 
             for line in f.readlines():
                 x, y, yaw, mode = map(float, line.split())
                 quat = quaternion_from_euler(0., 0., yaw)
