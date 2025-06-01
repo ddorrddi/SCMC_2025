@@ -47,7 +47,7 @@ class GlobalPathPlanner:
     def set_g_path(self, file_name): 
         # with open(f'{self.pkg_path}/paths/kcity_semi_path_1019_1.txt', 'r') as f:
         
-        with open(f'{self.pkg_path}/paths/cone.txt', 'r') as f: 
+        with open(f'{self.pkg_path}/paths/fmtcshort2.txt', 'r') as f: 
             for line in f.readlines():
                 x, y, yaw, mode = map(float, line.split())
                 quat = quaternion_from_euler(0., 0., yaw)
@@ -86,50 +86,50 @@ class GlobalPathPlanner:
 
                 self.rviz_g_path1.poses.append(rviz_pose)
 
-        with open(f'{self.pkg_path}/paths/kcity_semi_path_1019_2.txt', 'r') as f:
-            for line in f.readlines():
-                x, y, yaw, mode = map(float, line.split())
-                quat = quaternion_from_euler(0., 0., yaw)
+        # with open(f'{self.pkg_path}/paths/kcity_semi_path_1019_2.txt', 'r') as f:
+        #     for line in f.readlines():
+        #         x, y, yaw, mode = map(float, line.split())
+        #         quat = quaternion_from_euler(0., 0., yaw)
     
-                # 2차선
-                g_path2_element = PathReferenceElement()
-                g_path2_element.pose.position.x = x
-                g_path2_element.pose.position.y = y
-                g_path2_element.pose.position.z = 0.
+        #         # 2차선
+        #         g_path2_element = PathReferenceElement()
+        #         g_path2_element.pose.position.x = x
+        #         g_path2_element.pose.position.y = y
+        #         g_path2_element.pose.position.z = 0.
 
-                g_path2_element.pose.orientation.x = quat[0]
-                g_path2_element.pose.orientation.y = quat[1]
-                g_path2_element.pose.orientation.z = quat[2]
-                g_path2_element.pose.orientation.w = quat[3]
+        #         g_path2_element.pose.orientation.x = quat[0]
+        #         g_path2_element.pose.orientation.y = quat[1]
+        #         g_path2_element.pose.orientation.z = quat[2]
+        #         g_path2_element.pose.orientation.w = quat[3]
 
-                g_path2_element.mode = int(mode)
-                self.g_path2.path.append(g_path2_element)
+        #         g_path2_element.mode = int(mode)
+        #         self.g_path2.path.append(g_path2_element)
          
-                # rviz로 보기 위해서는 원점부터 경로가 시작되어야 함.
-                if self.rviz_offset_x == 0 and self.rviz_offset_y == 0:
-                    self.rviz_offset_x = g_path1_element.pose.position.x
-                    self.rviz_offset_y = g_path1_element.pose.position.y
+        #         # rviz로 보기 위해서는 원점부터 경로가 시작되어야 함.
+        #         if self.rviz_offset_x == 0 and self.rviz_offset_y == 0:
+        #             self.rviz_offset_x = g_path1_element.pose.position.x
+        #             self.rviz_offset_y = g_path1_element.pose.position.y
 
-                # 2차선 시각화
-                rviz_pose2 = PoseStamped()
-                rviz_pose2.header.frame_id = 'map'
-                rviz_pose2.header.stamp = rospy.Time.now()
+        #         # 2차선 시각화
+        #         rviz_pose2 = PoseStamped()
+        #         rviz_pose2.header.frame_id = 'map'
+        #         rviz_pose2.header.stamp = rospy.Time.now()
 
-                rviz_pose2.pose.position.x = x - self.rviz_offset_x
-                rviz_pose2.pose.position.y = y - self.rviz_offset_y 
-                rviz_pose2.pose.position.z = 0.
+        #         rviz_pose2.pose.position.x = x - self.rviz_offset_x
+        #         rviz_pose2.pose.position.y = y - self.rviz_offset_y 
+        #         rviz_pose2.pose.position.z = 0.
 
-                rviz_pose2.pose.orientation.x = quat[0]
-                rviz_pose2.pose.orientation.y = quat[1]
-                rviz_pose2.pose.orientation.z = quat[2]
-                rviz_pose2.pose.orientation.w = quat[3]
+        #         rviz_pose2.pose.orientation.x = quat[0]
+        #         rviz_pose2.pose.orientation.y = quat[1]
+        #         rviz_pose2.pose.orientation.z = quat[2]
+        #         rviz_pose2.pose.orientation.w = quat[3]
                 
-                self.rviz_g_path2.poses.append(rviz_pose2)
+        #         self.rviz_g_path2.poses.append(rviz_pose2)
 
         self.g_path[Lane.ONE] = self.g_path1.path
-        self.g_path[Lane.TWO] = self.g_path2.path
+        # self.g_path[Lane.TWO] = self.g_path2.path
 
-        self.g_path[Lane.ONE] += self.g_path[Lane.TWO]
+        # self.g_path[Lane.ONE] += self.g_path[Lane.TWO]
 
         self.is_path_set = True
 
@@ -137,4 +137,4 @@ class GlobalPathPlanner:
         self.g_path_pub.publish(self.g_path[curr_lane])
 
         self.rviz_g_path1_pub.publish(self.rviz_g_path1)
-        self.rviz_g_path2_pub.publish(self.rviz_g_path2)
+        # self.rviz_g_path2_pub.publish(self.rviz_g_path2)

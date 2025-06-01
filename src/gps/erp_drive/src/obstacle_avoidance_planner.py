@@ -381,11 +381,11 @@ class ObstacleAvoidancePlanner:
         curr_y = self.curr_pose.position.y
         s0, l0 = cartesian_to_frenet(curr_x, curr_y, self.g_path[self.curr_lane], s_list)
 
-        lane_offset = 0.7
+        lane_offset = 0.6
 
         ###추가부분###########
         # 보정된 회피 종료 지점 (장애물보다 약간 앞쪽, 더 미래 방향)
-        blend_margin = - 2  # index 또는 거리로
+        blend_margin = 2 # index 또는 거리로
         target_idx = self.blocked_idx + blend_margin
         # target_idx = self.blocked_idx 
         s1 = s_list[target_idx]  # 새 회피 종료점 s1
