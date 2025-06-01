@@ -256,83 +256,66 @@ class LanenetDetection:
                     tunnel_statlc_roi_check_arr = [0, 0, 0]
                     self.theta_list = []
                     # 터널 정적 PE-Drum s자 회피
-                    if len(self.obstacle_list_static) > 0:
-                        last_tunnel_static_obstacle = None
+                    if self.static_state in ['L', 'R']:
                         for obstacle in self.obstacle_list_static:
+        # 오른쪽 장애물 감지 (왼쪽으로 피함)
+                            if 0.5 < obstacle.x < 8.5 and -1.5 <= obstacle.y <= 0.0:
+                                tunnel_statlc_roi_check_arr[1] = 1
+                                self.motor_msg = 7
+                                print("오른쪽 차선 주행시 장애물 인식")
 
-                            if self.static_state == 'L':
-                                # 전방 체크
-                                if 0.5 < obstacle.x < 8.5 and -2.0 <= obstacle.y <= 0.0:
-                                    tunnel_statlc_roi_check_arr[1] = 1
-                                    self.motor_msg = 7
+        # 왼쪽 장애물 감지 (오른쪽으로 피함)
+                            if 0.5 < obstacle.x < 8.5 and 0.0 <= obstacle.y <= 1.5:
+                                tunnel_statlc_roi_check_arr[0] = 1
+                                self.motor_msg = 7
+                                print("왼쪽 차선 주행시 장애물 인식")
 
-                                # # 왼쪽뒤 체크
-                                # if -6 <= obstacle.x <= -0.5 and 0 < obstacle.y <= 3.5:
-                                #     tunnel_statlc_roi_check_arr[0] = 1
-                                #     self.motor_msg = 7
-                                # 시작 타이밍 체크
-                            
-                            if self.static_state == 'R':
-                                # 전방 체크
-                                if 0.5 < obstacle.x < 8.5 and 0.0 <= obstacle.y <= 2.0:
-                                    tunnel_statlc_roi_check_arr[0] = 1
-                                    self.motor_msg = 7
-                        #차선오른쪽을 보고 장애물인식할 경우
-                        if tunnel_statlc_roi_check_arr == [0, 1, 0]:
-                            for obstacle in self.obstacle_list_static:
-                                if 1.0 < obstacle.x < 7.0:
-                                    tunnel_statlc_roi_check_arr[2] = 1
-                                    # flag
-                                    print("오른쪽주행중 장애물인식")
-                                    self.static_state = 'A'
-                                    self.motor_msg = 7
-                                    # gt heading
-                                    self.gt_heading = self.real_heading
-                                    self.avoid_heading = 25
-                                    self.return_heading = -13
+# 오른쪽 장애물 → 왼쪽 회피
+                if tunnel_statlc_roi_check_arr == [0, 1, 0]:
+                    for obstacle in self.obstacle_list_static:
+                        if 1.0 < obstacle.x < 7.0:
+                            tunnel_statlc_roi_check_arr[2] = 1
+                            print("오른쪽주행중 장애물인식 → 왼쪽 회피")
+                            self.static_state = 'A'
+                            self.motor_msg = 7
+                            self.gt_heading = self.real_heading
+                            self.avoid_heading = 25
+                            self.return_heading = -13
+                            break
 
-                                    break
-                        #차선인쪽을 보고 장애물인식을할경우
-                        elif tunnel_statlc_roi_check_arr == [1, 0, 0]:
-                            for obstacle in self.obstacle_list_static:
-                                if 1.0 < obstacle.x < 7.0:
-                                    tunnel_statlc_roi_check_arr[2] = 1
-                                    # flag
-                                    print("왼쪽주행중 장애물인식")
-                                    self.static_state = 'A'
-                                    self.motor_msg = 7
-                                    # gt heading
-                                    self.gt_heading = self.real_heading
-                                    self.avoid_heading = -25
-                                    self.return_heading = 13
+                # 왼쪽 장애물 → 오른쪽 회피
+                if tunnel_statlc_roi_check_arr == [1, 0, 0]:
+                    for obstacle in self.obstacle_list_static:
+                        if 1.0 < obstacle.x < 7.0:
+                            tunnel_statlc_roi_check_arr[2] = 1
+                            print("왼쪽주행중 장애물인식 → 오른쪽 회피")
+                            self.static_state = 'A'
+                            self.motor_msg = 7
+                            self.gt_heading = self.real_heading
+                            self.avoid_heading = -25
+                            self.return_heading = 13
+                            break
 
-                                    break
-                       
-                    # 터널 내 장애물 회피 각도 조정
-                    if self.static_state == 'A':
-                        if self.local_heading != None:
-                            if (self.avoid_heading > self.local_heading): # 목표 heading에 도달하지 못했으면 좌조향
-                                angle = -0.7 * abs(self.local_heading - self.avoid_heading)
-                            else:
+                # --- 회피 종료 후 복귀 방향 결정 ---
+                if self.static_state == 'A':
+                    if self.local_heading is not None:
+                        if (self.return_heading < self.local_heading):
+                            angle = 1 * abs(self.local_heading - self.return_heading)
+                        else:
+                            # 복귀 방향 결정
+                            if self.avoid_heading > 0:
+                                # 왼쪽으로 피했으면 → 오른쪽 주행으로 복귀
+                                print("회피종료 차선 왼쪽보기")
                                 self.static_state = 'R'
-
-                    # if self.static_state == 'B':
-                    #     if self.local_heading != None:
-                    #         if (self.avoid_heading > self.local_heading): # 목표 heading에 도달하지 못했으면 좌조향
-                    #             angle = -0.7 * abs(self.local_heading - self.avoid_heading)
-                    #         else:
-                    #             self.static_state = 'L'
-
-                    elif self.static_state == 'R':
-                        if self.local_heading != None:
-                            if (self.return_heading < self.local_heading): # 목표 heading에 도달하지 못했으면 우조향
-                                angle = 1 * abs(self.local_heading - self.return_heading)
                             else:
-                                self.gt_heading = None
-                                self.avoid_heading = None
-                                self.return_heading = None
+                                # 오른쪽으로 피했으면 → 왼쪽 주행으로 복귀
+                                print("회피종료 차선 오른쪽보기")
                                 self.static_state = 'L'
-                                self.is_dynamic = False
+
+                            self.gt_heading = None
+                            self.avoid_heading = None
+                            self.return_heading = None
+                            self.is_dynamic = False
 
                 # ---------------------- 정적 회피 주행 end ---------------------- #
 
