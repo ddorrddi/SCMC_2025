@@ -81,6 +81,7 @@ class ObstacleAvoidancePlanner:
         self.obstacle_makers_pub = rospy.Publisher('/obstacle_marker', MarkerArray, queue_size=1)
         
         self.obstacle_info_sub = rospy.Subscriber("/obstacle_info", ObjectInfo, self.obstacle_info_CB)
+        
 
 
     def update_curr_pose(self, curr_pose: Pose):
@@ -207,10 +208,32 @@ class ObstacleAvoidancePlanner:
         self.obstacle_makers_pub.publish(_marker_array)
 
         # 이미 회피 경로가 생성되어 진행 중인 경우
-        if self.avoidance_in_progress:
-            if self.avoidance_success_confirm():
-                self.avoidance_in_progress = False 
+        # if self.avoidance_in_progress:
+        #     if self.avoidance_success_confirm():
+        #         self.avoidance_in_progress = False 
                 
+        #     return
+        
+        if self.avoidance_in_progress:
+    # 회피 경로 추종 중에도 다음 장애물이 감지되면 덮어쓰기
+            is_blocked, is_big, ccw = self.is_obst_on_path()
+
+            if is_blocked:
+                rospy.loginfo("[중단] 기존 로컬패스 종료 후 새 장애물 회피 시작")
+
+                # 기존 로컬패스 강제 종료
+                self.is_local_waypoint_set = False
+                self.avoidance_in_progress = False
+
+                # 새 회피 경로 생성
+                mat_v2g, mat_g2v, curr_yaw = self.get_transfomation_matrix()
+                self.make_avoidance_path(is_big, ccw, mat_v2g, mat_g2v, curr_yaw)
+                return
+
+            # 회피 성공 여부 판단
+            if self.avoidance_success_confirm():
+                self.avoidance_in_progress = False
+
             return
 
         # 현재 주행 중인 global path 위에 장애물이 존재하지 않는 경우
@@ -242,7 +265,7 @@ class ObstacleAvoidancePlanner:
         return True
 
     def is_obst_on_path (self):
-        roi_ld = 6.5
+        roi_ld = 4.0
         vehicle_radius = 0.6
 
         start = self.g_curr_idx + 3
@@ -381,8 +404,13 @@ class ObstacleAvoidancePlanner:
         curr_y = self.curr_pose.position.y
         s0, l0 = cartesian_to_frenet(curr_x, curr_y, self.g_path[self.curr_lane], s_list)
         #여기 만져봄
-        lane_offset = 0.75 #0.75
-        s1 = s_list[self.blocked_idx]#-0.5 # 회피 경로 끝 지점 
+        lane_offset = 1.4 #0.75
+
+        ##마진추가부분##
+        blend_margin = 5
+        target_idx = self.blocked_idx + blend_margin
+        s1 = s_list[target_idx]
+        #s1 = s_list[self.blocked_idx]#-0.5 # 회피 경로 끝 지점 
         #s1 = s0+3.0
         l1 = ccw * lane_offset
 

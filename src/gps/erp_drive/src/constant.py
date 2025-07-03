@@ -46,7 +46,7 @@ const = Constant()
 
 # 이 값은 optimal_velocity 에서 가져다 쓰는 함수에 따라 다름
 
-const.AVOIDANCE_SUCCESS_RAIDUS = 1.75
+const.AVOIDANCE_SUCCESS_RAIDUS = 2.5   #1.75 default
 # const.AVOIDANCE_SWITCH_RADIUS = 0.5
 # const.OBSTACLE_RAIDUS = 2.0 >> obst on path에서 따로 관리
 const.DELIVERY_SUCCESS_RADIUS = 1.5 
