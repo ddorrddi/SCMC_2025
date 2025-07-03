@@ -40,6 +40,11 @@ import rospkg
 
 class ObstacleAvoidancePlanner:
     def __init__(self, g_path: dict, rviz_offset_x: float, rviz_offset_y: float):
+        #dh
+        self.override_radius = 2.0
+        self.yaw_correction_deg = 50.0
+        self.last_ccw = 0
+        ###
         self.rviz_offset_x, self.rviz_offset_y = rviz_offset_x, rviz_offset_y
      
         self.g_path = g_path
@@ -126,7 +131,23 @@ class ObstacleAvoidancePlanner:
         _, _, curr_yaw = euler_from_quaternion(orientation_list)
         
         return mat_v2g, mat_g2v, curr_yaw
-        
+    
+
+    #dh
+    def ready_to_override(self):
+        if self.target_x is None or self.target_y is None:
+            return False
+
+        dist = np.hypot(self.curr_pose.position.x - self.target_x,
+                        self.curr_pose.position.y - self.target_y)
+
+        if dist < self.override_radius:
+            rospy.loginfo("[INFO] 범위 안에 들어옴 (%.2f m 이내)" % dist)
+            return True
+
+        return False
+    ###
+
     def obstacle_info_CB(self, msg : ObjectInfo):
         # if self.g_curr_idx >= 1240:
         #     return
@@ -207,28 +228,48 @@ class ObstacleAvoidancePlanner:
 
         self.obstacle_makers_pub.publish(_marker_array)
 
-        # 이미 회피 경로가 생성되어 진행 중인 경우
+        # # 이미 회피 경로가 생성되어 진행 중인 경우
         # if self.avoidance_in_progress:
         #     if self.avoidance_success_confirm():
         #         self.avoidance_in_progress = False 
                 
         #     return
-        
+        #dh
         if self.avoidance_in_progress:
-    # 회피 경로 추종 중에도 다음 장애물이 감지되면 덮어쓰기
-            is_blocked, is_big, ccw = self.is_obst_on_path()
+            if self.ready_to_override():
+                is_blocked, is_big, ccw = self.is_obst_on_path()
+                if is_blocked:
+                    rospy.loginfo("[중단] 타겟 반경 내 도달 + 장애물 감지 → 로컬패스 덮어쓰기")
+                    self.is_local_waypoint_set = False
+                    self.avoidance_in_progress = False
 
-            if is_blocked:
-                rospy.loginfo("[중단] 기존 로컬패스 종료 후 새 장애물 회피 시작")
+                    mat_v2g, mat_g2v, curr_yaw = self.get_transfomation_matrix()
+                    self.make_avoidance_path(is_big, ccw, mat_v2g, mat_g2v, curr_yaw)
+                    return
 
-                # 기존 로컬패스 강제 종료
-                self.is_local_waypoint_set = False
+            if self.avoidance_success_confirm():
                 self.avoidance_in_progress = False
 
-                # 새 회피 경로 생성
-                mat_v2g, mat_g2v, curr_yaw = self.get_transfomation_matrix()
-                self.make_avoidance_path(is_big, ccw, mat_v2g, mat_g2v, curr_yaw)
-                return
+            return
+        ###
+
+
+        
+    #     if self.avoidance_in_progress:
+    # # 회피 경로 추종 중에도 다음 장애물이 감지되면 덮어쓰기
+    #         is_blocked, is_big, ccw = self.is_obst_on_path()
+
+    #         if is_blocked:
+    #             rospy.loginfo("[중단] 기존 로컬패스 종료 후 새 장애물 회피 시작")
+
+    #             # 기존 로컬패스 강제 종료
+    #             self.is_local_waypoint_set = False
+    #             self.avoidance_in_progress = False
+
+    #             # 새 회피 경로 생성
+    #             mat_v2g, mat_g2v, curr_yaw = self.get_transfomation_matrix()
+    #             self.make_avoidance_path(is_big, ccw, mat_v2g, mat_g2v, curr_yaw)
+    #             return
 
             # 회피 성공 여부 판단
             if self.avoidance_success_confirm():
@@ -255,7 +296,8 @@ class ObstacleAvoidancePlanner:
 
         if dist_to_target > const.AVOIDANCE_SUCCESS_RAIDUS:
             return False
-    
+
+        
         signal = Int16(data=1)
         self.local_path_done_signal_pub.publish(signal)
         
@@ -265,7 +307,7 @@ class ObstacleAvoidancePlanner:
         return True
 
     def is_obst_on_path (self):
-        roi_ld = 4.0
+        roi_ld = 6.9
         vehicle_radius = 0.6
 
         start = self.g_curr_idx + 3
@@ -396,7 +438,7 @@ class ObstacleAvoidancePlanner:
 
     def make_avoidance_path(self, is_big: bool, ccw, mat_v2g: np.ndarray, mat_g2v: np.ndarray, curr_yaw: float):
         s_list, yaw_list = compute_s_and_yaw(self.g_path[self.curr_lane])
-
+    
         rospy.loginfo(f"[회피 경로 생성] ccw: {ccw}, is_big: {is_big}, blocked_idx: {self.blocked_idx}")
 
 
@@ -404,10 +446,10 @@ class ObstacleAvoidancePlanner:
         curr_y = self.curr_pose.position.y
         s0, l0 = cartesian_to_frenet(curr_x, curr_y, self.g_path[self.curr_lane], s_list)
         #여기 만져봄
-        lane_offset = 1.4 #0.75
+        lane_offset = 0.75 #0.75
 
         ##마진추가부분##
-        blend_margin = 5
+        blend_margin = 0
         target_idx = self.blocked_idx + blend_margin
         s1 = s_list[target_idx]
         #s1 = s_list[self.blocked_idx]#-0.5 # 회피 경로 끝 지점 
@@ -489,6 +531,7 @@ class ObstacleAvoidancePlanner:
         
         self.is_local_waypoint_set = True
         self.avoidance_in_progress = True
+        
 
 
 
