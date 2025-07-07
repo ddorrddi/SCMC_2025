@@ -15,6 +15,7 @@ from geometry_msgs.msg import PoseStamped
 # 오일러 <-> 쿼터니언 변환 관련 모듈
 import numpy as np
 from scipy.interpolate import CubicHermiteSpline, CubicSpline
+import tf.transformations as transformations
 from tf.transformations import euler_from_quaternion, quaternion_from_euler, quaternion_matrix
 
 # 라이다 관련 -> 패키지명 확인 후 수정 
@@ -32,6 +33,144 @@ from constant import const
 # 큐를 사용하여 최근 데이터의 경향을 파악
 from collections import deque
 from collections import Counter
+
+# 동기화 유틸리티 클래스 추가
+from message_filters import Subscriber, ApproximateTimeSynchronizer
+
+# 동규가 보내줘야할거
+from ddong.msg import IoUResult
+
+from sensor_msgs.msg import PointCloud2
+import sensor_msgs.point_cloud2 as pc2
+
+
+class SignLocalizer:
+    def __init__(self):
+        self.threshold = 0.95       # IoU 임계점
+        self.stop_idx = 1348        # 배달 B지점 시작 index
+        self.segment_len = 120      # 배달 B 구간 index 길이
+
+        # 배달 A지점 sign_id 수집 설정
+        self.sign_queue = deque(maxlen=70)
+        self.min_queue_size = 50
+        self.current_target_sign = None
+
+        # 결과 큐: 최종 변환 좌표를 100개까지 저장
+        self.result_queue = deque(maxlen=100)
+
+        # 시각화용 경로 및 RViz 초기화
+        self.delivery_line = [[], [], []]
+        self.rviz_delivery_line  = Path()
+        self.rviz_delivery_line.header.frame_id = 'map'
+        self.rviz_offset_x = 0.0
+        self.rviz_offset_y = 0.0
+        self.set_path('kcity_full_path_1019.txt')
+
+        self.rviz_pub = rospy.Publisher('/rviz_delivery_line', Path, queue_size=1, latch=True)
+        self.rviz_pub.publish(self.rviz_delivery_line)
+
+        # 배달 경로 추출
+        arr = np.array(self.delivery_line)
+        full_n = arr.shape[1]
+        start  = min(self.stop_idx, full_n - 1)
+        end    = min(start + self.segment_len, full_n)
+        segment = arr[:, start:end]
+        self.path_x, self.path_y = segment[0], segment[1]
+
+        # 상태 변수 초기화
+        self.curr_pose   = None
+        self.curr_idx    = None
+        self.sign_coords = None       # 최종 좌표 저장
+
+        # Sub
+        rospy.Subscriber('/current_pose', Pose, self.pose_callback)
+        rospy.Subscriber('/curr_idx', Int16, self.curr_idx_callback)
+        rospy.Subscriber('/delivery_sign', String, self.delivery_sign_callback)
+
+        # LiDAR 및 IoU 결과 동기화
+        lidar_sub = Subscriber('/velodyne_points', PointCloud2)
+        iou_sub   = Subscriber('/iou_result', IoUResult)
+        # slop은 지금은 0.1초, 카메라 30fps 기준
+        ats = ApproximateTimeSynchronizer([lidar_sub, iou_sub], queue_size=10, slop=0.1)
+        ats.registerCallback(self.synced_callback)
+
+        rospy.spin()
+
+    def pose_callback(self, msg: Pose):
+        self.curr_pose = msg
+
+    def curr_idx_callback(self, msg: Int16):
+        self.curr_idx = msg.data
+
+    # A지점 sign_id 수집
+    def delivery_sign_callback(self, msg: String):
+        try:
+            sign_num = int(msg.data)
+        except ValueError:
+            return
+
+        self.sign_queue.append(sign_num)
+        if len(self.sign_queue) >= self.min_queue_size:
+            self.current_target_sign = Counter(self.sign_queue).most_common(1)[0][0]
+
+    def synced_callback(self, lidar_msg: PointCloud2, iou_msg: IoUResult):
+        # 기본 조건 확인
+        if self.curr_idx is None or self.current_target_sign is None:
+            return
+        if not (self.stop_idx <= self.curr_idx <= self.stop_idx + self.segment_len):
+            return
+        if iou_msg.score < self.threshold or self.curr_pose is None:
+            return
+
+        # B 지점: 타겟 표지판 포인트만 추출 후 글로벌 변환
+        # 이부분 수정 필요 125~131 // 나머지는 괜찮은 듯 일단 눈으로 보기엔
+        local_pts = []
+        try:
+            for x, y, z, sid in pc2.read_points(lidar_msg,
+                                               field_names=('x','y','z','sign_id'),
+                                               skip_nans=True):
+                if sid == self.current_target_sign:
+                    local_pts.append((x, y, z))
+        except Exception:
+            return
+
+        if not local_pts:
+            return
+
+        # 글로벌 변환 prep
+        _, _, yaw = transformations.euler_from_quaternion([
+            self.curr_pose.orientation.x,
+            self.curr_pose.orientation.y,
+            self.curr_pose.orientation.z,
+            self.curr_pose.orientation.w
+        ])
+        x_r, y_r, z_r = (self.curr_pose.position.x,
+                         self.curr_pose.position.y,
+                         self.curr_pose.position.z)
+
+        # 각 포인트를 글로벌로 변환해 큐에 추가
+        for lx, ly, lz in local_pts:
+            x_g = x_r + (lx * np.cos(yaw) - ly * np.sin(yaw))
+            y_g = y_r + (lx * np.sin(yaw) + ly * np.cos(yaw))
+            z_g = z_r + lz
+            self.result_queue.append((x_g, y_g, z_g))
+
+        # 큐가 충분히 채워지지 않으면 종료
+        if len(self.result_queue) < 100:
+            return
+
+        # 큐가 100개가 되면 평균 및 필터링
+        arr = np.array(self.result_queue)
+        mean_pt = arr.mean(axis=0)
+        dists = np.linalg.norm(arr - mean_pt, axis=1)
+        inliers = arr[dists <= 0.3]
+        final_pt = inliers.mean(axis=0) if inliers.size else mean_pt
+
+        # 최종 좌표 저장 및 초기화(큐 비우기)
+        self.sign_coords = (final_pt[0], final_pt[1], final_pt[2])
+        self.result_queue.clear()
+        self.current_target_sign = None
+
 
 class DeliveryPlanner:
     def __init__(self, rviz_offset_x: float, rviz_offset_y: float):

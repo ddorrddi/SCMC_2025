@@ -12,7 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   # fusion용
   std_msgs
   cv_bridge
-  message_fillters
+  message_filters
   lidar_object_detection
   #
 
@@ -47,7 +47,7 @@ generate_messages(
 
 catkin_package(
   INCLUDE_DIRS include
-  CATKIN_DEPENDS roscpp rospy sensor_msgs morai_msgs message_runtime
+  CATKIN_DEPENDS roscpp rospy sensor_msgs morai_msgs message_runtime std_msgs message_filters
 )
 
 include_directories(
