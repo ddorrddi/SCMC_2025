@@ -63,6 +63,7 @@
   <build_depend>message_generation</build_depend>
 
   <!-- fusion 노드 의존성 -->
+  <depend>lidar_object_detection</depend>
   <depend>std_msgs</depend>
   <depend>cv_bridge</depend>
   <depend>message_fillters</depend>

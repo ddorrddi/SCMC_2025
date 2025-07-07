@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   cv_bridge
   message_fillters
+  lidar_object_detection
   #
 
   nav_msgs

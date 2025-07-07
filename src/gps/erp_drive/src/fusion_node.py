@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+### TODO : 전체적으로 fusion해서 delivery mission 인지로직은 대부분 이 노드에서 해결
+### TODO : delivery_planner는 여기서 발행한 토픽들로 플래그들 세워서 말그대로 플래닝만.
+### 퍼블리셔 최종 예측 : 표지판의 좌표와 번호.
+
 import rospy
 import numpy as np
 import cv2
@@ -8,6 +12,7 @@ from cv_bridge import CvBridge
 import sensor_msgs.point_cloud2 as pc2
 from message_filters import Subscriber, ApproximateTimeSynchronizer
 from fusion_module import Fusion
+from lidar_object_detection.msg import PointInfo
 
 class FusionNode:
     def __init__(self):
@@ -38,12 +43,13 @@ class FusionNode:
         self.image_pub = rospy.Publisher('/fusion/image', Image, queue_size=1)
 
         # 토픽 구독자 설정 (image + lidar)
+        ### TODO : 너무 테스트성이니까 손좀 봐야됨
         self.image_sub = Subscriber('/usb_cam/image_raw', Image)
         self.lidar_sub = Subscriber('/velodyne_points', PointCloud2)
 
-        # 일단 주석화
+        ### TODO : 인지팀에서 토픽/메시지 수정해서 줄때까지 스탑.
         self.yolo_bbox_sub = rospy.Subscriber('/yolo/bbox', PointCloud, self.yolo_callback) # yolo bbox 점 4개 좌표 (이미지 상) (4,2)
-        self.lidar_bbox_sub = rospy.Subscriber('/lidar/bbox_3d', PointCloud2, self.lidar_callback) # cluster box 점 8개 좌표 (라이다 상) (8,3)
+        self.lidar_bbox_sub = rospy.Subscriber('/bbox_point_info_static', PointInfo, self.lidar_callback) # 클러스터 박스들 (bboxCounts, xMini[], yMini[], zMini[], xMaxi[], yMaxi[], zMaxi[])
 
 
         # 근사 시간 동기화
@@ -104,6 +110,7 @@ class FusionNode:
         bbox = self.fusion.points2bbox(points_np)
         self.yolo_bbox = bbox.reshape((-1,1,2)).astype(np.int32) # cv2 기능 쓰기위해서 (N, 1, 2)형태로 변환
 
+    ### TODO : 인지팀에서 클러스터 bbox 형태 수정해서 줄때까지 스탑.
     def lidar_callback(self, msg):
         try:
             # PointCloud2 → 리스트 of (x,y,z)
