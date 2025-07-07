@@ -61,6 +61,13 @@
   <build_depend>sensor_msgs</build_depend>
   <build_depend>tf</build_depend>
   <build_depend>message_generation</build_depend>
+
+  <!-- fusion 노드 의존성 -->
+  <depend>std_msgs</depend>
+  <depend>cv_bridge</depend>
+  <depend>message_fillters</depend>
+  <!--  -->
+
   <build_export_depend>dynamic_reconfigure</build_export_depend>
   <build_export_depend>geometry_msgs</build_export_depend>
   <build_export_depend>morai_msgs</build_export_depend>

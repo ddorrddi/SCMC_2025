@@ -8,6 +8,13 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   roslib
   roslint
+
+  # fusion용
+  std_msgs
+  cv_bridge
+  message_fillters
+  #
+
   nav_msgs
   morai_msgs
   sensor_msgs
