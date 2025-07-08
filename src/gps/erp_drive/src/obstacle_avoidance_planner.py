@@ -42,7 +42,7 @@ class ObstacleAvoidancePlanner:
     def __init__(self, g_path: dict, rviz_offset_x: float, rviz_offset_y: float):
         #dh
         self.override_radius = 2.0
-        self.yaw_correction_deg = 50.0
+        self.yaw_correction_deg = 50.0 # 이거 지금 쓰고 있는 곳 없음.
         self.last_ccw = 0
         ###
         self.rviz_offset_x, self.rviz_offset_y = rviz_offset_x, rviz_offset_y
@@ -86,6 +86,11 @@ class ObstacleAvoidancePlanner:
         self.obstacle_makers_pub = rospy.Publisher('/obstacle_marker', MarkerArray, queue_size=1)
         
         self.obstacle_info_sub = rospy.Subscriber("/obstacle_info", ObjectInfo, self.obstacle_info_CB)
+
+        # 추가한 부분
+        self.tail_len       = 0.2    # 꼬리 길이 [m]
+        self.tail_steps     = 3       # 포인트 개수
+        self.tail_deg       = 5.0     # 절대 회전각 [deg]
         
 
 
@@ -496,6 +501,14 @@ class ObstacleAvoidancePlanner:
             
             self.rviz_avoidance_path.poses.append(rviz_local_pose)
 
+        # ────────── ① [추가] 꼬리 세그먼트 붙이기 ──────────
+        sign = -np.sign(l1)            # l1>0(왼쪽) → 우회전(−10°), l1<0 → 좌회전(+10°)
+        if sign != 0:                  # 중앙이면 꼬리 생략
+            self._append_tail(self.avoidance_path.path[-1], sign)
+
+        self.target_x = self.avoidance_path.path[-1].pose.position.x
+        self.target_y = self.avoidance_path.path[-1].pose.position.y
+
         target_marker = Marker()
         target_marker.header.frame_id = 'map'
         target_marker.header.stamp = rospy.Time.now()
@@ -521,8 +534,8 @@ class ObstacleAvoidancePlanner:
 
         self.target_marker_pub.publish(target_marker)
 
-        self.target_x = self.avoidance_path.path[-1].pose.position.x
-        self.target_y = self.avoidance_path.path[-1].pose.position.y
+        # self.target_x = self.avoidance_path.path[-1].pose.position.x
+        # self.target_y = self.avoidance_path.path[-1].pose.position.y
 
 
        
@@ -636,7 +649,43 @@ class ObstacleAvoidancePlanner:
     #     self.is_local_waypoint_set = True
     #     self.avoidance_in_progress = True
 
-        
+
+    # 로컬 패스 끝날 때마다 왼쪽이면 오른쪽으로, 오른쪽이면 왼쪽으로 각도 조정
+    def _append_tail(self, last_pt, sign):
+        """로컬패스 끝에 ±tail_deg 꼬리 세그먼트 추가."""
+        lx, ly = last_pt.pose.position.x, last_pt.pose.position.y
+        _, _, last_yaw = euler_from_quaternion([
+            last_pt.pose.orientation.x,
+            last_pt.pose.orientation.y,
+            last_pt.pose.orientation.z,
+            last_pt.pose.orientation.w])
+
+        yaw_bias = sign * np.deg2rad(self.tail_deg)
+
+        for k in range(1, self.tail_steps + 1):
+            r   = k / float(self.tail_steps)
+            yaw = last_yaw + yaw_bias * r
+            ds  = self.tail_len * r
+            x   = lx + ds * np.cos(yaw)
+            y   = ly + ds * np.sin(yaw)
+
+            elem = PathReferenceElement()
+            elem.pose.position.x, elem.pose.position.y = x, y
+            q = quaternion_from_euler(0., 0., yaw)
+            elem.pose.orientation.x, elem.pose.orientation.y, \
+            elem.pose.orientation.z, elem.pose.orientation.w = q
+            elem.mode = 11
+            self.avoidance_path.path.append(elem)
+
+            rv = PoseStamped()
+            rv.header.frame_id = 'map';  rv.header.stamp = rospy.Time.now()
+            rv.pose.position.x = x - self.rviz_offset_x
+            rv.pose.position.y = y - self.rviz_offset_y
+            rv.pose.orientation.x, rv.pose.orientation.y, \
+            rv.pose.orientation.z, rv.pose.orientation.w = q
+            self.rviz_avoidance_path.poses.append(rv)
+
+            
 
 
     def publish_avoidance_path(self):
