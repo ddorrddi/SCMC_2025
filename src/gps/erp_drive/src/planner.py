@@ -18,7 +18,7 @@ from constant import const, Lane
 from global_path_planner import GlobalPathPlanner
 from obstacle_avoidance_planner import ObstacleAvoidancePlanner
 # from parking_planner import ParkingPlanner
-from delivery_planner import DeliveryPlanner, SignLocalizer # fusion용 추가
+from delivery_planner import DeliveryPlanner # fusion용 추가
 from std_msgs.msg import String, Int16
 
 import numpy as np
@@ -37,9 +37,7 @@ class Planner(object):
         self.g_path_planner.set_g_path(file_name)
 
         self.obstacle_avoidance_planner = ObstacleAvoidancePlanner(self.g_path_planner.g_path, self.g_path_planner.rviz_offset_x, self.g_path_planner.rviz_offset_y)
-        self.delivery_planner = DeliveryPlanner(self.g_path_planner.rviz_offset_x, self.g_path_planner.rviz_offset_y)
-        # fusion용 클래스생성
-        self.sign_localizer = SignLocalizer()
+        self.delivery_planner = DeliveryPlanner(self.g_path_planner.g_path, self.g_path_planner.rviz_offset_x, self.g_path_planner.rviz_offset_y)
         # self.parking_planner = ParkingPlanner()
 
         self.rviz_curr_pose = PoseStamped()
