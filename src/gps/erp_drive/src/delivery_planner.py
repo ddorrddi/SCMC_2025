@@ -92,7 +92,7 @@ class DeliveryPlanner:
     def curr_pose_CB(self, msg: Pose):
         self.curr_pose = msg
 
-    def iou_fusion_CB(self, msg: IoUFusionMsg):
+    def iou_fusion_CB(self, msg: IoUFusionMsg): # TODO : 메시지로 넘어온 number가 현재 설정된 target_number와 같은지 체크가 빠져있어요!!!!
         # 유효성 체크
         if self.delivery_in_progress:
             return

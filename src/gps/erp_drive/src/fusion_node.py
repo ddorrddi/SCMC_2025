@@ -47,7 +47,7 @@ class FusionNode:
 
         # 서브스크라이버
         ### TODO : 인지팀에서 토픽/메시지 수정해서 줄때까지 스탑.
-        self.yolo_sub = Subscriber('/yolo/bbox', PointCloud) # yolo bbox 점 4개 좌표 (이미지 상) (4,2)
+        self.yolo_sub = Subscriber('/yolo/bbox', PointCloud) # yolo bbox 점 4개 좌표 (이미지 상) (4,2) 와 타겟넘버가 왔으면 좋겠다
         self.lidar_sub = Subscriber('/bbox_point_info_static', PointInfo) # 클러스터 박스들 (bboxCounts, xMini[], yMini[], zMini[], xMaxi[], yMaxi[], zMaxi[])
         self.cam_sub = rospy.Subscriber('/usb_cam/image_raw', Image, self.img_callback)
 
@@ -55,18 +55,40 @@ class FusionNode:
         ats = ApproximateTimeSynchronizer([self.yolo_sub, self.lidar_sub], queue_size=10, slop=0.1)
         ats.registerCallback(self.bbox_callback)
 
-    def bbox_callback(self, yolo_msg, lidar_msg):
+    def bbox_callback(self, yolo_msg, lidar_msg): # TODO : !!인지팀에서 토픽/메시지 픽스나기 전이라서 틀만 짜둠. 픽스나면 그때 세부조정들어가야됨!! (포인트들 읽는방식이나 bbox만드는 방식이나 등등..)
+        # 1. YOLO bbox 먼저 생성
         yolo_pts = np.array([[p.x, p.y] for p in yolo_msg.points])
-        lidar_pts = np.array(list(pc2.read_points(lidar_msg, field_names=("x", "y", "z"), skip_nans=True)))
-
         yolo_bbox = self.fusion.points2bbox(yolo_pts)
         self.yolo_bbox = yolo_bbox.reshape((-1,1,2)).astype(np.int32) # cv2 기능 쓰기위해서 (N, 1, 2)형태로 변환
 
-        lidar_pts2d = self.fusion.rid2img(lidar_pts)
-        lidar_bbox = self.fusion.points2bbox(lidar_pts2d)
-        self.lidar_bbox = lidar_bbox.reshape((-1, 1, 2)).astype(np.int32)  # OpenCV용 형태
+        # 2. 여러개의 클러스터 박스중 가장 IoU값이 높은 하나를 정하기 위한 변수
+        best_iou = 0.
+        x = y = z = 0.
 
-        # TODO : 여기에 IOU코드 삽입
+        # 3. 각 라이다 클러스터박스들로 bbox 만들고 IoU돌리면서 best하나 고름
+        for i in range(lidar_msg.bboxCounts):
+            lidar_pts = np.array(list(pc2.read_points(lidar_msg, field_names=("x", "y", "z"), skip_nans=True)))
+            lidar_pts2d = self.fusion.rid2img(lidar_pts)
+            lidar_bbox = self.fusion.points2bbox(lidar_pts2d).reshape((-1,1,2)).astype(np.int32) # OpenCV용 형태
+
+            temp_iou = self.fusion.bbox_iou(self.yolo_bbox, lidar_bbox)
+            if best_iou < temp_iou:
+                best_iou = temp_iou
+                x = (lidar_msg.xMini[i] + lidar_msg.xMaxi[i]) / 2
+                y = (lidar_msg.yMini[i] + lidar_msg.yMaxi[i]) / 2
+                z = (lidar_msg.zMini[i] + lidar_msg.zMaxi[i]) / 2
+                self.lidar_bbox = lidar_bbox
+        
+        # 4. 
+        if best_iou > 0:
+            msg = IoUFusionMsg()
+            msg.dest_num = yolo_msg.num
+            msg.score = best_iou
+            msg.x = x
+            msg.y = y
+            msg.z = z
+            self.fusion_pub.publish(msg)
+
 
     def img_callback(self,msg):
         # 카메라 이미지 → OpenCV 형식

@@ -37,6 +37,7 @@ add_message_files(
   FILES
   PathReferenceElement.msg
   PathReference.msg
+  IoUFusionMsg.msg
 )
 
 # generate_messages의 주석을 푼다.
