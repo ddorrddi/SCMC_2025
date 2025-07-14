@@ -13,6 +13,7 @@ import rospy
 from sensor_msgs.msg import Image
 from std_msgs.msg import String
 from cv_bridge import CvBridge
+from delivery.msg import DetectYolo
 
 import torch.nn as nn
 
@@ -239,7 +240,7 @@ class YoloV7:
         self.conf_thresh = 0.9
         self.iou_thresh = 0.45
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        self.weights_path = '/home/foscar/iscc_2024/src/camera/delivery/weight/delivery2400.pt'
+        self.weights_path = '/home/foscar/SCMC_2025/src/camera/delivery/weight/delivery2400.pt'
         self.model = attempt_load(self.weights_path, map_location=self.device)
         self.model.eval()
 
@@ -263,121 +264,117 @@ class YoloV7:
 class Yolov7Publisher:
     def __init__(self):
         """
-            A1 - 18 
-            A2 - 19
-            A3 - 20
-
-
-            B1 - 14
-            B2 - 16
-            B3 - 17
+            A1 - 18, A2 - 19, A3 - 20
+            B1 - 14, B2 - 16, B3 - 17
         """
-
-
         self.sign_mapping = {
-                "A1": "1", "A2": "2", "A3": "3",
-                "B1": "1", "B2": "2", "B3": "3"
-            }
-        
+            "A1": "1", "A2": "2", "A3": "3",
+            "B1": "1", "B2": "2", "B3": "3"
+        }
 
-        self.class_labels = ["None", "None", "None", "None", "None", "None", "None", "None", "None", "None", "None", "None", "None", "None", 
+        self.class_labels = ["None", "None", "None", "None", "None", "None", "None", "None", "None", "None", "None", "None", "None", "None",
                              "B1", "None", "B2", "B3", "A1", "A2", "A3"]
         self.img_size = (640, 480)
-
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        
 
         self.visualization_publisher = rospy.Publisher(
-            "/delivery_sign_yolo_result", Image, queue_size= 1
+            "/delivery_sign_yolo_result", Image, queue_size=1
         )
 
+        # === 수정된 부분 1: Publisher 변경 ===
+        # 토픽 이름을 더 명확하게 바꾸고, 메시지 타입을 새로 만든 DetectedObject로 변경
+        self.delivery_sign_publisher = rospy.Publisher(
+            "/delivery_sign_info", DetectYolo, queue_size=1
+        )
+        # ====================================
+
         self.bridge = CvBridge()
-
         self.tensorize = ToTensor()
-
         self.model = YoloV7()
         self.img_subscriber = rospy.Subscriber(
             "/usb_cam_right/image_raw", Image, self.process_img_msg
         )
-
-        self.delivery_sign_publisher = rospy.Publisher("/delivery_sign", String, queue_size=1)
-
 
     def process_img_msg(self, img_msg):
         """ callback function for publisher """
         np_img_orig = self.bridge.imgmsg_to_cv2(
             img_msg, desired_encoding='bgr8'
         )
-
-        # handle possible different img formats
         if len(np_img_orig.shape) == 2:
             np_img_orig = np.stack([np_img_orig] * 3, axis=2)
-
         h_orig, w_orig, c = np_img_orig.shape
-
-        # automatically resize the image to the next smaller possible size
         w_scaled, h_scaled = self.img_size
         np_img_resized = cv2.resize(np_img_orig, (w_scaled, h_scaled))
 
-        # conversion to torch tensor (copied from original yolov7 repo)
-        img = np_img_resized.transpose((2, 0, 1))[::-1]  # HWC to CHW, BGR to RGB
+        img = np_img_resized.transpose((2, 0, 1))[::-1]
         img = torch.from_numpy(np.ascontiguousarray(img))
-        img = img.float()  # uint8 to fp16/32
-        img /= 255  # 0 - 255 to 0.0 - 1.
+        img = img.float() / 255.0
         img = img.to(self.device)
 
-
-        # inference & rescaling the output to original img size
         detections = self.model.inference(img)
-        detections[:, :4] = rescale(
-            [h_scaled, w_scaled], detections[:, :4], [h_orig, w_orig])
-        detections[:, :4] = detections[:, :4].round()
-        print("detection : ", detections)
-
-        #print bounding box 좌표 (Class Label, 좌표 (x,x) to (y,y))
-        # for bbox, class_id in zip(detections[:, :4], detections[:, 5]):
-        #     x1, y1, x2, y2 = bbox.tolist()
-        #     class_id = int(class_id)
-        #     print("claiss id : ", class_id)
-        #     class_name = self.class_labels[class_id] if self.class_labels else f"Class {class_id}"
-            # print(f"  Class: {class_name}, Bounding Box: ({x1}, {y1}) to ({x2}, {y2})")
-
-
-        # visualizing if required
-        bboxes = [[int(x1), int(y1), int(x2), int(y2)]
-                    for x1, y1, x2, y2 in detections[:, :4].tolist()]
-        classes = [int(c) for c in detections[:, 5].tolist()]
-
         
+        # 시각화 이미지를 먼저 만듭니다.
+        # detections가 비어있을 경우를 대비합니다.
+        vis_img = np_img_orig.copy() # 원본 이미지 복사
+        if detections is not None and len(detections) > 0:
+            detections[:, :4] = rescale(
+                [h_scaled, w_scaled], detections[:, :4], [h_orig, w_orig]
+            )
+            detections[:, :4] = detections[:, :4].round()
+            
+            bboxes = [[int(x) for x in box] for box in detections[:, :4].tolist()]
+            classes = [int(c) for c in detections[:, 5].tolist()]
 
-        #박스의 label number, y좌표를 매칭시킨 새로은 리스트를 만든다. 맨 위에 있는 박스정보 얻기위해서이다.
-        C_y = []
-        for soc in range(len(classes)):
-        
-            C_y.append([classes[soc],bboxes[soc][1]])
-        C_y.sort(key=lambda x: x[1])
-        vis_img = draw_detections_delivery_sign(np_img_orig, bboxes, classes,
-                                    self.class_labels)
-        # if classes != []:
-        #     print(self.class_labels[classes[-1]], bboxes)
+            vis_img = draw_detections_delivery_sign(vis_img, bboxes, classes, self.class_labels)
+
         vis_msg = self.bridge.cv2_to_imgmsg(vis_img, encoding="bgr8")
         self.visualization_publisher.publish(vis_msg)
-        # publish bounding box 
-        # print("classes", classes)
-        if classes == []:
-            self.delivery_sign_publisher.publish("None")
+
+
+        # === 수정된 부분 2: 메시지 발행 로직 변경 ===
+        if detections is None or len(detections) == 0:
+            # 검출된 객체가 없으면 "None"을 포함한 메시지를 발행
+            msg = DetectYolo()
+            msg.class_name = "None"
+            msg.center_x = 0.0
+            msg.center_y = 0.0
+            msg.width = 0.0
+            msg.height = 0.0
+            self.delivery_sign_publisher.publish(msg)
             return
+
+        # y좌표(bbox[1])를 기준으로 정렬하여 가장 위에 있는 객체를 찾습니다.
+        # detections 텐서를 리스트로 변환하여 정렬합니다.
+        sorted_detections = sorted(detections.tolist(), key=lambda x: x[1])
         
-        detected_sign = self.class_labels[classes[-1]]
-        if detected_sign in self.sign_mapping:
-            self.delivery_sign_publisher.publish(self.sign_mapping[detected_sign])
-        else:
-            self.delivery_sign_publisher.publish("None")
+        # 가장 위에 있는 객체의 정보를 가져옵니다.
+        top_detection = sorted_detections[0]
         
+        x1, y1, x2, y2 = top_detection[:4]
+        class_id = int(top_detection[5])
+        
+        # 중심 좌표와 크기 계산
+        center_x = (x1 + x2) / 2
+        center_y = (y1 + y2) / 2
+        width = x2 - x1
+        height = y2 - y1
+
+        detected_class_label = self.class_labels[class_id]
+        
+        # 메시지 생성 및 채우기
+        msg = DetectYolo()
+        msg.class_name = self.sign_mapping.get(detected_class_label, "None")
+        msg.center_x = float(center_x)
+        msg.center_y = float(center_y)
+        msg.width = float(width)
+        msg.height = float(height)
+
+        # 최종 메시지 발행
+        self.delivery_sign_publisher.publish(msg)
+        # =========================================
 
 
 if __name__ == "__main__":
     rospy.init_node("delivery_sign_yolo")
     publisher = Yolov7Publisher()
-
     rospy.spin()

@@ -11,16 +11,19 @@ from nav_msgs.msg import Path
 from erp_drive.msg import PathReference
 from erp_drive.msg import PathReferenceElement
 
+# 퓨전전용 메시지
+from erp_drive.msg import IoUFusionMsg
+
 # Pose 등등 위치 관련 모듈
 from geometry_msgs.msg import Pose
 from geometry_msgs.msg import PoseStamped
+# 라이다 관련 -> 패키지명 확인 후 수정 
+from std_msgs.msg import Int16, String
 
 # 오일러 <-> 쿼터니언 변환 관련 모듈
 import numpy as np
 from tf.transformations import euler_from_quaternion
 
-# 라이다 관련 -> 패키지명 확인 후 수정 
-from std_msgs.msg import Int16, String
 
 # ros 관련 모듈
 import rospy
@@ -33,8 +36,6 @@ from constant import const
 from collections import deque
 from collections import Counter
 
-# 퓨전전용 메시지
-from erp_drive.msg import IoUFusionMsg
 
 class DeliveryPlanner:
     def __init__(self, g_path: PathReference, rviz_offset_x: float, rviz_offset_y: float):
@@ -54,7 +55,7 @@ class DeliveryPlanner:
         # 상태변수
         self.STOP_IDX = 1348 # 배달미션 B지점 시작하는 글로벌패스 인덱스
         self.segment_len = 120 # 배달미션 B구간 1348 ~ 1348+120
-        self.g_path = [(elem.pose.position.x, elem.pose.position.y) for elem in g_path.path] # 글로벌패스
+        self.g_path = g_path# 글로벌패스
         self.curr_idx = None # 현재 글로벌패스 웨이포인트 인덱스
         self.curr_pose = None # 현재 Pose
         self.delivery_target_num = None # 배달 타겟 번호
@@ -219,13 +220,25 @@ class DeliveryPlanner:
         if self.delivery_in_progress:
             return
 
-        destination = (self.sign_coords[0],self.sign_coords[1])
-        vehicle = (self.curr_pose.position.x, self.curr_pose.position.y)
-
+        # isTest 플래그를 먼저 확인하도록 로직 변경
         if isTest:
-            destination = (0,0)
+            # 테스트 모드일 경우, destination에 테스트용 좌표를 바로 할당
+            destination = (935658.1292293448, 1916128.102725532)
+        else:
+            # 테스트 모드가 아닐 경우, self.sign_coords가 유효한지 확인
+            if self.sign_coords is None:
+                rospy.logwarn("Delivery target coordinates (sign_coords) are not set yet.")
+                return # 좌표가 없으면 함수 종료
+            destination = (self.sign_coords[0], self.sign_coords[1])
 
+        # vehicle 좌표는 destination 설정 이후에 가져옴
+        if self.curr_pose is None:
+            rospy.logwarn("Current pose is not available yet.")
+            return
+        vehicle = (self.curr_pose.position.x, self.curr_pose.position.y)
+        
         local_path = self.generate_local_delivery_path(dest=destination, vehicle=vehicle, n_offset=5, resolution=0.3)
+
 
         for x, y in local_path:
             delivery_path_element = PathReferenceElement()

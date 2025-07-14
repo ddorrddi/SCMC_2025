@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>delivery_yolo</name>
+  <name>delivery</name>
   <version>0.0.0</version>
   <license>TODO</license>
   <maintainer email="ros@todo.todo">ros</maintainer>
@@ -26,6 +26,9 @@
   <exec_depend>sensor_msgs</exec_depend>
   <exec_depend>std_msgs</exec_depend>
   <exec_depend>vision_msgs</exec_depend>
+
+  <build_depend>message_generation</build_depend>
+  <exec_depend>message_runtime</exec_depend>
   <export>
   </export>
 </package>

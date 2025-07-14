@@ -92,6 +92,9 @@
   <exec_depend>race</exec_depend>
   <exec_depend>message_runtime</exec_depend>
 
+  <build_depend>message_filters</build_depend>
+  <exec_depend>message_filters</exec_depend>
+
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>
