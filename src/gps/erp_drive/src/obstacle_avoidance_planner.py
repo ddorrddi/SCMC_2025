@@ -42,7 +42,7 @@ class ObstacleAvoidancePlanner:
     def __init__(self, g_path: dict, rviz_offset_x: float, rviz_offset_y: float):
         #dh
         self.override_radius = 2.0
-        self.yaw_correction_deg = 50.0 # 이거 지금 쓰고 있는 곳 없음.
+        self.yaw_correction_deg = 50.0
         self.last_ccw = 0
         ###
         self.rviz_offset_x, self.rviz_offset_y = rviz_offset_x, rviz_offset_y
@@ -86,7 +86,8 @@ class ObstacleAvoidancePlanner:
         self.obstacle_makers_pub = rospy.Publisher('/obstacle_marker', MarkerArray, queue_size=1)
         
         self.obstacle_info_sub = rospy.Subscriber("/obstacle_info", ObjectInfo, self.obstacle_info_CB)
-
+        self.big_info_sub = rospy.Subscriber("/big_info", ObjectInfo, self.big_info_CB)
+        
         # 추가한 부분
         self.tail_len       = 0.2    # 꼬리 길이 [m]
         self.tail_steps     = 3       # 포인트 개수
@@ -289,6 +290,133 @@ class ObstacleAvoidancePlanner:
 
         self.make_avoidance_path(is_big, ccw, mat_v2g, mat_g2v, curr_yaw)
 
+    def big_info_CB(self, msg : ObjectInfo):
+
+        self.objectCounts = msg.objectCounts
+
+        self.rel_obstacle_info = np.array([msg.centerX, msg.centerY, msg.centerZ, msg.lengthX, msg.lengthY, msg.lengthZ])
+        self.rel_obstacle_info = self.rel_obstacle_info[:, :msg.objectCounts]
+        self.rel_obstacle_info[0] += 1.2
+
+        angle_filter = np.abs(np.arctan2(self.rel_obstacle_info[1], self.rel_obstacle_info[0])) < np.pi / 9
+        self.rel_obstacle_info = self.rel_obstacle_info[:, angle_filter]
+        
+        if len(self.rel_obstacle_info[0]) == 0:
+            if self.avoidance_success_confirm():
+                self.avoidance_in_progress = False
+            return
+       
+        self.obst_x = self.rel_obstacle_info[0][0]
+        self.obst_y = self.rel_obstacle_info[1][0]
+        self.obst_len_x = self.rel_obstacle_info[-3][0]
+        self.obst_len_y = self.rel_obstacle_info[-2][0]
+        self.obst_len_z = self.rel_obstacle_info[-1][0]
+    
+        mat_v2g, mat_g2v, curr_yaw = self.get_transfomation_matrix()
+
+        self.g_obstacle_info = np.copy(self.rel_obstacle_info)
+
+        info = np.array([
+                self.rel_obstacle_info[0],
+                self.rel_obstacle_info[1],
+                np.zeros(len(self.rel_obstacle_info[0])),
+                np.ones(len(self.rel_obstacle_info[0]))
+            ])
+        
+        self.g_obstacle_info[:2] = (mat_v2g @ info)[:2]
+        ############################################################
+
+        _marker_array = MarkerArray()
+        for idx in range(len(self.rel_obstacle_info[0])):
+            _marker = Marker()
+            _marker.ns = 'hi'
+            _marker.header.frame_id = 'map'
+            _marker.header.stamp = rospy.Time.now()
+            _marker.id = idx
+            _marker.type = Marker.CUBE
+            _marker.action = Marker.ADD
+
+            _marker.pose.position.x = self.g_obstacle_info[0][idx] - self.rviz_offset_x
+            _marker.pose.position.y = self.g_obstacle_info[1][idx] - self.rviz_offset_y
+            _marker.pose.position.z = self.g_obstacle_info[2][idx]
+
+            _marker.pose.orientation.x = self.curr_pose.orientation.x
+            _marker.pose.orientation.y = self.curr_pose.orientation.y
+            _marker.pose.orientation.z = self.curr_pose.orientation.z
+            _marker.pose.orientation.w = self.curr_pose.orientation.w
+            
+            _marker.color.a = 0.5
+            _marker.color.r = 1.0
+            _marker.color.g = 1.0
+            _marker.color.b = 1.0
+
+            _marker.scale.x = self.rel_obstacle_info[-3][idx]
+            _marker.scale.y = self.rel_obstacle_info[-2][idx]
+            _marker.scale.z = self.rel_obstacle_info[-1][idx]
+
+            _marker_array.markers.append(_marker)
+
+        self.obstacle_makers_pub.publish(_marker_array)
+
+        # # 이미 회피 경로가 생성되어 진행 중인 경우
+        # if self.avoidance_in_progress:
+        #     if self.avoidance_success_confirm():
+        #         self.avoidance_in_progress = False 
+                
+        #     return
+        #dh
+        if self.avoidance_in_progress:
+            if self.ready_to_override():
+                is_blocked, is_big, ccw = self.is_obst_on_path()
+                if is_blocked:
+                    rospy.loginfo("[중단] 타겟 반경 내 도달 + 장애물 감지 → 로컬패스 덮어쓰기")
+                    self.is_local_waypoint_set = False
+                    self.avoidance_in_progress = False
+
+                    mat_v2g, mat_g2v, curr_yaw = self.get_transfomation_matrix()
+                    self.make_avoidance_path(is_big, ccw, mat_v2g, mat_g2v, curr_yaw)
+                    return
+
+            if self.avoidance_success_confirm():
+                self.avoidance_in_progress = False
+
+            return
+        ###
+
+
+        
+    #     if self.avoidance_in_progress:
+    # # 회피 경로 추종 중에도 다음 장애물이 감지되면 덮어쓰기
+    #         is_blocked, is_big, ccw = self.is_obst_on_path()
+
+    #         if is_blocked:
+    #             rospy.loginfo("[중단] 기존 로컬패스 종료 후 새 장애물 회피 시작")
+
+    #             # 기존 로컬패스 강제 종료
+    #             self.is_local_waypoint_set = False
+    #             self.avoidance_in_progress = False
+
+    #             # 새 회피 경로 생성
+    #             mat_v2g, mat_g2v, curr_yaw = self.get_transfomation_matrix()
+    #             self.make_avoidance_path(is_big, ccw, mat_v2g, mat_g2v, curr_yaw)
+    #             return
+
+            # 회피 성공 여부 판단
+            if self.avoidance_success_confirm():
+                self.avoidance_in_progress = False
+
+            return
+
+        # 현재 주행 중인 global path 위에 장애물이 존재하지 않는 경우
+        is_blocked, is_big, ccw = self.is_obst_on_path()
+        if not is_blocked:
+            return
+
+        self.make_avoidance_path(is_big, ccw, mat_v2g, mat_g2v, curr_yaw)
+
+    
+
+    
     def avoidance_success_confirm(self):
         if self.target_x is None and self.target_y is None:
             return False
@@ -381,7 +509,8 @@ class ObstacleAvoidancePlanner:
             self.blocked_idx += max(blocked_left_idx, blocked_mid_idx, blocked_right_idx)
             self.blocked_idx //= 2
             # self.blocked_idx += 2
-            return True, True, 0
+            ccw = -1 if self.curr_lane == Lane.ONE else 1
+            return True, True, ccw
 
         # 소형인 경우
         if blocked_left:
@@ -452,6 +581,12 @@ class ObstacleAvoidancePlanner:
         s0, l0 = cartesian_to_frenet(curr_x, curr_y, self.g_path[self.curr_lane], s_list)
         #여기 만져봄
         lane_offset = 0.75 #0.75
+        if is_big:
+            # lane_offset = const.LANE_WIDTH_SMALL + const.LANE_WIDTH
+            self.next_lane = Lane.TWO if self.curr_lane == Lane.ONE else Lane.ONE
+        else:
+            # lane_offset = const.LANE_WIDTH_SMALL
+            self.next_lane = self.curr_lane
 
         ##마진추가부분##
         blend_margin = 0
@@ -685,7 +820,7 @@ class ObstacleAvoidancePlanner:
             rv.pose.orientation.z, rv.pose.orientation.w = q
             self.rviz_avoidance_path.poses.append(rv)
 
-            
+
 
 
     def publish_avoidance_path(self):
