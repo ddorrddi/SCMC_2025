@@ -81,6 +81,7 @@ class DeliveryPlanner:
     def test_now_CB(self,msg: Int16):
         tester = msg.data
         if tester == 1:
+            rospy.loginfo("test_now_CB()호출 : 테스트 시작")
             self.make_delivery_path(isTest=True)
             return
         else:
@@ -142,7 +143,7 @@ class DeliveryPlanner:
             return
         if (self.STOP_IDX <= self.curr_idx <= self.STOP_IDX + self.segment_len): # 배달 B구간일때는 작동안함
             return
-        # 큐에 샘플 데이터 수집 이후 충분히 수집하면 
+        # 큐에 샘플 데이터 수집 이후 충분히 수집하면
         self.sign_queue.append(int(msg.data))
         if len(self.sign_queue) >= self.min_queue_size:
             self.delivery_target_num = Counter(self.sign_queue).most_common(1)[0][0]
@@ -158,6 +159,7 @@ class DeliveryPlanner:
                                    self.curr_pose.position.y - self.sign_coords[1])
 
         if dist_to_target < const.DELIVERY_SUCCESS_RADIUS and self.delivery_in_progress: # @TODO 실험적으로 찾아야 할 값
+            rospy.loginfo("delivery_do e_confirm()호출 : 목적지 도착")
             self.delivery_in_progress = False
             self.delivery_done = True
         
@@ -176,6 +178,7 @@ class DeliveryPlanner:
 
     # 곡선보정을 위한 복귀 글로벌 웨이포인트 인덱스 리턴
     def compute_symmetric_return(self, path, dest, vehicle):
+        rospy.loginfo("compute_symmetric_return()호출 : 대칭위치 계산")
         dest_idx    = self.find_closest_index(path, dest)
         vehicle_idx = self.find_closest_index(path, vehicle)
         delta       = dest_idx - vehicle_idx
@@ -185,6 +188,7 @@ class DeliveryPlanner:
 
     # 곡선보정해서 좌표들의 리스트 리턴
     def fit_quartic(self, ctrl_pts, resolution=0.3):
+        rospy.loginfo("fit_quartic()호출 : 로컬경로 곡선보정")
         pts = np.array(ctrl_pts)
         ds  = np.hypot(np.diff(pts[:,0]), np.diff(pts[:,1]))
         t   = np.concatenate(([0], np.cumsum(ds)))
@@ -199,6 +203,7 @@ class DeliveryPlanner:
 
     # 로컬경로 생성해 리턴
     def generate_local_delivery_path(self, dest, vehicle, n_offset=5, resolution=0.3):
+        rospy.loginfo("generate_local_delivery_path()호출 : 로컬경로 제작중")
         # 1. 글로벌 경로 로드
         path = self.g_path
         # 2. 대칭 복귀점 계산
@@ -214,15 +219,18 @@ class DeliveryPlanner:
     
     # 실제로 사용할 수 있게 메시지 형태로 변환
     def make_delivery_path(self, isTest=False):
+        rospy.loginfo("make_delivery_path()호출 : 로컬경로 제작 시작")
         self.delivery_path.path.clear()
         self.rviz_delivery_path.poses.clear()
 
         if self.delivery_in_progress:
+            rospy.loginfo("make_delivery_path() : 현재 배달미션이 이미 진행중")
             return
 
         # isTest 플래그를 먼저 확인하도록 로직 변경
         if isTest:
             # 테스트 모드일 경우, destination에 테스트용 좌표를 바로 할당
+            rospy.loginfo("make_delivery_path() : 테스트용 좌표 초기화")
             destination = (935658.1292293448, 1916128.102725532)
         else:
             # 테스트 모드가 아닐 경우, self.sign_coords가 유효한지 확인
@@ -265,7 +273,8 @@ class DeliveryPlanner:
             
             self.rviz_delivery_path.poses.append(rviz_delivery_pose)
 
-        rospy.loginfo(f'path_size {len(self.delivery_path.path)}')
+        rospy.loginfo("make_delivery_path() : 로컬경로 제작 완료")
+        rospy.loginfo(f'로컬경로 size : {len(self.delivery_path.path)}')
 
         self.rviz_delivery_path.header.stamp = rospy.Time.now()
         self.delivery_in_progress = True
@@ -274,5 +283,6 @@ class DeliveryPlanner:
     # 로컬경로 퍼블리쉬
     def publish_delivery_path(self):
         if self.delivery_in_progress:
+            rospy.loginfo("publish_delivery_path() : 로컬경로 publish")
             self.rviz_delivery_path_pub.publish(self.rviz_delivery_path)
             self.delivery_path_pub.publish(self.delivery_path)
