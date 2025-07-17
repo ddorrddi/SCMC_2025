@@ -40,6 +40,12 @@ import rospkg
 
 class ObstacleAvoidancePlanner:
     def __init__(self, g_path: dict, rviz_offset_x: float, rviz_offset_y: float):
+
+        # self.left_flag_pub = rospy.Publisher('/pure_pursuit/left_flag', Int16, queue_size=1)
+        # self.right_flag_pub = rospy.Publisher('/pure_pursuit/right_flag', Int16, queue_size=1)
+        self.ccw_pub = rospy.Publisher('/avoidance_direction', Int16, queue_size=1)
+        # self.just_finished_local_path_pub = rospy.Publisher('/pure_pursuit/just_finished_local_path', Int16, queue_size=1)
+
         #dh
         self.override_radius = 2.0
         self.yaw_correction_deg = 50.0
@@ -416,27 +422,42 @@ class ObstacleAvoidancePlanner:
 
     
 
-    
     def avoidance_success_confirm(self):
         if self.target_x is None and self.target_y is None:
             return False
-        
+
         target_x = self.target_x
         target_y = self.target_y
 
-        dist_to_target = np.hypot(self.curr_pose.position.x - target_x, self.curr_pose.position.y - target_y)
-
+        dist_to_target = np.hypot(
+            self.curr_pose.position.x - target_x,
+            self.curr_pose.position.y - target_y
+        )
 
         if dist_to_target > const.AVOIDANCE_SUCCESS_RAIDUS:
             return False
 
-        
+        # # ------------------- 🟢 조향 보정 flag publish -------------------
+        # # 장애물 위치 기준: 왼쪽이면 +5도 보정, 오른쪽이면 -5도 보정
+        # if self.obst_x < 0:
+        #     rospy.loginfo("🟢 왼쪽 장애물 감지 → left_flag = True")
+        #     self.left_flag_pub.publish(Int16(1))
+        # elif self.obst_x > 0:
+        #     rospy.loginfo("🟢 오른쪽 장애물 감지 → right_flag = True")
+        #     self.right_flag_pub.publish(Int16(1))
+
+        # # local path 종료 지점 → 보정 타이밍
+        # self.just_finished_local_path_pub.publish(Int16(1))
+        # rospy.loginfo("✅ local path 종료 → just_finished_local_path = True")
+        # # ---------------------------------------------------------------
+
+        # 로컬 패스 종료 처리
         signal = Int16(data=1)
         self.local_path_done_signal_pub.publish(signal)
-        
+        rospy.loginfo("성공")
         self.is_local_waypoint_set = False
         self.target_x, self.target_y = None, None
-        
+
         return True
 
     def is_obst_on_path (self):
@@ -575,6 +596,11 @@ class ObstacleAvoidancePlanner:
     
         rospy.loginfo(f"[회피 경로 생성] ccw: {ccw}, is_big: {is_big}, blocked_idx: {self.blocked_idx}")
 
+        # 제어 노드에서 회피 방향을 알 수 있도록 ccw 값을 발행합니다.
+        # ccw = 1  (좌회피), ccw = -1 (우회피)
+        rospy.loginfo(f"[회피 방향 결정] CCW: {ccw} (1: 좌회피, -1: 우회피)")
+        self.ccw_pub.publish(Int16(ccw))
+
 
         curr_x = self.curr_pose.position.x
         curr_y = self.curr_pose.position.y
@@ -583,10 +609,10 @@ class ObstacleAvoidancePlanner:
         lane_offset = 0.75 #0.75
         if is_big:
             # lane_offset = const.LANE_WIDTH_SMALL + const.LANE_WIDTH
-            self.next_lane = Lane.TWO if self.curr_lane == Lane.ONE else Lane.ONE
+            self.curr_lane = Lane.TWO if self.curr_lane == Lane.ONE else Lane.ONE
         else:
             # lane_offset = const.LANE_WIDTH_SMALL
-            self.next_lane = self.curr_lane
+            self.curr_lane = self.curr_lane
 
         ##마진추가부분##
         blend_margin = 0
@@ -636,10 +662,10 @@ class ObstacleAvoidancePlanner:
             
             self.rviz_avoidance_path.poses.append(rviz_local_pose)
 
-        # ────────── ① [추가] 꼬리 세그먼트 붙이기 ──────────
-        sign = -np.sign(l1)            # l1>0(왼쪽) → 우회전(−10°), l1<0 → 좌회전(+10°)
-        if sign != 0:                  # 중앙이면 꼬리 생략
-            self._append_tail(self.avoidance_path.path[-1], sign)
+        # # ────────── ① [추가] 꼬리 세그먼트 붙이기 ──────────
+        # sign = -np.sign(l1)            # l1>0(왼쪽) → 우회전(−10°), l1<0 → 좌회전(+10°)
+        # if sign != 0:                  # 중앙이면 꼬리 생략
+        #     self._append_tail(self.avoidance_path.path[-1], sign)
 
         self.target_x = self.avoidance_path.path[-1].pose.position.x
         self.target_y = self.avoidance_path.path[-1].pose.position.y
@@ -785,40 +811,40 @@ class ObstacleAvoidancePlanner:
     #     self.avoidance_in_progress = True
 
 
-    # 로컬 패스 끝날 때마다 왼쪽이면 오른쪽으로, 오른쪽이면 왼쪽으로 각도 조정
-    def _append_tail(self, last_pt, sign):
-        """로컬패스 끝에 ±tail_deg 꼬리 세그먼트 추가."""
-        lx, ly = last_pt.pose.position.x, last_pt.pose.position.y
-        _, _, last_yaw = euler_from_quaternion([
-            last_pt.pose.orientation.x,
-            last_pt.pose.orientation.y,
-            last_pt.pose.orientation.z,
-            last_pt.pose.orientation.w])
+    # # 로컬 패스 끝날 때마다 왼쪽이면 오른쪽으로, 오른쪽이면 왼쪽으로 각도 조정
+    # def _append_tail(self, last_pt, sign):
+    #     """로컬패스 끝에 ±tail_deg 꼬리 세그먼트 추가."""
+    #     lx, ly = last_pt.pose.position.x, last_pt.pose.position.y
+    #     _, _, last_yaw = euler_from_quaternion([
+    #         last_pt.pose.orientation.x,
+    #         last_pt.pose.orientation.y,
+    #         last_pt.pose.orientation.z,
+    #         last_pt.pose.orientation.w])
 
-        yaw_bias = sign * np.deg2rad(self.tail_deg)
+    #     yaw_bias = sign * np.deg2rad(self.tail_deg)
 
-        for k in range(1, self.tail_steps + 1):
-            r   = k / float(self.tail_steps)
-            yaw = last_yaw + yaw_bias * r
-            ds  = self.tail_len * r
-            x   = lx + ds * np.cos(yaw)
-            y   = ly + ds * np.sin(yaw)
+    #     for k in range(1, self.tail_steps + 1):
+    #         r   = k / float(self.tail_steps)
+    #         yaw = last_yaw + yaw_bias * r
+    #         ds  = self.tail_len * r
+    #         x   = lx + ds * np.cos(yaw)
+    #         y   = ly + ds * np.sin(yaw)
 
-            elem = PathReferenceElement()
-            elem.pose.position.x, elem.pose.position.y = x, y
-            q = quaternion_from_euler(0., 0., yaw)
-            elem.pose.orientation.x, elem.pose.orientation.y, \
-            elem.pose.orientation.z, elem.pose.orientation.w = q
-            elem.mode = 11
-            self.avoidance_path.path.append(elem)
+    #         elem = PathReferenceElement()
+    #         elem.pose.position.x, elem.pose.position.y = x, y
+    #         q = quaternion_from_euler(0., 0., yaw)
+    #         elem.pose.orientation.x, elem.pose.orientation.y, \
+    #         elem.pose.orientation.z, elem.pose.orientation.w = q
+    #         elem.mode = 11
+    #         self.avoidance_path.path.append(elem)
 
-            rv = PoseStamped()
-            rv.header.frame_id = 'map';  rv.header.stamp = rospy.Time.now()
-            rv.pose.position.x = x - self.rviz_offset_x
-            rv.pose.position.y = y - self.rviz_offset_y
-            rv.pose.orientation.x, rv.pose.orientation.y, \
-            rv.pose.orientation.z, rv.pose.orientation.w = q
-            self.rviz_avoidance_path.poses.append(rv)
+    #         rv = PoseStamped()
+    #         rv.header.frame_id = 'map';  rv.header.stamp = rospy.Time.now()
+    #         rv.pose.position.x = x - self.rviz_offset_x
+    #         rv.pose.position.y = y - self.rviz_offset_y
+    #         rv.pose.orientation.x, rv.pose.orientation.y, \
+    #         rv.pose.orientation.z, rv.pose.orientation.w = q
+    #         self.rviz_avoidance_path.poses.append(rv)
 
 
 

@@ -14,5 +14,5 @@
   <node pkg="erp_drive" type="wgs84_to_utmk.py" name="wgs84_to_utmk" output = "screen" args="$(arg target)"/>
   
   <node pkg="erp_drive" type="planner.py" name="planner" output="screen" args="$(arg path)"/>
-  <node pkg="erp_drive" type="control" name="control" args="$(arg target) f"/>
+  <node pkg="erp_drive" type="control" name="control" output="screen" args="$(arg target) f"/>
 </launch>
