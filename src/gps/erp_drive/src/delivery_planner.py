@@ -42,7 +42,7 @@ class DeliveryPlanner:
         # 파라미터 (조절해야됨)
         self.threshold = 0.95 # IOU 신뢰도 임계값
         self.min_queue_size = 20 # 목적지 좌표 신뢰도를 위한 큐 사이즈 (10Hz기준 20이면 2초간의 정보) !!메시지 드랍시 보완 로직이 없음!!
-        self.end_offset = 5
+        self.end_offset = 20 # 배달미션이 끝났는가 판단하는 최소 waypoint 개수
 
         # 로컬패스 설정
         self.pkg_path = rospkg.RosPack().get_path("erp_drive")
@@ -56,6 +56,7 @@ class DeliveryPlanner:
         self.segment_len = 120 # 배달미션 B구간 1348 ~ 1348+120
         # self.g_path = g_path# 글로벌패스
         self.g_path = [(e.pose.position.x, e.pose.position.y) for e in g_path] # 글로벌패스
+        self.destination = None
         self.curr_idx = None # 현재 글로벌패스 웨이포인트 인덱스
         self.curr_pose = None # 현재 Pose
         self.delivery_target_num = None # 배달 타겟 번호
@@ -63,6 +64,7 @@ class DeliveryPlanner:
         self.delivery_in_progress = False # 배달 진행중인가 플래그
         self.delivery_done = False # 배달 목적지 좌표에 도착했는가 플래그
         self.delivery_end = False # 배달미션이 끝났는가 플래그
+        self.delivery_path_is_pub = False # 배달경로가 한번이라도 publish됐나 플래그
         self.sign_queue = deque(maxlen=70)
         self.result_queue = deque(maxlen=100)
 
@@ -151,16 +153,16 @@ class DeliveryPlanner:
             self.sign_queue.clear()
 
     # 배달 목적지 좌표에 도착했는가 확인하는 함수
-    def delivery_done_confirm(self):
-        if self.sign_coords is None or self.curr_pose is None:
+    def delivery_done_confirm(self, isTest = False):
+        if self.destination is None or self.curr_pose is None:
             self.delivery_done = False
             return
         
-        dist_to_target = np.hypot(self.curr_pose.position.x - self.sign_coords[0],\
-                                   self.curr_pose.position.y - self.sign_coords[1])
+        dist_to_target = np.hypot(self.curr_pose.position.x - self.destination[0],\
+                                   self.curr_pose.position.y - self.destination[1])
 
         if dist_to_target < const.DELIVERY_SUCCESS_RADIUS and self.delivery_in_progress: # @TODO 실험적으로 찾아야 할 값
-            rospy.loginfo("delivery_done_confirm() : 목적지 도착")
+            rospy.loginfo(f"delivery_done_confirm() : 목적지와의 거리 {dist_to_target}, 목적지 도착!")
             self.delivery_done = True
         
         self.delivery_done_pub.publish(1 if self.delivery_done else 0)
@@ -244,17 +246,15 @@ class DeliveryPlanner:
         # isTest 플래그를 먼저 확인하도록 로직 변경
         if isTest:
             # 테스트 모드일 경우, destination에 테스트용 좌표를 바로 할당
-
-
-            destination = (935539.3413405563, 1915909.6614581472)
-            rospy.loginfo(f"make_delivery_path() : 테스트용 좌표 초기화, destination({destination[0]}, {destination[1]})")
+            self.destination = (935539.3413405563, 1915909.6614581472)
+            rospy.loginfo(f"make_delivery_path() : 테스트용 좌표 초기화, destination({self.destination[0]}, {self.destination[1]})")
         else:
             # 테스트 모드가 아닐 경우, self.sign_coords가 유효한지 확인
             if self.sign_coords is None:
                 rospy.logwarn("Delivery target coordinates (sign_coords) are not set yet.")
                 return # 좌표가 없으면 함수 종료
-            destination = (self.sign_coords[0], self.sign_coords[1])
-            rospy.loginfo(f"make_delivery_path() : 배달목적지 좌표 초기화, destination({destination[0]}, {destination[1]})")
+            self.destination = (self.sign_coords[0], self.sign_coords[1])
+            rospy.loginfo(f"make_delivery_path() : 배달목적지 좌표 초기화, destination({self.destination[0]}, {self.destination[1]})")
 
         # vehicle 좌표는 destination 설정 이후에 가져옴
         if self.curr_pose is None:
@@ -262,7 +262,7 @@ class DeliveryPlanner:
             return
         vehicle = (self.curr_pose.position.x, self.curr_pose.position.y)
         
-        local_path = self.generate_local_delivery_path(dest=destination, vehicle=vehicle, n_offset=5, resolution=0.3)
+        local_path = self.generate_local_delivery_path(dest=self.destination, vehicle=vehicle, n_offset=8, resolution=0.3)
 
 
         for x, y in local_path:
@@ -302,6 +302,8 @@ class DeliveryPlanner:
         isDone = self.delivery_done_confirm()
         isEnd = self.delivery_end_confirm()
         if self.delivery_in_progress:
-            rospy.loginfo("publish_delivery_path() : 로컬경로 publish")
+            if not self.delivery_path_is_pub:
+                rospy.loginfo("publish_delivery_path() : 로컬경로 publish")
             self.rviz_delivery_path_pub.publish(self.rviz_delivery_path)
             self.delivery_path_pub.publish(self.delivery_path)
+            self.delivery_path_is_pub = True

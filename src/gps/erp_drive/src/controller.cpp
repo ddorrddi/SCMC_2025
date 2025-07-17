@@ -20,7 +20,8 @@ Controller::Controller(char control_target):
         this->l_path_done_sub = nh.subscribe("/local_path_done", 1, &Controller::localPathDoneCallback, this); 
 
         this->delivery_path_sub = nh.subscribe("/delivery_path", 1, &Controller::deliveryPathCallback, this);
-        this->delivery_path_sub = nh.subscribe("/delivery_done", 1, &Controller::deliveryDoneCallback, this);
+        this->delivery_done_sub = nh.subscribe("/delivery_done", 1, &Controller::deliveryDoneCallback, this);
+        this->delivery_end_sub = nh.subscribe("/delivery_end", 1, &Controller::deliveryEndCallback, this);
         
         this->curr_pose_sub = nh.subscribe("/current_pose", 1, &Controller::currentPoseCallback, this);
     
@@ -54,11 +55,24 @@ void Controller::localPathDoneCallback(const std_msgs::Int16& signal){
 }
 
 void Controller::deliveryPathCallback(const erp_drive::PathReference& delivery_path){
-    if(this->delivery_path_done) return;
-
     this->delivery_path = delivery_path;
     this->delivery_path_size = delivery_path.path.size();
-    this->is_local_path_set = true;
+    this->is_delivery_path_set = true;
+}
+
+void Controller::deliveryDoneCallback(const std_msgs::Int16& signal){
+    ROS_INFO_STREAM("Done");
+    if(signal.data == 1){this->is_delivery_done = true;}
+    else{this->is_delivery_done = false;}
+}
+
+void Controller::deliveryEndCallback(const std_msgs::Int16& signal){
+    ROS_INFO_STREAM("End");
+    if(signal.data == 1){
+        this->is_delivery_end = true;
+        this->is_delivery_path_set = false;
+    }
+    else{this->is_delivery_end = false;}
 }
 
 void Controller::imuCallback(const sensor_msgs::Imu& imu_data){
@@ -332,7 +346,7 @@ int Controller::calcDeliveryCurrWaypoint(const geometry_msgs::Pose& curr_pose){
 
     if(this->delivery_curr_idx == this->delivery_path_size - 1){
         this->is_delivery_path_set = false;
-        // this->delivery_curr_idx = 0;
+        this->delivery_curr_idx = 0;
     }
 
     return this->delivery_curr_idx;
