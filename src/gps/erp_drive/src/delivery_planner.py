@@ -230,14 +230,15 @@ class DeliveryPlanner:
         # isTest 플래그를 먼저 확인하도록 로직 변경
         if isTest:
             # 테스트 모드일 경우, destination에 테스트용 좌표를 바로 할당
-            rospy.loginfo("make_delivery_path() : 테스트용 좌표 초기화")
             destination = (935658.1292293448, 1916128.102725532)
+            rospy.loginfo(f"make_delivery_path() : 테스트용 좌표 초기화, destination({destination[0]}, {destination[1]})")
         else:
             # 테스트 모드가 아닐 경우, self.sign_coords가 유효한지 확인
             if self.sign_coords is None:
                 rospy.logwarn("Delivery target coordinates (sign_coords) are not set yet.")
                 return # 좌표가 없으면 함수 종료
             destination = (self.sign_coords[0], self.sign_coords[1])
+            rospy.loginfo(f"make_delivery_path() : 배달목적지 좌표 초기화, destination({destination[0]}, {destination[1]})")
 
         # vehicle 좌표는 destination 설정 이후에 가져옴
         if self.curr_pose is None:
