@@ -42,11 +42,10 @@ class DeliveryPlanner:
         # 파라미터 (조절해야됨)
         self.threshold = 0.95 # IOU 신뢰도 임계값
         self.min_queue_size = 20 # 목적지 좌표 신뢰도를 위한 큐 사이즈 (10Hz기준 20이면 2초간의 정보) !!메시지 드랍시 보완 로직이 없음!!
+        self.end_offset = 5
 
         # 로컬패스 설정
         self.pkg_path = rospkg.RosPack().get_path("erp_drive")
-        self.rviz_delivery_line = Path()
-        self.rviz_delivery_line.header.frame_id = 'map'
         self.delivery_path = PathReference()
         self.rviz_delivery_path = Path()
         self.rviz_delivery_path.header.frame_id = 'map'
@@ -62,6 +61,7 @@ class DeliveryPlanner:
         self.sign_coords = None # 목적지 좌표 (x,y,z)
         self.delivery_in_progress = False # 배달 진행중인가 플래그
         self.delivery_done = False # 배달 목적지 좌표에 도착했는가 플래그
+        self.delivery_end = False # 배달미션이 끝났는가 플래그
         self.sign_queue = deque(maxlen=70)
         self.result_queue = deque(maxlen=100)
 
@@ -76,7 +76,8 @@ class DeliveryPlanner:
         # 퍼블리셔
         self.delivery_path_pub = rospy.Publisher("/delivery_path", PathReference, queue_size=1) # 배달경로
         self.rviz_delivery_path_pub = rospy.Publisher('/rviz_delivery_path', Path, queue_size=1) # 시각화용 배달경로
-        self.delivery_done_pub = rospy.Publisher("/delivery_done", Int16, queue_size=1) # 배달이 끝났는지 플래그
+        self.delivery_done_pub = rospy.Publisher("/delivery_done", Int16, queue_size=1) # 배달 목적지에 도착했는지 플래그
+        self.delivery_end_pub = rospy.Publisher("/delivery_end", Int16, queue_size=1) # 배달미션이 끝났는지 플래그
 
     def test_now_CB(self,msg: Int16):
         tester = msg.data
@@ -88,7 +89,6 @@ class DeliveryPlanner:
             return
 
     def curr_idx_CB(self, msg: Int16):
-        self.delivery_done_confirm() # curr_idx_CB에 delivery_done_confirm 동기화 왜냐고? 그냥 타이머쓰기 귀찮으니까~
         self.curr_idx = msg.data
 
     def curr_pose_CB(self, msg: Pose):
@@ -159,11 +159,23 @@ class DeliveryPlanner:
                                    self.curr_pose.position.y - self.sign_coords[1])
 
         if dist_to_target < const.DELIVERY_SUCCESS_RADIUS and self.delivery_in_progress: # @TODO 실험적으로 찾아야 할 값
-            rospy.loginfo("delivery_do e_confirm()호출 : 목적지 도착")
-            self.delivery_in_progress = False
+            rospy.loginfo("delivery_done_confirm() : 목적지 도착")
             self.delivery_done = True
         
         self.delivery_done_pub.publish(1 if self.delivery_done else 0)
+
+    # 배달미션이 끝났는지 확인하는 함수
+    def delivery_end_confirm(self):
+        if not self.delivery_in_progress or self.curr_pose is None: # 배달이 진행중이 아니면 체크안함
+            return
+        else:
+            vehicle = (self.curr_pose.position.x, self.curr_pose.position.y)
+            local_idx = self.find_closest_index(self, self.delivery_path, vehicle) # 현재 로컬패스 인덱스 확인
+            if local_idx > len(self.delivery_path.path) - self.end_offset: # 로컬패스에서 end_offset만큼 전만큼 보다 앞에 위치해있으면 배달미션 끝.
+                self.delivery_end = True
+                self.delivery_in_progress = False
+                rospy.loginfo("delivery_end_confirm() : 배달미션 끝")
+        self.delivery_end_pub.publish(1 if self.delivery_end else 0)
 
     # 여기부턴 로컬패스 만들기
     # 현재 좌표로부터 가장 가까운 글로벌 웨이포인트 인덱스 리턴
@@ -283,6 +295,8 @@ class DeliveryPlanner:
 
     # 로컬경로 퍼블리쉬
     def publish_delivery_path(self):
+        isDone = self.delivery_done_confirm()
+        isEnd = self.delivery_end_confirm()
         if self.delivery_in_progress:
             rospy.loginfo("publish_delivery_path() : 로컬경로 publish")
             self.rviz_delivery_path_pub.publish(self.rviz_delivery_path)
