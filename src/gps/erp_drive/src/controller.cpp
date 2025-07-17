@@ -20,6 +20,7 @@ Controller::Controller(char control_target):
         this->l_path_done_sub = nh.subscribe("/local_path_done", 1, &Controller::localPathDoneCallback, this); 
 
         this->delivery_path_sub = nh.subscribe("/delivery_path", 1, &Controller::deliveryPathCallback, this);
+        this->delivery_path_sub = nh.subscribe("/delivery_done", 1, &Controller::deliveryDoneCallback, this);
         
         this->curr_pose_sub = nh.subscribe("/current_pose", 1, &Controller::currentPoseCallback, this);
     
@@ -57,7 +58,7 @@ void Controller::deliveryPathCallback(const erp_drive::PathReference& delivery_p
 
     this->delivery_path = delivery_path;
     this->delivery_path_size = delivery_path.path.size();
-    this->is_delivery_path_set = true;
+    this->is_local_path_set = true;
 }
 
 void Controller::imuCallback(const sensor_msgs::Imu& imu_data){

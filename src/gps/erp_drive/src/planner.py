@@ -37,7 +37,7 @@ class Planner(object):
         self.g_path_planner.set_g_path(file_name)
 
         self.obstacle_avoidance_planner = ObstacleAvoidancePlanner(self.g_path_planner.g_path, self.g_path_planner.rviz_offset_x, self.g_path_planner.rviz_offset_y)
-        self.delivery_planner = DeliveryPlanner(self.g_path_planner.g_path, self.g_path_planner.rviz_offset_x, self.g_path_planner.rviz_offset_y)
+        self.delivery_planner = DeliveryPlanner(self.g_path_planner.g_path[Lane.ONE], self.g_path_planner.rviz_offset_x, self.g_path_planner.rviz_offset_y)
         # self.parking_planner = ParkingPlanner()
 
         self.rviz_curr_pose = PoseStamped()

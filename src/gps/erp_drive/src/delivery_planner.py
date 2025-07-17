@@ -54,7 +54,8 @@ class DeliveryPlanner:
         # 상태변수
         self.STOP_IDX = 1348 # 배달미션 B지점 시작하는 글로벌패스 인덱스
         self.segment_len = 120 # 배달미션 B구간 1348 ~ 1348+120
-        self.g_path = g_path# 글로벌패스
+        # self.g_path = g_path# 글로벌패스
+        self.g_path = [(e.pose.position.x, e.pose.position.y) for e in g_path] # 글로벌패스
         self.curr_idx = None # 현재 글로벌패스 웨이포인트 인덱스
         self.curr_pose = None # 현재 Pose
         self.delivery_target_num = None # 배달 타겟 번호
@@ -74,10 +75,10 @@ class DeliveryPlanner:
         rospy.Subscriber('/now_test', Int16, self.test_now_CB) # 로컬패스 생성확인하는 테스트용 구독자
 
         # 퍼블리셔
-        self.delivery_path_pub = rospy.Publisher("/delivery_path", PathReference, queue_size=1) # 배달경로
+        self.delivery_path_pub = rospy.Publisher("/local_path", PathReference, queue_size=1) # 배달경로
         self.rviz_delivery_path_pub = rospy.Publisher('/rviz_delivery_path', Path, queue_size=1) # 시각화용 배달경로
         self.delivery_done_pub = rospy.Publisher("/delivery_done", Int16, queue_size=1) # 배달 목적지에 도착했는지 플래그
-        self.delivery_end_pub = rospy.Publisher("/delivery_end", Int16, queue_size=1) # 배달미션이 끝났는지 플래그
+        self.delivery_end_pub = rospy.Publisher("/local_path_done", Int16, queue_size=1) # 배달미션이 끝났는지 플래그
 
     def test_now_CB(self,msg: Int16):
         tester = msg.data
@@ -170,7 +171,8 @@ class DeliveryPlanner:
             return
         else:
             vehicle = (self.curr_pose.position.x, self.curr_pose.position.y)
-            local_idx = self.find_closest_index(self, self.delivery_path, vehicle) # 현재 로컬패스 인덱스 확인
+
+            local_idx = self.find_closest_index([(e.pose.position.x, e.pose.position.y) for e in self.delivery_path.path], vehicle) # 현재 로컬패스 인덱스 확인
             if local_idx > len(self.delivery_path.path) - self.end_offset: # 로컬패스에서 end_offset만큼 전만큼 보다 앞에 위치해있으면 배달미션 끝.
                 self.delivery_end = True
                 self.delivery_in_progress = False
@@ -242,7 +244,9 @@ class DeliveryPlanner:
         # isTest 플래그를 먼저 확인하도록 로직 변경
         if isTest:
             # 테스트 모드일 경우, destination에 테스트용 좌표를 바로 할당
-            destination = (935658.1292293448, 1916128.102725532)
+
+
+            destination = (935539.3413405563, 1915909.6614581472)
             rospy.loginfo(f"make_delivery_path() : 테스트용 좌표 초기화, destination({destination[0]}, {destination[1]})")
         else:
             # 테스트 모드가 아닐 경우, self.sign_coords가 유효한지 확인
