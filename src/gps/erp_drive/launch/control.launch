@@ -10,9 +10,7 @@
   <!-- 어떤 라이다 인지코드를 쓸지 선택-->
   <include file="$(find lidar_object_detection)/launch/object_detection.launch" />
 
-
-  <node pkg="erp_drive" type="wgs84_to_utmk.py" name="wgs84_to_utmk" args="$(arg target)"/>
-  
+  <node pkg="erp_drive" type="wgs84_to_utmk.py" name="wgs84_to_utmk" output = "screen" args="$(arg target)"/>  
   <node pkg="erp_drive" type="planner.py" name="planner" args="$(arg path)"/>
   <node pkg="erp_drive" type="control" name="control" args="$(arg target) f"/>
 </launch>

@@ -6,18 +6,18 @@
 #include <cstdlib>
 #include <ctime>
 
-struct color{
+struct Color {
     int r;
     int g;
     int b;
 };
 
-Color getRandomcolor() {
+Color getRandomColor() {
     Color color;
-    color.r = rand() % 256;
+    color.r = rand() % 256; // 0~255
     color.g = rand() % 256;
     color.b = rand() % 256;
-    return color
+    return color;
 }
 
 // pcl point type

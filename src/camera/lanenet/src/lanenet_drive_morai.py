@@ -256,53 +256,66 @@ class LanenetDetection:
                     tunnel_statlc_roi_check_arr = [0, 0, 0]
                     self.theta_list = []
                     # 터널 정적 PE-Drum s자 회피
-                    if len(self.obstacle_list_static) > 0:
-                        last_tunnel_static_obstacle = None
+                    if self.static_state in ['L', 'R']:
                         for obstacle in self.obstacle_list_static:
+        # 오른쪽 장애물 감지 (왼쪽으로 피함)
+                            if 0.5 < obstacle.x < 8.5 and -1.5 <= obstacle.y <= 0.0:
+                                tunnel_statlc_roi_check_arr[1] = 1
+                                self.motor_msg = 7
+                                print("오른쪽 차선 주행시 장애물 인식")
 
-                            if self.static_state == 'L':
-                                # 전방 체크
-                                if 0.5 < obstacle.x < 5.5 and -2.0 <= obstacle.y <= 2.0:
-                                    tunnel_statlc_roi_check_arr[1] = 1
-                                    self.motor_msg = 7
+        # 왼쪽 장애물 감지 (오른쪽으로 피함)
+                            if 0.5 < obstacle.x < 8.5 and 0.0 <= obstacle.y <= 1.5:
+                                tunnel_statlc_roi_check_arr[0] = 1
+                                self.motor_msg = 7
+                                print("왼쪽 차선 주행시 장애물 인식")
 
-                                # 왼쪽뒤 체크
-                                if -6 <= obstacle.x <= -0.5 and 0 < obstacle.y <= 3.5:
-                                    tunnel_statlc_roi_check_arr[0] = 1
-                                    self.motor_msg = 7
-                                # 시작 타이밍 체크
-                        if tunnel_statlc_roi_check_arr == [1, 1, 0]:
-                            for obstacle in self.obstacle_list_static:
-                                if 1.0 < obstacle.x < 4.0:
-                                    tunnel_statlc_roi_check_arr[2] = 1
-                                    # flag
-                                    self.static_state = 'A'
-                                    self.motor_msg = 7
-                                    # gt heading
-                                    self.gt_heading = self.real_heading
+# 오른쪽 장애물 → 왼쪽 회피
+                if tunnel_statlc_roi_check_arr == [0, 1, 0]:
+                    for obstacle in self.obstacle_list_static:
+                        if 1.0 < obstacle.x < 7.0:
+                            tunnel_statlc_roi_check_arr[2] = 1
+                            print("오른쪽주행중 장애물인식 → 왼쪽 회피")
+                            self.static_state = 'A'
+                            self.motor_msg = 7
+                            self.gt_heading = self.real_heading
+                            self.avoid_heading = 25
+                            self.return_heading = -13
+                            break
 
-                                    self.avoid_heading = 25
-                                    self.return_heading = -13
+                # 왼쪽 장애물 → 오른쪽 회피
+                if tunnel_statlc_roi_check_arr == [1, 0, 0]:
+                    for obstacle in self.obstacle_list_static:
+                        if 1.0 < obstacle.x < 7.0:
+                            tunnel_statlc_roi_check_arr[2] = 1
+                            print("왼쪽주행중 장애물인식 → 오른쪽 회피")
+                            self.static_state = 'A'
+                            self.motor_msg = 7
+                            self.gt_heading = self.real_heading
+                            self.avoid_heading = -25
+                            self.return_heading = 13
+                            break
 
-                                    break
-                       
-                    # 터널 내 장애물 회피 각도 조정
-                    if self.static_state == 'A':
-                        if self.local_heading != None:
-                            if (self.avoid_heading > self.local_heading): # 목표 heading에 도달하지 못했으면 좌조향
-                                angle = -0.7 * abs(self.local_heading - self.avoid_heading)
-                            else:
+                # --- 회피 종료 후 복귀 방향 결정 ---
+                if self.static_state == 'A':
+                    if self.local_heading is not None:
+                        if (self.return_heading < self.local_heading):
+                            angle = 1 * abs(self.local_heading - self.return_heading)
+                        else:
+                            # 복귀 방향 결정
+                            if self.avoid_heading > 0:
+                                # 왼쪽으로 피했으면 → 오른쪽 주행으로 복귀
+                                print("회피종료 차선 왼쪽보기")
                                 self.static_state = 'R'
-                    
-                    elif self.static_state == 'R':
-
-                        if self.local_heading != None:
-                            if (self.return_heading < self.local_heading): # 목표 heading에 도달하지 못했으면 우조향
-                                angle = 1 * abs(self.local_heading - self.return_heading)
                             else:
-                                self.gt_heading = None
-                                self.avoid_heading = None
-                                self.return_heading = None
+                                # 오른쪽으로 피했으면 → 왼쪽 주행으로 복귀
+                                print("회피종료 차선 오른쪽보기")
+                                self.static_state = 'L'
+
+                            self.gt_heading = None
+                            self.avoid_heading = None
+                            self.return_heading = None
+                            self.is_dynamic = False
 
                 # ---------------------- 정적 회피 주행 end ---------------------- #
 
@@ -324,16 +337,16 @@ class LanenetDetection:
                     self.is_steer_stable = True
 
 
-                print("flag list", tunnel_statlc_roi_check_arr)
-                print("정적 회피 시작: ", self.static_state)
-                print("local_heading", self.local_heading)
-                print("gt_heading", self.gt_heading)
-                print("real_heading", self.real_heading)
-                print("steer_stable", self.is_steer_stable)
+                # print("flag list", tunnel_statlc_roi_check_arr)
+                # print("정적 회피 시작: ", self.static_state)
+                # print("local_heading", self.local_heading)
+                # print("gt_heading", self.gt_heading)
+                # print("real_heading", self.real_heading)
+                # print("steer_stable", self.is_steer_stable)
                 # 동적 flag 올리기 위함 
                 # self.static_state + steering(변화량이 적을때)  -> is_dynamic(True)
-                if (self.static_state == 'R') and (self.is_steer_stable == True):
-                    self.is_dynamic = True
+                # if (self.static_state == 'R') and (self.is_steer_stable == True):
+                #     self.is_dynamic = True
 
 
                 # MORAI 상에서는 -radian을 씌워야 하는데 해당 위치에서 해야 한번에 가능
@@ -529,6 +542,7 @@ class LanenetDetection:
         self.ctrl_cmd_msg.steering = servo_msg
         self.ctrl_cmd_msg.brake = brake_msg
         self.ctrl_cmd_pub.publish(self.ctrl_cmd_msg)
+        
 
 if __name__ == "__main__":
     try:
