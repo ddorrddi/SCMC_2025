@@ -12,11 +12,31 @@ void clearConsole();
 void logging(const PurePursuit& control);
 
 int main(int argc, char** argv) {
+    
+
     ros::init(argc, argv, "pure_pursuit");
 
     ROS_INFO("controller_node init");
 
+
     PurePursuit control(argv[1][0]);
+
+
+    // if(control.is_avoidance_success && !control.has_turned_after_avoidance){
+    //     ROS_INFO("[회피 후 조향]");
+    
+    //     control.steering = -20.0; // 또는 +30.0
+    //     control.velocity = 8.0;
+    //     control.brake = 0.0;
+    //     control.publishControlMsg();
+    
+    //     control.has_turned_after_avoidance = true;
+    //     ros::Duration(1.0).sleep();  // 1초 정도 꺾은 채 유지
+    // }
+    // ros::Subscriber sub_left_flag = control.nh.subscribe("/pure_pursuit/left_flag", 1, &PurePursuit::leftFlagCB, &control);
+    // ros::Subscriber sub_right_flag = control.nh.subscribe("/pure_pursuit/right_flag", 1, &PurePursuit::rightFlagCB, &control);
+    // ros::Subscriber sub_path_done = control.nh.subscribe("/pure_pursuit/just_finished_local_path", 1, &PurePursuit::localPathDoneCB, &control);
+
     int parking_space_num = atoi(argv[3]);
     control.parking_space_num = parking_space_num;
     bool isLogging = true; //argv[2][0] == 't';
@@ -72,6 +92,37 @@ int main(int argc, char** argv) {
     while(ros::ok()){
         ros::spinOnce();
         control.flowControl(control.curr_pose);
+
+        if (control.is_avoidance_success && !control.has_turned_after_avoidance) {
+            ROS_INFO("AVOID!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+
+            const double steering_angle_rad = 7.0 * (M_PI / 180.0);
+            
+            // last_avoidance_direction == 1: 오른쪽 장애물을 왼쪽으로 회피 -> 오른쪽으로 꺾어 복귀
+            if (control.last_avoidance_direction == 1) {
+                ROS_INFO("RIGHT!!!!!!!!!!!!!!!!!");
+                control.steering = -steering_angle_rad;  // 
+            } 
+            // last_avoidance_direction == -1: 왼쪽 장애물을 오른쪽으로 회피 -> 왼쪽으로 꺾어 복귀
+            else if (control.last_avoidance_direction == -1) {
+                ROS_INFO("LEFT!!!!!!!!!!!!!!!!!");
+                control.steering = steering_angle_rad ; // 
+            }
+
+            control.velocity = 8.0; // 
+            control.brake = 0.0;
+            control.publishControlMsg();
+            
+            ros::Duration(1.0).sleep(); // 
+
+            // 복귀 조향이 끝났으므로 플래그들을 리셋
+            control.has_turned_after_avoidance = true;
+            control.is_avoidance_success = false; 
+            control.last_avoidance_direction = 0; 
+
+            // 바로 다음 루프로 넘어가서 일반 주행 로직을 수행하도록 함
+            continue; 
+        }
 
         if(isLogging && control.is_path_set && control.is_pose_set){
             logging(control);

@@ -45,8 +45,7 @@ class GlobalPathPlanner:
         self.is_path_set = False
         
     def set_g_path(self, file_name): 
-        # with open(f'{self.pkg_path}/paths/kcity_semi_path_1019_1.txt', 'r') as f:
-        
+ 
         with open(f'{self.pkg_path}/paths/kcity_semi_path_1019_1.txt', 'r') as f: 
             for line in f.readlines():
                 x, y, yaw, mode = map(float, line.split())

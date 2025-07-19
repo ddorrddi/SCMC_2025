@@ -97,6 +97,10 @@ public:
     void localPathCallback(const erp_drive::PathReference& l_path);
     void localPathDoneCallback(const std_msgs::Int16& signal);
 
+    ros::Subscriber avoidance_direction_sub;
+    void avoidanceDirectionCallback(const std_msgs::Int16& msg);
+
+
     erp_drive::PathReference delivery_path;
     int delivery_path_size, delivery_curr_idx;
     bool is_delivery_done = false;
@@ -192,6 +196,11 @@ public:
         // 행렬에서 오일러 각을 추출
         m.getRPY(roll, pitch, yaw);
     }
+
+    // 추가
+    bool is_avoidance_success = false;
+    bool has_turned_after_avoidance = false;
+    int last_avoidance_direction = 0;
 };
 
 #endif

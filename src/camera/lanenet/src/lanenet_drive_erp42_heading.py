@@ -23,7 +23,7 @@ from slidewindow_both import *
 from geometry_msgs.msg import  Vector3
 from lidar_object_detection.msg import ObjectInfo
 from visualization_msgs.msg import MarkerArray
-from move_base_msgs.msg import MoveBaseActionResult
+#from move_base_msgs.msg import MoveBaseActionResult
 from std_msgs.msg import Float64, Int64, Bool
 from morai_msgs.msg import GetTrafficLightStatus, CtrlCmd, GPSMessage
 from race.msg import drive_values
@@ -487,6 +487,7 @@ class LanenetDetection:
    
     def publishCtrlCmd(self, motor_msg, servo_msg, brake_msg):
         if self.global_path_finish:
+            print("lanene주행중!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!s")
             self.drive_value.throttle = int(motor_msg)
             self.drive_value.steering = servo_msg
             self.drive_value.brake = brake_msg

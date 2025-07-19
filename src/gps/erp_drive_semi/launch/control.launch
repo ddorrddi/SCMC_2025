@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <launch>
-  <!-- <include file="$(find handsfree_ros_imu)/launch/handsfree_imu.launch"/>
-  <include file="$(find ublox_gps)/launch/ublox_zed-f9p_base.launch"/> -->
-  <!-- <include file="$(find lanenet)/launch/lanenet_drive_erp42.launch"/> -->
+  <!-- <include file="$(find handsfree_ros_imu)/launch/handsfree_imu.launch"/> -->
+  <!-- <include file="$(find ublox_gps)/launch/ublox_zed-f9p_base.launch"/>  -->
+  <include file="$(find lanenet)/launch/lanenet_drive_morai.launch"/>
   
   <node pkg="waypoint_maker" type="waypoint_maker_right_only.py" name="waypoint_maker_right_only" />
   <node pkg="waypoint_maker" type="drawing_path.py" name="drawing_path" />
