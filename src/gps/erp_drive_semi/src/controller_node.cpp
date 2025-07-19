@@ -1,6 +1,6 @@
 #include "pure_pursuit.h"
 
-void paramCallback(erp_drive::CtrlParamConfig &config, PurePursuit* control) {
+void paramCallback(erp_drive_semi::CtrlParamConfig &config, PurePursuit* control) {
     control->global_velocity = config.global_velocity;
     control->global_lookahead_distance = config.global_lookahead_distance;
     control->local_velocity = config.local_velocity;
@@ -21,8 +21,8 @@ int main(int argc, char** argv) {
     ros::Publisher target_waypoint_pub = control.nh.advertise<geometry_msgs::PointStamped>("/target_waypoint", 1);
     ros::Publisher curr_waypoint_pub = control.nh.advertise<geometry_msgs::PointStamped>("/curr_waypoint", 1);
 
-    dynamic_reconfigure::Server<erp_drive::CtrlParamConfig> server;
-    dynamic_reconfigure::Server<erp_drive::CtrlParamConfig>::CallbackType f;
+    dynamic_reconfigure::Server<erp_drive_semi::CtrlParamConfig> server;
+    dynamic_reconfigure::Server<erp_drive_semi::CtrlParamConfig>::CallbackType f;
     
     f = boost::bind(&paramCallback, _1, &control);
     server.setCallback(f);

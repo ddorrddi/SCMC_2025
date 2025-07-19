@@ -20,4 +20,7 @@
   <depend>roscpp_serialization</depend>
   <depend>diagnostic_updater</depend>
 
+  <build_depend>Message</build_depend>
+  <exec_depend>Message</exec_depend>
+
 </package>

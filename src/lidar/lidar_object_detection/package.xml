@@ -85,6 +85,18 @@
   <exec_depend>message_runtime</exec_depend>
   <exec_depend>laser_geometry</exec_depend>
 
+  <build_depend>Boundingbox</build_depend>
+  <exec_depend>Boundingbox</exec_depend>
+
+  <build_depend>NearestObstacleInfo</build_depend>
+  <exec_depend>NearestObstacleInfo</exec_depend>
+
+  <build_depend>ObjectInfo</build_depend>
+  <exec_depend>ObjectInfo</exec_depend>
+
+  <build_depend>PointInfo</build_depend>
+  <exec_depend>PointInfo</exec_depend>
+
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

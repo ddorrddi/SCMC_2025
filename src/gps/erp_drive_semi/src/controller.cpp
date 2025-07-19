@@ -10,7 +10,7 @@ Controller::Controller(char control_target):
        
         this->global_path_finish_pub = nh.advertise<std_msgs::Bool>("/global_path_finish", 1);
 
-        this->erp_drive_pub = nh.advertise<race::drive_values>("control_value", 1);
+        this->erp_drive_semi_pub = nh.advertise<race::drive_values>("control_value", 1);
         this->morai_drive_pub = nh.advertise<morai_msgs::CtrlCmd>("/ctrl_cmd", 1);
 
         this->curr_waypoint_pub = nh.advertise<std_msgs::Int16>("/curr_idx", 1);
@@ -23,17 +23,17 @@ Controller::Controller(char control_target):
 
         this->imu_sub = nh.subscribe("/handsfree/imu", 1, &Controller::imuCallback, this);
 
-        this->client = nh.serviceClient<erp_drive::InitializePose>("initialize_pose");
-        this->client_for_parking_path = nh.serviceClient<erp_drive::PermitParking>("permit_parking");
+        this->client = nh.serviceClient<erp_drive_semi::InitializePose>("initialize_pose");
+        this->client_for_parking_path = nh.serviceClient<erp_drive_semi::PermitParking>("permit_parking");
     }
 
-void Controller::globalPathCallback(const erp_drive::PathReference& g_path){
+void Controller::globalPathCallback(const erp_drive_semi::PathReference& g_path){
     this->g_path = g_path;
     this->g_path_size = g_path.path.size();
     this->is_path_set = true;
 }
 
-void Controller::localPathCallback(const erp_drive::PathReference& l_path){
+void Controller::localPathCallback(const erp_drive_semi::PathReference& l_path){
     if(this->g_curr_idx < 1080) return;
 
     if(this->start_yaw == -400)
@@ -175,7 +175,7 @@ void Controller::publishControlMsg(){
 
         msg.brake = this->brake;
 
-        this->erp_drive_pub.publish(msg);
+        this->erp_drive_semi_pub.publish(msg);
     }
 
     // 모라이로 주행 시 실행되는 블럭

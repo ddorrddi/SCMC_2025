@@ -62,17 +62,17 @@ add_dependencies(control2 ${PROJECT_NAME}_gencfg)
 add_dependencies(control2 ${PROJECT_NAME}_generate_messages_cpp)
 
 
-add_executable(
-  control_fmtc
-  src/controller_fmtc.cpp
-  src/pure_pursuit.cpp
-  src/controller_node.cpp
-)
+# add_executable(
+#   control_fmtc
+#   src/controller_fmtc.cpp
+#   src/pure_pursuit.cpp
+#   src/controller_node.cpp
+# )
 
-target_link_libraries(control_fmtc ${catkin_LIBRARIES})
-add_dependencies(control_fmtc ${catkin_EXPORTED_TARGETS})
-add_dependencies(control_fmtc ${PROJECT_NAME}_gencfg)
-add_dependencies(control_fmtc ${PROJECT_NAME}_generate_messages_cpp)
+# target_link_libraries(control_fmtc ${catkin_LIBRARIES})
+# add_dependencies(control_fmtc ${catkin_EXPORTED_TARGETS})
+# add_dependencies(control_fmtc ${PROJECT_NAME}_gencfg)
+# add_dependencies(control_fmtc ${PROJECT_NAME}_generate_messages_cpp)
 
 # Specify where the Python scripts are located
 catkin_install_python(PROGRAMS

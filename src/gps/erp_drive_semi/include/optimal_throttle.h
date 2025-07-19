@@ -14,8 +14,8 @@
 #include <geometry_msgs/TwistStamped.h>
 
 // Path 관련 커스텀 메세지
-#include <erp_drive/PathReference.h>
-#include <erp_drive/PathReferenceElement.h>
+#include <erp_drive_semi/PathReference.h>
+#include <erp_drive_semi/PathReferenceElement.h>
 
 // 제어 관련 메세지
 #include <race/drive_values.h>
@@ -23,7 +23,7 @@
 
 // velocity 등 parameter 서버를 위한 헤더 
 #include <dynamic_reconfigure/server.h>
-#include <erp_drive/CtrlParamConfig.h>
+#include <erp_drive_semi/CtrlParamConfig.h>
 
 #include <vector>
 #include <string>

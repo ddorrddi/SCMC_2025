@@ -95,6 +95,15 @@
   <build_depend>message_filters</build_depend>
   <exec_depend>message_filters</exec_depend>
 
+  <build_depend>IoUFusionMsg</build_depend>
+  <exec_depend>IoUFusionMsg</exec_depend>
+
+  <build_depend>PathReference</build_depend>
+  <exec_depend>PathReference</exec_depend>
+
+  <build_depend>PathReferenceElement</build_depend>
+  <exec_depend>PathReferenceElement</exec_depend>
+
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

@@ -19,8 +19,8 @@
 #include <geometry_msgs/TwistStamped.h>
 
 // Path 관련 커스텀 메세지
-#include <erp_drive/PathReference.h>
-#include <erp_drive/PathReferenceElement.h>
+#include <erp_drive_semi/PathReference.h>
+#include <erp_drive_semi/PathReferenceElement.h>
 
 // 제어 관련 메세지
 #include <race/drive_values.h>
@@ -28,13 +28,13 @@
 
 // velocity 등 parameter 서버를 위한 헤더 
 #include <dynamic_reconfigure/server.h>
-#include <erp_drive/CtrlParamConfig.h>
+#include <erp_drive_semi/CtrlParamConfig.h>
 
 #include <string>
 
 #include "optimal_throttle.h"
-#include "erp_drive/InitializePose.h"
-#include "erp_drive/PermitParking.h"
+#include "erp_drive_semi/InitializePose.h"
+#include "erp_drive_semi/PermitParking.h"
 
 class Controller {
 public:
@@ -67,7 +67,7 @@ public:
     ros::Publisher global_path_finish_pub;
 
     // ERP 주행용, 모라이 주행용 Publisher
-    ros::Publisher erp_drive_pub;
+    ros::Publisher erp_drive_semi_pub;
     ros::Publisher morai_drive_pub;
     void publishControlMsg();
 
@@ -77,17 +77,17 @@ public:
     ros::Publisher curr_idx_pub;
 
     // global path 및 Subscriber
-    erp_drive::PathReference g_path;
+    erp_drive_semi::PathReference g_path;
     int g_path_size, g_curr_idx;
     ros::Subscriber g_path_sub;
-    void globalPathCallback(const erp_drive::PathReference& g_path);
+    void globalPathCallback(const erp_drive_semi::PathReference& g_path);
 
     // local path 및 Subscriber
-    erp_drive::PathReference l_path;
+    erp_drive_semi::PathReference l_path;
     int l_path_size, l_curr_idx;
     ros::Subscriber l_path_sub;
     ros::Subscriber l_path_done_sub;
-    void localPathCallback(const erp_drive::PathReference& l_path);
+    void localPathCallback(const erp_drive_semi::PathReference& l_path);
     void localPathDoneCallback(const std_msgs::Int16& signal);
 
     bool is_parking_path_set, is_parking_in_path_set, is_parking_out_path_set;
@@ -120,8 +120,8 @@ public:
 
     ros::ServiceClient client;
     ros::ServiceClient client_for_parking_path;
-    erp_drive::InitializePose srv;
-    erp_drive::PermitParking srv_parking_path;
+    erp_drive_semi::InitializePose srv;
+    erp_drive_semi::PermitParking srv_parking_path;
      
     // geometry_msg::Pose -> tf::Vector3 로 변환
     tf::Vector3 pose2vec(const geometry_msgs::Pose& pose) {
