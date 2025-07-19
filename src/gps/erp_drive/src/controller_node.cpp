@@ -299,95 +299,18 @@ int main(int argc, char** argv) {
             control.publishControlMsg();
         }
 
-        else if(control.optimal_throttle.eventPlaceInfoManager.getCurrEventPlaceInfo().type == EventType::STOP_DELIVERY_B && control.optimal_throttle.shouldStop){
-            // 이 부분은 path 생성시 delivery line 기반으로 좀 쭉 늘려놔서 제어 안정성을 늘려 놓고
-            // 몇 정도에서 정지시킬지 정해야 함.
-
-            if(delivery_phase == -1){
-                if(control.delivery_curr_idx < control.delivery_path_size - 1){
-                    control.lookahead_distance = control.local_lookahead_distance;
-                    control.velocity = control.local_velocity;
-                    control.calcSteering(control.curr_pose);
-                    control.publishControlMsg();
-
-                    control.timer.resetTimer(5.3);
-                }
-
-                // 암튼 윗 주석에서 말한 임계점에 도달을 했다면 멈췄다가 출발
-                else {
-                    control.brake = 1.0;
-                    control.velocity = 0.;
-                    control.steering = 0.;
-                    control.publishControlMsg();
-
-                    control.timer.start();
-                    if(!control.timer.isTimeout()){
-                        ROS_INFO("[STOP DELIVERY] Vehicle Stabilization");
-                        continue;
-                    }
-
-                    control.start_yaw = -400;
-                    control.timer.resetTimer(0.5);
-                    delivery_phase += 1;
-                }
+        else if(control.is_delivery_path_set){ // TODO : 배달목적지에서 정지하는법 찾아서 완성하기
+            if(control.is_delivery_done){
+                // 0.5초 뒤에
+                control.velocity = 0;
+                // 3초 뒤에
+                control.is_delivery_done = false;
             }
-
-            else if(delivery_phase == 0){
-                if(control.start_yaw == -400) continue;
-                int diff = control.curr_yaw - control.start_yaw;
-            
-                if(diff >= 180)
-                    diff = abs(diff - 360);
-                
-                else if(diff <= -180)
-                    diff = abs(diff + 360);
-
-                if(diff >= 10){
-                    control.steering = 0.0;
-                    control.velocity = 0.0;
-                    control.brake = 1.0;
-                    control.publishControlMsg();
-
-                    control.timer.start();
-                    if(!control.timer.isTimeout()){
-                        ROS_INFO("[STOP DELIVERY] Vehicle Stabilization");
-                        continue;
-                    }
-
-                    control.brake = 0.0;
-                    control.start_yaw = -400;
-                    control.timer.resetTimer(0.5);
-                    delivery_phase += 1;
-                }
-                
-                else {
-                    control.steering = 30.0 / 180 * M_PI;
-                    control.velocity = -5.0;
-                    control.brake = 0.2;
-                    control.publishControlMsg();
-                }
-            }
-        
-            else if(delivery_phase == 1){
-                if(control.start_yaw == -400) continue;
-                int diff = control.curr_yaw - control.start_yaw;
-
-                if(diff >= 20){
-                    delivery_phase += 1;
-
-                    control.brake = 0.0;
-                    control.optimal_throttle.shouldStop = false;
-                    control.optimal_throttle.shouldDecel = false;
-                    control.optimal_throttle.eventPlaceInfoManager.nextEventPlaceInfo();
-
-                    continue;
-                }
-                
-                else {
-                    control.steering = 30.0;
-                    control.velocity = 8.0;
-                    control.publishControlMsg();
-                }
+            else{
+                control.lookahead_distance = control.local_lookahead_distance;
+                control.velocity = control.local_velocity;
+                control.calcSteering(control.curr_pose);
+                control.publishControlMsg();
             }
         }
 

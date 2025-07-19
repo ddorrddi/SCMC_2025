@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<launch>
+  <!-- 모라이 사용 시 주석 바람 -->
+  <!-- <include file="$(find handsfree_ros_imu)/launch/handsfree_imu.launch"/>
+  <include file="$(find ublox_gps)/launch/ublox_zed-f9p_base.launch"/>
+  <node pkg="race" type="serial_control_node" name="serial_control_node" /> -->
+  
+  <include file="$(find lidar_object_detection)/launch/object_detection.launch" />
+
+  <node pkg="erp_drive" type="wgs84_to_utmk.py" name="wgs84_to_utmk" output="screen" args="$(arg target)"/>
+  
+  <node pkg="erp_drive" type="planner.py" name="planner" output="screen" args="$(arg path)"/>
+
+  <!-- fusion node도 런치파일로 만들기 -->
+  <node pkg="erp_drive" type="fusion_node.py" name="fusion_node" output="screen">
+  <!--  -->
+
+  <node pkg="erp_drive" type="control" name="control" output="screen" launch-prefix="gdb -ex run --args"  args="$(arg target) f 0"/>
+</launch>

@@ -103,9 +103,14 @@ public:
 
     erp_drive::PathReference delivery_path;
     int delivery_path_size, delivery_curr_idx;
-    bool delivery_path_done = false;
+    bool is_delivery_done = false;
+    bool is_delivery_end = false;
     ros::Subscriber delivery_path_sub;
+    ros::Subscriber delivery_done_sub;
+    ros::Subscriber delivery_end_sub;
     void deliveryPathCallback(const erp_drive::PathReference& delivery_path);
+    void deliveryDoneCallback(const std_msgs::Int16& signal);
+    void deliveryEndCallback(const std_msgs::Int16& signal);
 
     // @FMTC
     int parking_start_idx[3] = {

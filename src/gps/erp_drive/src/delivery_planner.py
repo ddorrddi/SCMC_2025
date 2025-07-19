@@ -3,24 +3,27 @@
 # path 경로를 받기 위함
 import sys
 
+# 연산 관련 모듈
+import math
+
 # 경로 관련 모듈
 from nav_msgs.msg import Path
 from erp_drive.msg import PathReference
 from erp_drive.msg import PathReferenceElement
 
+# 퓨전전용 메시지
+from erp_drive.msg import IoUFusionMsg
+
 # Pose 등등 위치 관련 모듈
 from geometry_msgs.msg import Pose
 from geometry_msgs.msg import PoseStamped
+# 라이다 관련 -> 패키지명 확인 후 수정 
+from std_msgs.msg import Int16, String
 
 # 오일러 <-> 쿼터니언 변환 관련 모듈
 import numpy as np
-from scipy.interpolate import CubicHermiteSpline, CubicSpline
-from tf.transformations import euler_from_quaternion, quaternion_from_euler, quaternion_matrix
+from tf.transformations import euler_from_quaternion
 
-# 라이다 관련 -> 패키지명 확인 후 수정 
-from std_msgs.msg import Int16, String
-from visualization_msgs.msg import Marker, MarkerArray 
-from lidar_object_detection.msg import ObjectInfo
 
 # ros 관련 모듈
 import rospy
@@ -33,355 +36,274 @@ from constant import const
 from collections import deque
 from collections import Counter
 
+
 class DeliveryPlanner:
-    def __init__(self, rviz_offset_x: float, rviz_offset_y: float):
-        # 배달 시작 지점 (optimal_throttle.h 참조)
-        self.STOP_IDX = 1348
+    def __init__(self, g_path: PathReference, rviz_offset_x: float, rviz_offset_y: float):
+        # 파라미터 (조절해야됨)
+        self.threshold = 0.95 # IOU 신뢰도 임계값
+        self.min_queue_size = 20 # 목적지 좌표 신뢰도를 위한 큐 사이즈 (10Hz기준 20이면 2초간의 정보) !!메시지 드랍시 보완 로직이 없음!!
+        self.end_offset = 20 # 배달미션이 끝났는가 판단하는 최소 waypoint 개수
 
-        ############################## Path Settings ################################
+        # 로컬패스 설정
         self.pkg_path = rospkg.RosPack().get_path("erp_drive")
-        # NOTE 1 : delivery line : 표지판 위치 잡기 위한 reference
-        self.delivery_line = [[], [], []]
-        self.rviz_delivery_line = Path()
-        self.rviz_delivery_line.header.frame_id = 'map'
-
-        # NOTE 2 : 실제로 만들어지는 path는 delivery_path
         self.delivery_path = PathReference()
         self.rviz_delivery_path = Path()
         self.rviz_delivery_path.header.frame_id = 'map'
         self.rviz_offset_x, self.rviz_offset_y = rviz_offset_x, rviz_offset_y
-        #############################################################################
 
-        self.is_delivery_waypoint_set = False 
-        self.delivery_in_progress = False
-        self.delivery_done = False
-
-        self.set_path("kcity_delivery_line") 
-
-        ##### Variables ######
-        self.delivery_target_num = None #@TODO Planner에서 변경해주기
-        self.delivery_target_x = None 
-        self.delivery_target_y = None 
-        self.delivery_target_yaw = None 
-        self.g_obstacle_info = None 
-        self.g_curr_idx = None
-        self.delivery_start_idx = 0
-        self.delivery_end_idx = 999999
-
-        ##### Subscriber #####
-        self.curr_pose = None
-        self.curr_pose_sub = rospy.Subscriber("/current_pose", Pose, self.curr_pose_CB)
-        self.curr_idx_sub = rospy.Subscriber("/curr_idx", Int16, self.curr_idx_CB)
-        self.obstacle_info_sub = rospy.Subscriber('/delivery_info', ObjectInfo, self.obstacle_info_CB)
-        self.delivery_sign_sub = rospy.Subscriber('/delivery_sign', String, self.delivery_sign_CB)
-
-        ##### Publisher  ######
-        self.rviz_delivery_line_pub = rospy.Publisher("/rviz_delivery_line_pub", Path, queue_size= 1)
-        self.delivery_path_pub = rospy.Publisher("/delivery_path", PathReference, queue_size=1)
-        
-        self.rviz_delivery_path_pub = rospy.Publisher('/rviz_delivery_path', Path, queue_size=1)
-        self.delivery_done_pub = rospy.Publisher("/delivery_done", Int16, queue_size=1)
-        self.obstacle_makers_pub = rospy.Publisher("/obstacle_marker", MarkerArray, queue_size=1)
-        
-        ####### Flags #########
-
-        # 최근 20개의 표지판 데이터 저장
+        # 상태변수
+        self.STOP_IDX = 1348 # 배달미션 B지점 시작하는 글로벌패스 인덱스
+        self.segment_len = 120 # 배달미션 B구간 1348 ~ 1348+120
+        # self.g_path = g_path# 글로벌패스
+        self.g_path = [(e.pose.position.x, e.pose.position.y) for e in g_path] # 글로벌패스
+        self.destination = None
+        self.curr_idx = None # 현재 글로벌패스 웨이포인트 인덱스
+        self.curr_pose = None # 현재 Pose
+        self.delivery_target_num = None # 배달 타겟 번호
+        self.sign_coords = None # 목적지 좌표 (x,y,z)
+        self.delivery_in_progress = False # 배달 진행중인가 플래그
+        self.delivery_done = False # 배달 목적지 좌표에 도착했는가 플래그
+        self.delivery_end = False # 배달미션이 끝났는가 플래그
+        self.delivery_path_is_pub = False # 배달경로가 한번이라도 publish됐나 플래그
         self.sign_queue = deque(maxlen=70)
-        # 최소 필요 데이터 수
-        self.min_queue_size = 50
+        self.result_queue = deque(maxlen=100)
 
-    def set_path(self, file_name: str):
-        with open(f'{self.pkg_path}/paths/{file_name}.txt', 'r') as f:
-            for line in f.readlines():
-                x, y, yaw, mode = map(float, line.split())
-                
-                self.delivery_line[0].append(x)
-                self.delivery_line[1].append(y)
-                self.delivery_line[2].append(yaw)
-                
-                ### 시각화용 ####
-                rviz_pose = PoseStamped()
+        # 서브스크라이버
+        rospy.Subscriber("/current_pose", Pose, self.curr_pose_CB) # 현재 Pose업데이트용
+        rospy.Subscriber("/curr_idx", Int16, self.curr_idx_CB) # 현재 idx업데이트용
+        rospy.Subscriber('/fusion_iou', IoUFusionMsg, self.iou_fusion_CB) # 퓨전노드에서 다 처리하고 싹 넘겨받는용 (예상치 10Hz)
+        rospy.Subscriber('/delivery_sign', String, self.delivery_sign_CB) # 배달목적지 표지판 텍스트
 
-                rviz_pose.header.frame_id = 'map'
-                rviz_pose.header.stamp = rospy.Time.now()
+        rospy.Subscriber('/now_test', Int16, self.test_now_CB) # 로컬패스 생성확인하는 테스트용 구독자
 
-                rviz_pose.pose.position.x = x - self.rviz_offset_x
-                rviz_pose.pose.position.y = y - self.rviz_offset_y
-                rviz_pose.pose.position.z = 0.
+        # 퍼블리셔
+        self.delivery_path_pub = rospy.Publisher("/local_path", PathReference, queue_size=1) # 배달경로
+        self.rviz_delivery_path_pub = rospy.Publisher('/rviz_delivery_path', Path, queue_size=1) # 시각화용 배달경로
+        self.delivery_done_pub = rospy.Publisher("/delivery_done", Int16, queue_size=1) # 배달 목적지에 도착했는지 플래그
+        self.delivery_end_pub = rospy.Publisher("/local_path_done", Int16, queue_size=1) # 배달미션이 끝났는지 플래그
 
-                quat = quaternion_from_euler(0., 0., yaw)
-                rviz_pose.pose.orientation.x = quat[0]
-                rviz_pose.pose.orientation.y = quat[1]
-                rviz_pose.pose.orientation.z = quat[2]
-                rviz_pose.pose.orientation.w = quat[3]
+    def test_now_CB(self,msg: Int16):
+        tester = msg.data
+        if tester == 1:
+            rospy.loginfo("test_now_CB()호출 : 테스트 시작")
+            self.make_delivery_path(isTest=True)
+            return
+        else:
+            return
 
-                self.rviz_delivery_line.poses.append(rviz_pose)
-
-            self.rviz_delivery_line.header.stamp = rospy.Time.now()
-
-        self.delivery_line = np.array(self.delivery_line)
-        self.is_delivery_waypoint_set = True
-
-    def curr_idx_CB(self, idx : Int16) :
-        self.g_curr_idx = idx.data
+    def curr_idx_CB(self, msg: Int16):
+        self.curr_idx = msg.data
 
     def curr_pose_CB(self, msg: Pose):
         self.curr_pose = msg
 
-    def get_transfomation_matrix(self):
-        orientation_list = [
-            self.curr_pose.orientation.x, 
-            self.curr_pose.orientation.y,
-            self.curr_pose.orientation.z,
-            self.curr_pose.orientation.w
-        ]
-        
-        transition = np.array([
-            [1., 0., 0., self.curr_pose.position.x], 
-            [0., 1., 0., self.curr_pose.position.y],
-            [0., 0., 1., self.curr_pose.position.z],
-            [0., 0., 0., 1.]
-        ])
-        
-        inverse_transition = np.array([
-            [1., 0., 0., -self.curr_pose.position.x], 
-            [0., 1., 0., -self.curr_pose.position.y], 
-            [0., 0., 1., -self.curr_pose.position.z],
-            [0., 0., 0., 1.]
-        ])
-        
-        rotation = quaternion_matrix(orientation_list)
-        
-        mat_v2g = transition @ rotation
-        mat_g2v = rotation.T @ inverse_transition
-        
-        _, _, curr_yaw = euler_from_quaternion(orientation_list)
-        
-        return mat_v2g, mat_g2v, curr_yaw
-
-    # 근데 이럴거면 그냥 message filtering 하는게 나을 거 같은데
-    def obstacle_info_CB(self, msg : ObjectInfo):
-        if self.g_curr_idx is None or self.curr_pose is None:
-            return 
-        
-        # 혹시나 혹시나 해서 남김 -> 원래 1450임
-        if self.STOP_IDX > self.g_curr_idx or self.g_curr_idx > self.STOP_IDX + 120:
-            return 
-
-        self.objectCounts = msg.objectCounts
-    
-        # msg에 내용물이 없는 경우
-        if msg.objectCounts == 0:
+    def iou_fusion_CB(self, msg: IoUFusionMsg): # TODO : 메시지로 넘어온 number가 현재 설정된 target_number와 같은지 체크가 빠져있어요!!!!
+        # 유효성 체크
+        if self.delivery_in_progress:
             return
-        
-        ### lidar 좌표계 상의 정보를 global 좌표계 상 정보로 변경 ####
-        self.rel_obstacle_info = np.array([msg.centerX, msg.centerY, msg.centerZ, msg.lengthX, msg.lengthY, msg.lengthZ])
-        self.rel_obstacle_info = self.rel_obstacle_info[:, :msg.objectCounts]
-        self.rel_obstacle_info[0] += 1.2
-        
-        # GPS 수신기의 위치에 따라 값이 변동됨.
-        # ERP 기준으로는 ~~ 약 0.2???? @@@ 내일 하기 전에 꼭 변경하기
-        # self.rel_obstacle_info[1] -= 0.2
-
-        angle_filter = np.abs(np.arctan2(self.rel_obstacle_info[1], self.rel_obstacle_info[0])) < np.pi / 6
-        self.rel_obstacle_info = self.rel_obstacle_info[:, angle_filter]
-        
-        if len(self.rel_obstacle_info[0]) == 0:
+        if self.curr_idx is None or self.curr_pose is None: # 현재 idx와 Pose가 세팅돼있어야 유효
             return
-       
-        #가장 가까운 순으로 정렬 거리 계산 및 정렬
-        distances = np.hypot(self.rel_obstacle_info[0], self.rel_obstacle_info[1])
-        sorted_indices = np.argsort(distances)
-        self.rel_obstacle_info = self.rel_obstacle_info[:, sorted_indices]
+        if not (self.STOP_IDX <= self.curr_idx <= self.STOP_IDX + self.segment_len): # 배달 B구간일때만 유효
+            return
+        if msg.score < self.threshold: # IOU 스코어가 임계치 이상일때만 유효
+            return
 
-        self.obst_x = self.rel_obstacle_info[0][0]
-        self.obst_y = self.rel_obstacle_info[1][0]
-        self.obst_len_x = self.rel_obstacle_info[-3][0]
-        self.obst_len_y = self.rel_obstacle_info[-2][0]
-        self.obst_len_z = self.rel_obstacle_info[-1][0]
-    
-        mat_v2g, mat_g2v, curr_yaw = self.get_transfomation_matrix()
+        # 메시지로 넘어온 목적지 좌표(라이다 좌표계)를 글로벌좌표계로 고치기
+        ori = [self.curr_pose.orientation.x, self.curr_pose.orientation.y,
+               self.curr_pose.orientation.z, self.curr_pose.orientation.w]
+        _, _, yaw = euler_from_quaternion(ori)
+        x_r, y_r, z_r = (self.curr_pose.position.x,
+                         self.curr_pose.position.y,
+                         self.curr_pose.position.z)
+        lx, ly, lz = msg.x, msg.y, msg.z
+        x_g = x_r + (lx * np.cos(yaw) - ly * np.sin(yaw))
+        y_g = y_r + (lx * np.sin(yaw) + ly * np.cos(yaw))
+        z_g = z_r + lz
 
-        self.g_obstacle_info = np.copy(self.rel_obstacle_info)
+        # min_queue_size까지 데이터(목적지 좌표) 샘플 수집 **계속 수집할지, 수집이 완료하면 수집 안할지도 고민**
+        if len(self.result_queue) < self.min_queue_size:
+            self.result_queue.append((x_g, y_g, z_g))
+            return
 
-        info = np.array([
-                self.rel_obstacle_info[0],
-                self.rel_obstacle_info[1],
-                np.zeros(len(self.rel_obstacle_info[0])),
-                np.ones(len(self.rel_obstacle_info[0]))
-            ])
-        
-        self.g_obstacle_info[:2] = (mat_v2g @ info)[:2]
-        ############################################################
+        # 평균치 내고 튀는값(노이즈) 제거
+        arr = np.array(self.result_queue)
+        mean_pt = arr.mean(axis=0)
+        dists = np.linalg.norm(arr - mean_pt, axis=1)
+        inliers = arr[dists <= 0.3]
+        final_pt = inliers.mean(axis=0) if inliers.size else mean_pt
+        self.result_queue.clear()
 
-        _marker_array = MarkerArray()
+        # 최종 목적지 좌표 설정
+        self.sign_coords = (final_pt[0], final_pt[1], final_pt[2])
 
-        for idx in range(len(self.rel_obstacle_info[0])):
-            _marker = Marker()
-
-            _marker.ns = 'hi'
-            _marker.header.frame_id = 'map'
-            _marker.header.stamp = rospy.Time.now()
-            _marker.id = idx
-            _marker.type = Marker.CUBE
-            _marker.action = Marker.ADD
-
-            _marker.pose.position.x = self.g_obstacle_info[0][idx] - self.rviz_offset_x
-            _marker.pose.position.y = self.g_obstacle_info[1][idx] - self.rviz_offset_y
-            _marker.pose.position.z = self.g_obstacle_info[2][idx]
-
-            _marker.pose.orientation.x = self.curr_pose.orientation.x
-            _marker.pose.orientation.y = self.curr_pose.orientation.y
-            _marker.pose.orientation.z = self.curr_pose.orientation.z
-            _marker.pose.orientation.w = self.curr_pose.orientation.w
-            
-            _marker.color.a = 0.5
-            _marker.color.r = 1.0
-            _marker.color.g = 1.0
-            _marker.color.b = 1.0
-
-            _marker.scale.x = self.rel_obstacle_info[-3][idx]
-            _marker.scale.y = self.rel_obstacle_info[-2][idx]
-            _marker.scale.z = self.rel_obstacle_info[-1][idx]
-
-            _marker_array.markers.append(_marker)
-
-        self.obstacle_makers_pub.publish(_marker_array)
-        
-    # 여기서 distance_threshold가 무슨 말인지 모르겠음
-    def find_delivery_target_coord(self, obstacles: np.ndarray):
-        dists = np.hypot(obstacles[0] - self.delivery_line[0], obstacles[1] - self.delivery_line[1])
-        candi_blocked_idx = np.argmin(dists)
-        distance_threshold = 1.0
-        
-        if dists[candi_blocked_idx] <= distance_threshold:
-            self.blocked_idx = np.min(candi_blocked_idx - 5, 0)
-            self.delivery_target_x = self.delivery_line[0][self.blocked_idx]
-            self.delivery_target_y = self.delivery_line[1][self.blocked_idx]
-            self.delivery_target_yaw = self.delivery_line[2][self.blocked_idx]
-            return True
-        
-        return False
-    
-    def delivery_done_confirm(self):
-        if self.delivery_target_x is None and self.delivery_target_y is None:
-            return False
-        
-        dist_to_target = np.hypot(self.curr_pose.position.x - self.delivery_target_x,\
-                                   self.curr_pose.position.y - self.delivery_target_x)
-
-        return dist_to_target < const.DELIVERY_SUCCESS_RADIUS # @TODO 실험적으로 찾아야 할 값
+        # 배달 타겟 잡혀있고 배달 진행중이 아니면 로컬패스 생성
+        if self.delivery_target_num is not None and not self.delivery_in_progress:
+            self.make_delivery_path()
 
     def delivery_sign_CB(self, msg: String):
-        if self.g_curr_idx is None or self.curr_pose is None or self.g_obstacle_info is None:
+        # 유효성 검사 및 타겟이 정해지지 않았을때 1회만 작동
+        if self.curr_idx is None or self.delivery_done or self.delivery_target_num is not None:
             return
-
-        if self.delivery_target_num is None:
-            self.delivery_target_num = int(msg.data)
-
-        # 인덱스 안에 들어오지 않았으면 그냥 리턴
-        if self.STOP_IDX > self.g_curr_idx or self.g_curr_idx > self.STOP_IDX +  120:
+        if (self.STOP_IDX <= self.curr_idx <= self.STOP_IDX + self.segment_len): # 배달 B구간일때는 작동안함
             return
-        
-        # 배달 완료 했으면 그냥 리턴 
-        if self.delivery_done:
-            return
-        
-        # 이미 delivery path 생성이 된 경우는 더 이상 밑의 내용을 수행하지 말아야함 
-        if self.delivery_in_progress:
-            # rospy.loginfo('delivery_info_CB: already delivery')
-            if self.delivery_done_confirm():
-                self.delivery_done = True 
-            return
-            
-        # 카메라에서 받아온 배달 표지판 값 중 최소값으로 내가 어느 영역에 있는지 인식 
-        sign_num = int(msg.data)
-        self.sign_queue.append(sign_num)
-        
-        # 충분한 데이터가 쌓였을 때만 처리
+        # 큐에 샘플 데이터 수집 이후 충분히 수집하면
+        self.sign_queue.append(int(msg.data))
         if len(self.sign_queue) >= self.min_queue_size:
-            most_common_sign = Counter(self.sign_queue).most_common(1)[0][0]
+            self.delivery_target_num = Counter(self.sign_queue).most_common(1)[0][0]
+            self.sign_queue.clear()
 
-            if most_common_sign == self.delivery_target_num:
-                if len(self.g_obstacle_info) > 0: # 라이다 상에 장애물이 들어오면 
-                # 그 장애물이 배달 line에 겹치는지도 확인해야함 > 이상한 장애물 잡았을 수도 있으니
-                    if self.find_delivery_target_coord(self.g_obstacle_info): 
-                        self.make_delivery_path()
-
-    def make_delivery_path(self):
-        mat_v2g, mat_g2v, curr_yaw = self.get_transfomation_matrix()
-        rel_x, rel_y, _, _ = mat_g2v @ np.array([self.delivery_target_x, self.delivery_target_y, 0., 1.]).T
-        
-        yaw = self.delivery_target_yaw - curr_yaw 
-
-        x = np.array([0, rel_x])
-        y = np.array([0, rel_y])
-
-        if np.any(np.diff(x)<=0):
-            rospy.logerr("Error : x must be strictly increasing")
+    # 배달 목적지 좌표에 도착했는가 확인하는 함수
+    def delivery_done_confirm(self, isTest = False):
+        if self.destination is None or self.curr_pose is None:
+            self.delivery_done = False
             return
         
-        dydx = np.array([0, yaw])
-        f = CubicHermiteSpline(x, y, dydx)
-        resolution = int(np.hypot(rel_x, rel_y) / 0.2)
-        path_x = np.linspace(x[0], x[-1], resolution)
-        path_y = f(path_x)
+        dist_to_target = np.hypot(self.curr_pose.position.x - self.destination[0],\
+                                   self.curr_pose.position.y - self.destination[1])
 
-        path = np.array([
-            path_x,
-            path_y,
-            np.zeros(shape=(resolution, )),
-            np.ones(shape=(resolution,)),
-        ])
-        df = f.derivative()
-        path_ori = df(path_x)
+        if dist_to_target < const.DELIVERY_SUCCESS_RADIUS and self.delivery_in_progress: # @TODO 실험적으로 찾아야 할 값
+            rospy.loginfo(f"delivery_done_confirm() : 목적지와의 거리 {dist_to_target}, 목적지 도착!")
+            self.delivery_done = True
+        
+        self.delivery_done_pub.publish(1 if self.delivery_done else 0)
 
-        path = mat_v2g @ path
+    # 배달미션이 끝났는지 확인하는 함수
+    def delivery_end_confirm(self):
+        if not self.delivery_in_progress or self.curr_pose is None: # 배달이 진행중이 아니면 체크안함
+            return
+        else:
+            vehicle = (self.curr_pose.position.x, self.curr_pose.position.y)
 
-        self.delivery_path = PathReference()
-        self.rviz_delivery_path.poses = []
-       
-        for x, y, yaw in zip(path[0], path[1], path_ori):
+            local_idx = self.find_closest_index([(e.pose.position.x, e.pose.position.y) for e in self.delivery_path.path], vehicle) # 현재 로컬패스 인덱스 확인
+            if local_idx > len(self.delivery_path.path) - self.end_offset: # 로컬패스에서 end_offset만큼 전만큼 보다 앞에 위치해있으면 배달미션 끝.
+                self.delivery_end = True
+                self.delivery_in_progress = False
+                rospy.loginfo("delivery_end_confirm() : 배달미션 끝")
+        self.delivery_end_pub.publish(1 if self.delivery_end else 0)
+
+    # 여기부턴 로컬패스 만들기
+    # 현재 좌표로부터 가장 가까운 글로벌 웨이포인트 인덱스 리턴
+    def find_closest_index(self, path, point):
+        px, py = point
+        best_idx, best_dist = 0, float('inf')
+        for i, (x, y) in enumerate(path):
+            d = math.hypot(x - px, y - py)
+            if d < best_dist:
+                best_dist, best_idx = d, i
+        return best_idx
+
+    # 곡선보정을 위한 복귀 글로벌 웨이포인트 인덱스 리턴
+    def compute_symmetric_return(self, path, dest, vehicle):
+        rospy.loginfo("compute_symmetric_return()호출 : 대칭위치 계산")
+        dest_idx    = self.find_closest_index(path, dest)
+        vehicle_idx = self.find_closest_index(path, vehicle)
+        delta       = dest_idx - vehicle_idx
+        sym_idx     = dest_idx + delta
+        sym_idx     = max(0, min(sym_idx, len(path)-1))
+        return sym_idx, path[sym_idx]
+
+    # 곡선보정해서 좌표들의 리스트 리턴
+    def fit_quartic(self, ctrl_pts, resolution=0.3):
+        rospy.loginfo("fit_quartic()호출 : 로컬경로 곡선보정")
+        pts = np.array(ctrl_pts)
+        ds  = np.hypot(np.diff(pts[:,0]), np.diff(pts[:,1]))
+        t   = np.concatenate(([0], np.cumsum(ds)))
+        coeff_x = np.polyfit(t, pts[:,0], deg=4)
+        coeff_y = np.polyfit(t, pts[:,1], deg=4)
+        total_length = t[-1]
+        n_samples = max(int(total_length / resolution), 2)
+        t_new = np.linspace(0, total_length, n_samples)
+        x_new = np.polyval(coeff_x, t_new)
+        y_new = np.polyval(coeff_y, t_new)
+        return list(zip(x_new, y_new))
+
+    # 로컬경로 생성해 리턴
+    def generate_local_delivery_path(self, dest, vehicle, n_offset=5, resolution=0.3):
+        rospy.loginfo("generate_local_delivery_path()호출 : 로컬경로 제작중")
+        # 1. 글로벌 경로 로드
+        path = self.g_path
+        # 2. 대칭 복귀점 계산
+        idx_sym, return_pt = self.compute_symmetric_return(path, dest, vehicle)
+        # 3. 주변 WP: 이전/다음 n_offset
+        idx_vehicle = self.find_closest_index(path, vehicle)
+        prev_wp  = path[max(idx_vehicle - n_offset, 0)]
+        next_wp  = path[min(idx_sym + n_offset, len(path)-1)]
+        # 4. 컨트롤 포인트 리스트
+        ctrl_pts = [prev_wp, vehicle, dest, return_pt, next_wp]
+        # 5. 4차 곡선 피팅 후 좌표 반환
+        return self.fit_quartic(ctrl_pts, resolution)
+    
+    # 실제로 사용할 수 있게 메시지 형태로 변환
+    def make_delivery_path(self, isTest=False):
+        rospy.loginfo("make_delivery_path()호출 : 로컬경로 제작 시작")
+        self.delivery_path.path.clear()
+        self.rviz_delivery_path.poses.clear()
+
+        if self.delivery_in_progress:
+            rospy.loginfo("make_delivery_path() : 현재 배달미션이 이미 진행중")
+            return
+
+        # isTest 플래그를 먼저 확인하도록 로직 변경
+        if isTest:
+            # 테스트 모드일 경우, destination에 테스트용 좌표를 바로 할당
+            self.destination = (935539.3413405563, 1915909.6614581472)
+            rospy.loginfo(f"make_delivery_path() : 테스트용 좌표 초기화, destination({self.destination[0]}, {self.destination[1]})")
+        else:
+            # 테스트 모드가 아닐 경우, self.sign_coords가 유효한지 확인
+            if self.sign_coords is None:
+                rospy.logwarn("Delivery target coordinates (sign_coords) are not set yet.")
+                return # 좌표가 없으면 함수 종료
+            self.destination = (self.sign_coords[0], self.sign_coords[1])
+            rospy.loginfo(f"make_delivery_path() : 배달목적지 좌표 초기화, destination({self.destination[0]}, {self.destination[1]})")
+
+        # vehicle 좌표는 destination 설정 이후에 가져옴
+        if self.curr_pose is None:
+            rospy.logwarn("Current pose is not available yet.")
+            return
+        vehicle = (self.curr_pose.position.x, self.curr_pose.position.y)
+        
+        local_path = self.generate_local_delivery_path(dest=self.destination, vehicle=vehicle, n_offset=8, resolution=0.3)
+
+
+        for x, y in local_path:
             delivery_path_element = PathReferenceElement()
             delivery_path_element.pose.position.x = x
             delivery_path_element.pose.position.y = y
             delivery_path_element.pose.position.z = 0.
-
-            quat = quaternion_from_euler(0., 0., yaw)
-            
-            delivery_path_element.pose.orientation.x = quat[0]
-            delivery_path_element.pose.orientation.y = quat[1]
-            delivery_path_element.pose.orientation.z = quat[2]
-            delivery_path_element.pose.orientation.w = quat[3]
-
+            delivery_path_element.pose.orientation.x = 0.
+            delivery_path_element.pose.orientation.y = 0.
+            delivery_path_element.pose.orientation.z = 0.
+            delivery_path_element.pose.orientation.w = 1.
             delivery_path_element.mode = 11 
-            
             self.delivery_path.path.append(delivery_path_element)
 
             rviz_delivery_pose = PoseStamped()
             rviz_delivery_pose.header.frame_id = 'map'
             rviz_delivery_pose.header.stamp = rospy.Time.now()
-            
             rviz_delivery_pose.pose.position.x = delivery_path_element.pose.position.x - self.rviz_offset_x
             rviz_delivery_pose.pose.position.y = delivery_path_element.pose.position.y - self.rviz_offset_y
             rviz_delivery_pose.pose.position.z = 0.
-
-            rviz_delivery_pose.pose.orientation.x = quat[0]
-            rviz_delivery_pose.pose.orientation.y = quat[1]
-            rviz_delivery_pose.pose.orientation.z = quat[2]
-            rviz_delivery_pose.pose.orientation.w = quat[3]
+            rviz_delivery_pose.pose.orientation.x = 0.
+            rviz_delivery_pose.pose.orientation.y = 0.
+            rviz_delivery_pose.pose.orientation.z = 0.
+            rviz_delivery_pose.pose.orientation.w = 1.
             
             self.rviz_delivery_path.poses.append(rviz_delivery_pose)
 
-        rospy.loginfo(f'path_size {len(self.delivery_path.path)}')
+        rospy.loginfo("make_delivery_path() : 로컬경로 제작 완료")
+        rospy.loginfo(f'로컬경로 size : {len(self.delivery_path.path)}')
 
         self.rviz_delivery_path.header.stamp = rospy.Time.now()
         self.delivery_in_progress = True
+        self.publish_delivery_path()
 
+    # 로컬경로 퍼블리쉬
     def publish_delivery_path(self):
-        if self.is_delivery_waypoint_set:
-            self.rviz_delivery_line_pub.publish(self.rviz_delivery_line)
-
+        isDone = self.delivery_done_confirm()
+        isEnd = self.delivery_end_confirm()
         if self.delivery_in_progress:
+            if not self.delivery_path_is_pub:
+                rospy.loginfo("publish_delivery_path() : 로컬경로 publish")
             self.rviz_delivery_path_pub.publish(self.rviz_delivery_path)
             self.delivery_path_pub.publish(self.delivery_path)
+            self.delivery_path_is_pub = True

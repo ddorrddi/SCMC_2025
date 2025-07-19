@@ -8,6 +8,14 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   roslib
   roslint
+
+  # fusion용
+  std_msgs
+  cv_bridge
+  message_filters
+
+  #
+
   nav_msgs
   morai_msgs
   sensor_msgs
@@ -29,6 +37,7 @@ add_message_files(
   FILES
   PathReferenceElement.msg
   PathReference.msg
+  IoUFusionMsg.msg
 )
 
 # generate_messages의 주석을 푼다.
@@ -39,7 +48,7 @@ generate_messages(
 
 catkin_package(
   INCLUDE_DIRS include
-  CATKIN_DEPENDS roscpp rospy sensor_msgs morai_msgs message_runtime
+  CATKIN_DEPENDS roscpp rospy sensor_msgs morai_msgs message_runtime std_msgs message_filters
 )
 
 include_directories(
