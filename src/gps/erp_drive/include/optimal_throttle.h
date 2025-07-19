@@ -106,7 +106,7 @@ private:
 
         // 배탈 A 체크
         // EventPlaceInfo(935549.5145976712, 1915871.4294302394, EventType::STOP_DELIVERY),
-        EventPlaceInfo(199 , EventType::STOP_DELIVERY_A),
+        EventPlaceInfo(189 , EventType::STOP_DELIVERY_A),
         
         // Small Obstacle deceleration
         EventPlaceInfo(210 , EventType::DECEL_BIG),
