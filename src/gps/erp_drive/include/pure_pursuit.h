@@ -1,6 +1,9 @@
 #ifndef PURE_PURSUIT_H
 #define PURE_PURSUIT_H
 
+// #include <cmath>
+// #define DEG2RAD(x) ((x) * M_PI / 180.0)
+
 #include "controller.h"
 
 // 나중에 mode용 클래스? 파일 추가하기
@@ -10,6 +13,17 @@ public:
 
     // path 추종이 끝났는지
     // bool is_finish;
+
+    // // OBJ AVOID steering control flag
+    // bool left_flag = false;
+    // bool right_flag = false;
+    // bool just_finished_local_path = false;    
+
+    // // cb
+    // void leftFlagCB(const std_msgs::Int16::ConstPtr& msg);
+    // void rightFlagCB(const std_msgs::Int16::ConstPtr& msg);
+    // void localPathDoneCB(const std_msgs::Int16::ConstPtr& msg);
+
 
     // lookahead distance | rosparam 으로 관리될 값
     double lookahead_distance;

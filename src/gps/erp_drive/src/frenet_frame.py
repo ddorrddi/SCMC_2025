@@ -68,3 +68,15 @@ def generate_quintic_path(s0, l0, s1, l1):
     b = np.array([l0, 0, 0, l1, 0, 0])
     coeffs = np.linalg.solve(A, b)
     return lambda s: np.polyval(coeffs[::-1], s)
+# def generate_quintic_path(s0, l0, s1, l1, v0=0.0, v1=0.0, a0=0.0, a1=0.0):
+#     A = np.array([
+#         [1, s0, s0**2,   s0**3,     s0**4,      s0**5],
+#         [0, 1,  2*s0,    3*s0**2,   4*s0**3,    5*s0**4],
+#         [0, 0,  2,       6*s0,     12*s0**2,   20*s0**3],
+#         [1, s1, s1**2,   s1**3,     s1**4,      s1**5],
+#         [0, 1,  2*s1,    3*s1**2,   4*s1**3,    5*s1**4],
+#         [0, 0,  2,       6*s1,     12*s1**2,   20*s1**3],
+#     ])
+#     b = np.array([l0, v0, a0, l1, v1, a1])
+#     coeffs = np.linalg.solve(A, b)
+#     return lambda s: np.polyval(coeffs[::-1], s)

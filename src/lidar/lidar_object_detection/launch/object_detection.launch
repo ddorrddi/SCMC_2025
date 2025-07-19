@@ -2,5 +2,6 @@
 <launch>
     <include file="$(find velodyne_pointcloud)/launch/VLP16_points.launch"/>
     <include file="$(find lidar_object_detection)/launch/object_detection_tunnel_static.launch"/>
+    <include file="$(find lidar_object_detection)/launch/object_detection_tunnel_big.launch"/>
     <!-- <include file="$(find lidar_object_detection)/launch/object_detection_delivery.launch"/> -->
 </launch>

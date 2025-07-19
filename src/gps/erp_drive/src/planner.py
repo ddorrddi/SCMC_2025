@@ -87,7 +87,7 @@ if __name__ == '__main__':
              planner.obstacle_avoidance_planner.publish_avoidance_path()
         
         # planner.parking_planner.parking_space_num_pub.publish(planner.parking_planner.parking_space_num)
-        # planner.delivery_planner.publish_delivery_path()
+        planner.delivery_planner.publish_delivery_path()
             
         log = [
             {

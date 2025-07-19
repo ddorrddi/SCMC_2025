@@ -28,6 +28,8 @@ Controller::Controller(char control_target):
         this->parking_space_num_sub = nh.subscribe("/parking_space_num", 1, &Controller::parkingSpaceNumCallback, this);
 
         this->traffic_light_status_sub = nh.subscribe("/traffic_light_status", 1, &Controller::trafficLightStatusCallback, this);
+
+        this->avoidance_direction_sub = nh.subscribe("/avoidance_direction", 1, &Controller::avoidanceDirectionCallback, this);
     }
 
 void Controller::speedCallback(const std_msgs::Float64& speed_now){
@@ -50,6 +52,8 @@ void Controller::localPathDoneCallback(const std_msgs::Int16& signal){
     ROS_INFO_STREAM("Done");
     this->is_local_path_set = false;
     this->l_curr_idx = 0;
+    this->is_avoidance_success = true;
+    this->has_turned_after_avoidance = false;
 }
 
 void Controller::deliveryPathCallback(const erp_drive::PathReference& delivery_path){
@@ -168,7 +172,7 @@ void Controller::flowControl(const geometry_msgs::Pose& curr_pose){
         case EventType::STOP_DELIVERY_A:
             if(stop_idx <= this->g_curr_idx){
                 this->optimal_throttle.shouldDecel = false;
-                this->optimal_throttle.shouldStop = false;
+                this->optimal_throttle.shouldStop = true;
             }
             
             break;
@@ -247,7 +251,7 @@ void Controller::flowControl(const geometry_msgs::Pose& curr_pose){
 
         case EventType::STOP_DELIVERY_A:
             this->timer.resetTimer(5);
-            this->optimal_throttle.shouldDecel = false;
+            this->optimal_throttle.shouldDecel = true;
             break;
 
         case EventType::STOP_DELIVERY_B:
@@ -369,4 +373,11 @@ void Controller::publishControlMsg(){
 
         this->morai_drive_pub.publish(msg);    
     }
+}
+
+
+void Controller::avoidanceDirectionCallback(const std_msgs::Int16& msg){
+    // planner가 보낸 ccw 값을 저장합니다 (1: 좌회피, -1: 우회피)
+    this->last_avoidance_direction = msg.data;
+    ROS_INFO_STREAM("[Controller] 회피 방향 수신: " << this->last_avoidance_direction);
 }
