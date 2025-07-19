@@ -605,6 +605,7 @@ class ObstacleAvoidancePlanner:
         curr_x = self.curr_pose.position.x
         curr_y = self.curr_pose.position.y
         s0, l0 = cartesian_to_frenet(curr_x, curr_y, self.g_path[self.curr_lane], s_list)
+
         #여기 만져봄
         lane_offset = 0.75 #0.75
         if is_big:
