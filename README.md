@@ -4,3 +4,8 @@
 ```
 rosdep install --from-paths src --ignore-src -r
 ```
+
+## 빌드 방법
+```
+catkin_make
+```
