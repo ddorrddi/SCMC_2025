@@ -42,7 +42,7 @@ class DeliveryPlanner:
         # 파라미터 (조절해야됨)
         self.threshold = 0.95 # IOU 신뢰도 임계값
         self.min_queue_size = 20 # 목적지 좌표 신뢰도를 위한 큐 사이즈 (10Hz기준 20이면 2초간의 정보) !!메시지 드랍시 보완 로직이 없음!!
-        self.end_offset = 20 # 배달미션이 끝났는가 판단하는 최소 waypoint 개수
+        self.end_offset = 40 # 배달미션이 끝났는가 판단하는 최소 waypoint 개수
 
         # 로컬패스 설정
         self.pkg_path = rospkg.RosPack().get_path("erp_drive")

@@ -102,6 +102,7 @@ public:
 
 
     erp_drive::PathReference delivery_path;
+    bool delivery_stop_once;
     int delivery_path_size, delivery_curr_idx;
     bool is_delivery_done = false;
     bool is_delivery_end = false;
