@@ -42,6 +42,10 @@ int main(int argc, char** argv) {
     control.parking_space_num = parking_space_num;
     bool isLogging = true; //argv[2][0] == 't';
 
+    bool delivery_stop_once_flag = false; // 배달 목적지에서 멈출때 딱 한번쓰려고 만든 플래그
+    ros::Time delivery_B_Stop_Time; // 배달 목적지에서 정지할때 쓸 타이머
+    double delivery_B_Original_Velocity = 0.0; // 배달 목적지에서 천천히 감속하려고 쓰는 변수
+
     ros::Rate loop_rate(control.LOOP_RATE);
 
     ros::Publisher target_waypoint_pub = control.nh.advertise<geometry_msgs::PointStamped>("/target_waypoint", 1);
@@ -301,36 +305,32 @@ int main(int argc, char** argv) {
         }
 
         else if(control.is_delivery_path_set){
-            static bool Delivery_B_Stop = false;
-            static double Delivery_B_Original_Velocity = 0.0;
-            static ros::Time Delivery_B_Stop_Time;
-
             if(control.is_delivery_done){
-                if(!Delivery_B_Stop){
-                    Delivery_B_Stop_Time = ros::Time::now();    // 정지 명령 시간 기록
-                    Delivery_B_Original_Velocity = control.velocity;
-                    Delivery_B_Stop = true;
+                if(!delivery_stop_once_flag){
+                    ROS_INFO("배달 목적지 도착 : 초기화 단계");
+                    delivery_B_Stop_Time = ros::Time::now();    // 정지 명령 시간 기록
+                    delivery_B_Original_Velocity = control.velocity;
+                    delivery_stop_once_flag = true;
                 }
                 
-                ros::Duration elapsed = ros::Time::now() - Delivery_B_Stop_Time;    // 경과 시간 계산
+                ros::Duration elapsed = ros::Time::now() - delivery_B_Stop_Time;    // 경과 시간 계산
 
                 if(elapsed < ros::Duration(0.5)){
+                    ROS_INFO("배달 목적지 도착 : 감속단계");
                     double ratio = 1.0 - (elapsed.toSec() / 0.5);
-                    control.velocity = Delivery_B_Original_Velocity * ratio;
+                    control.velocity = delivery_B_Original_Velocity * ratio;
                     control.brake = 0.0;
                     control.publishControlMsg();
-                }
-
-                else if(elapsed < ros::Duration(5.5)){
+                }else if(elapsed < ros::Duration(5.5)){
+                    ROS_INFO("배달 목적지 도착 : 정지단계");
                     control.velocity = 0.0;
                     control.brake = 1.0;
                     control.publishControlMsg();
-                }
-
-                else{
+                }else{
+                    ROS_INFO("배달 목적지 도착 : 출발단계");
                     control.brake = 0.0;
                     control.publishControlMsg();
-                    Delivery_B_Stop = false;
+                    control.is_delivery_done = false;
                 }
 
             }
