@@ -84,6 +84,10 @@ public:
     bool nextEventPlaceInfo() {
         if(this->isEventPlaceInfoEnd()) return false;
         iter++;
+        if(iter->type == EventType::STOP_DELIVERY_B){
+            iter++;
+            if(this->isEventPlaceInfoEnd()) return false;
+        }
         return true;
     }
 

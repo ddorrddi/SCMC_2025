@@ -1,4 +1,5 @@
 #include "pure_pursuit.h"
+#include <ros/ros.h>
 
 void paramCallback(erp_drive::CtrlParamConfig &config, PurePursuit* control) {
     control->optimal_throttle.setMaxVelocity(config.global_velocity);
@@ -299,23 +300,46 @@ int main(int argc, char** argv) {
             control.publishControlMsg();
         }
 
-        else if(control.is_delivery_path_set){ // TODO : 배달목적지에서 정지하는법 찾아서 완성하기
-            // if(control.is_delivery_done){
-            //     // 0.5초 뒤에
-            //     control.velocity = 0;
-            //     // 3초 뒤에
-            //     control.is_delivery_done = false;
-            // }
-            // else{
-            //     control.lookahead_distance = control.local_lookahead_distance;
-            //     control.velocity = control.local_velocity;
-            //     control.calcSteering(control.curr_pose);
-            //     control.publishControlMsg();
-            // }
-            control.lookahead_distance = control.local_lookahead_distance;
-            control.velocity = control.local_velocity;
-            control.calcSteering(control.curr_pose);
-            control.publishControlMsg();
+        else if(control.is_delivery_path_set){
+            static bool Delivery_B_Stop = false;
+            static double Delivery_B_Original_Velocity = 0.0;
+            static ros::Time Delivery_B_Stop_Time;
+
+            if(control.is_delivery_done){
+                if(!Delivery_B_Stop){
+                    Delivery_B_Stop_Time = ros::Time::now();    // 정지 명령 시간 기록
+                    Delivery_B_Original_Velocity = control.velocity;
+                    Delivery_B_Stop = true;
+                }
+                
+                ros::Duration elapsed = ros::Time::now() - Delivery_B_Stop_Time;    // 경과 시간 계산
+
+                if(elapsed < ros::Duration(0.5)){
+                    double ratio = 1.0 - (elapsed.toSec() / 0.5);
+                    control.velocity = Delivery_B_Original_Velocity * ratio;
+                    control.brake = 0.0;
+                    control.publishControlMsg();
+                }
+
+                else if(elapsed < ros::Duration(5.5)){
+                    control.velocity = 0.0;
+                    control.brake = 1.0;
+                    control.publishControlMsg();
+                }
+
+                else{
+                    control.brake = 0.0;
+                    control.publishControlMsg();
+                    Delivery_B_Stop = false;
+                }
+
+            }
+            else{
+                control.lookahead_distance = control.local_lookahead_distance;
+                control.velocity = control.local_velocity;
+                control.calcSteering(control.curr_pose);
+                control.publishControlMsg();
+            }
         }
 
         else if(!control.is_finish && control.is_path_set && control.is_pose_set){
