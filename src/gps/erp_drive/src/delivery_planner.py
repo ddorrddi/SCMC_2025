@@ -77,10 +77,10 @@ class DeliveryPlanner:
         rospy.Subscriber('/now_test', Int16, self.test_now_CB) # 로컬패스 생성확인하는 테스트용 구독자
 
         # 퍼블리셔
-        self.delivery_path_pub = rospy.Publisher("/local_path", PathReference, queue_size=1) # 배달경로
+        self.delivery_path_pub = rospy.Publisher("/delivery_path", PathReference, queue_size=1) # 배달경로
         self.rviz_delivery_path_pub = rospy.Publisher('/rviz_delivery_path', Path, queue_size=1) # 시각화용 배달경로
         self.delivery_done_pub = rospy.Publisher("/delivery_done", Int16, queue_size=1) # 배달 목적지에 도착했는지 플래그
-        self.delivery_end_pub = rospy.Publisher("/local_path_done", Int16, queue_size=1) # 배달미션이 끝났는지 플래그
+        self.delivery_end_pub = rospy.Publisher("/delivery_end", Int16, queue_size=1) # 배달미션이 끝났는지 플래그
 
     def test_now_CB(self,msg: Int16):
         tester = msg.data

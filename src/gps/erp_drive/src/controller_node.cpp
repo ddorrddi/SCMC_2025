@@ -300,18 +300,22 @@ int main(int argc, char** argv) {
         }
 
         else if(control.is_delivery_path_set){ // TODO : 배달목적지에서 정지하는법 찾아서 완성하기
-            if(control.is_delivery_done){
-                // 0.5초 뒤에
-                control.velocity = 0;
-                // 3초 뒤에
-                control.is_delivery_done = false;
-            }
-            else{
-                control.lookahead_distance = control.local_lookahead_distance;
-                control.velocity = control.local_velocity;
-                control.calcSteering(control.curr_pose);
-                control.publishControlMsg();
-            }
+            // if(control.is_delivery_done){
+            //     // 0.5초 뒤에
+            //     control.velocity = 0;
+            //     // 3초 뒤에
+            //     control.is_delivery_done = false;
+            // }
+            // else{
+            //     control.lookahead_distance = control.local_lookahead_distance;
+            //     control.velocity = control.local_velocity;
+            //     control.calcSteering(control.curr_pose);
+            //     control.publishControlMsg();
+            // }
+            control.lookahead_distance = control.local_lookahead_distance;
+            control.velocity = control.local_velocity;
+            control.calcSteering(control.curr_pose);
+            control.publishControlMsg();
         }
 
         else if(!control.is_finish && control.is_path_set && control.is_pose_set){
