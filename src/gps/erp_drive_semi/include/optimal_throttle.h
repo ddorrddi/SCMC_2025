@@ -33,7 +33,6 @@ typedef enum {
     
     STOP = 4,
     STOP_LINE = 5,
-    STOP_PARKING = 6,
     STOP_DELIVERY = 7,
     
     DECEL = 8,

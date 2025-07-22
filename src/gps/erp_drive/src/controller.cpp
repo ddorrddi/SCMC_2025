@@ -1,7 +1,7 @@
 #include "controller.h"
 
 Controller::Controller(char control_target):
-    optimal_throttle(), timer(0), is_finish(false), is_delivery_path_set(false), parking_space_num(-1),
+    optimal_throttle(), timer(0), is_finish(false), is_delivery_path_set(false), 
     is_path_set(false), is_pose_set(false), is_local_path_set(false), g_curr_idx(0), l_curr_idx(0), delivery_curr_idx(0),
     velocity(0.), global_velocity(0.), local_velocity(0.), is_moving_front(false){
         this->is_erp = control_target == 'e'; // e => erp (true), m => morai (false)
@@ -26,8 +26,6 @@ Controller::Controller(char control_target):
         this->curr_pose_sub = nh.subscribe("/current_pose", 1, &Controller::currentPoseCallback, this);
     
         this->imu_sub = nh.subscribe("/handsfree/imu", 1, &Controller::imuCallback, this);
-
-        this->parking_space_num_sub = nh.subscribe("/parking_space_num", 1, &Controller::parkingSpaceNumCallback, this);
 
         this->traffic_light_status_sub = nh.subscribe("/traffic_light_status", 1, &Controller::trafficLightStatusCallback, this);
 
@@ -97,10 +95,6 @@ void Controller::imuCallback(const sensor_msgs::Imu& imu_data){
     this->curr_yaw += 180;
     
     if(this->start_yaw == -400) this->start_yaw = static_cast<int>(this->curr_yaw);
-}
-
-void Controller::parkingSpaceNumCallback(const std_msgs::Int16& parking_space_num){
-    this->parking_space_num = parking_space_num.data;
 }
 
 // 직진 혹은 우회전에 대한 비교 함수
@@ -192,14 +186,6 @@ void Controller::flowControl(const geometry_msgs::Pose& curr_pose){
             
             break;
 
-        case EventType::STOP_PARKING:
-            if(this->g_curr_idx >= this->parking_start_idx[this->parking_space_num]){
-                this->optimal_throttle.shouldDecel = false;
-                this->optimal_throttle.shouldStop = true;
-            }
-
-            break;
-
         case EventType::STOP_DELIVERY_B:
             if(!this->is_delivery_path_set){
                 if(this->g_curr_idx >= 1468){
@@ -242,9 +228,6 @@ void Controller::flowControl(const geometry_msgs::Pose& curr_pose){
 
             break;
 
-        case EventType::STOP_PARKING:
-            break;
-
         case EventType::STOP_DELIVERY_B:
             break;
 
@@ -271,12 +254,6 @@ void Controller::flowControl(const geometry_msgs::Pose& curr_pose){
 
         case EventType::STOP_DELIVERY_B:
             this->timer.resetTimer(5);
-            this->optimal_throttle.shouldDecel = true;
-            break;
-
-        case EventType::STOP_PARKING:
-            this->timer.resetTimer(0.5);
-            ROS_INFO_STREAM("STOP_PARKING DISTANCE");
             this->optimal_throttle.shouldDecel = true;
             break;
 
