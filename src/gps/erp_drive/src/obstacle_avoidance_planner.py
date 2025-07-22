@@ -592,39 +592,33 @@ class ObstacleAvoidancePlanner:
     # # avoidance_frenet_example.py (updated from make_avoidance_path)
 
     def make_avoidance_path(self, is_big: bool, ccw, mat_v2g: np.ndarray, mat_g2v: np.ndarray, curr_yaw: float):
-        s_list, yaw_list = compute_s_and_yaw(self.g_path[self.curr_lane])
-    
-        rospy.loginfo(f"[회피 경로 생성] ccw: {ccw}, is_big: {is_big}, blocked_idx: {self.blocked_idx}")
+    # 1. 현재 차선을 '이번 회피 기동의 기준 경로'로 명확하게 지정합니다.
+        original_ref_path = self.g_path[self.curr_lane]
 
-        # 제어 노드에서 회피 방향을 알 수 있도록 ccw 값을 발행합니다.
-        # ccw = 1  (좌회피), ccw = -1 (우회피)
-        rospy.loginfo(f"[회피 방향 결정] CCW: {ccw} (1: 좌회피, -1: 우회피)")
+        # 2. '기준 경로'를 바탕으로 Frenet 좌표계 관련 값들을 계산합니다.
+        s_list, yaw_list = compute_s_and_yaw(original_ref_path)
+
+        rospy.loginfo(f"[회피 경로 생성] ccw: {ccw}, is_big: {is_big}, blocked_idx: {self.blocked_idx}")
         self.ccw_pub.publish(Int16(ccw))
 
-
+        # 3. 차량의 현재 위치도 '기준 경로'에 맞춰 변환합니다.
         curr_x = self.curr_pose.position.x
         curr_y = self.curr_pose.position.y
-        s0, l0 = cartesian_to_frenet(curr_x, curr_y, self.g_path[self.curr_lane], s_list)
+        s0, l0 = cartesian_to_frenet(curr_x, curr_y, original_ref_path, s_list)
 
-        #여기 만져봄
-        lane_offset = 0.75 #0.75
+        lane_offset = 0.75
         if is_big:
-            # lane_offset = const.LANE_WIDTH_SMALL + const.LANE_WIDTH
+            # 4. 회피 '후에' 주행할 목표 차선을 바꿔줍니다. (계산에 영향을 주지 않음)
             self.curr_lane = Lane.TWO if self.curr_lane == Lane.ONE else Lane.ONE
-        else:
-            # lane_offset = const.LANE_WIDTH_SMALL
-            self.curr_lane = self.curr_lane
-
-        ##마진추가부분##
+        
+        # 회피 목표 지점 계산
         blend_margin = 0
         target_idx = self.blocked_idx + blend_margin
         s1 = s_list[target_idx]
-        #s1 = s_list[self.blocked_idx]#-0.5 # 회피 경로 끝 지점 
-        #s1 = s0+3.0
         l1 = ccw * lane_offset
 
+        # 5차 다항식 경로 생성
         l_path = generate_quintic_path(s0, l0, s1, l1)
-        #l_path = generate_quintic_path(s0, l0, s1, l1, v0=0.0, v1=1.0, a0=0.0, a1=0.0)
 
         resolution = int((s1 - s0) / 0.2)
         self.avoidance_path = PathReference()
@@ -632,7 +626,9 @@ class ObstacleAvoidancePlanner:
 
         for s in np.linspace(s0, s1, resolution):
             l = l_path(s)
-            x, y, yaw = frenet_to_cartesian(s, l, self.g_path[self.curr_lane], s_list, yaw_list)
+            
+            # 5. 좌표를 되돌릴 때도 일관성 있게 맨 처음 지정한 '기준 경로'를 사용합니다.
+            x, y, yaw = frenet_to_cartesian(s, l, original_ref_path, s_list, yaw_list)
 
             avoidance_path_element = PathReferenceElement()
             avoidance_path_element.pose.position.x = x
