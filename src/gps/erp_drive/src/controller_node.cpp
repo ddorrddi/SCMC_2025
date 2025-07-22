@@ -37,8 +37,10 @@ int main(int argc, char** argv) {
     // ros::Subscriber sub_right_flag = control.nh.subscribe("/pure_pursuit/right_flag", 1, &PurePursuit::rightFlagCB, &control);
     // ros::Subscriber sub_path_done = control.nh.subscribe("/pure_pursuit/just_finished_local_path", 1, &PurePursuit::localPathDoneCB, &control);
 
-    int parking_space_num = atoi(argv[3]);
-    control.parking_space_num = parking_space_num;
+    // int parking_space_num = atoi(argv[3]);
+    // control.parking_space_num = parking_space_num;
+
+
     bool isLogging = true; //argv[2][0] == 't';
 
     ros::Rate loop_rate(control.LOOP_RATE);
@@ -58,7 +60,7 @@ int main(int argc, char** argv) {
     bool flag = false;
     double parking_mid_angle = 50;
     
-    int parking_phase = -1; // ~ 4? 각 기능은 ROS_INFO 참고
+    // int parking_phase = -1; // ~ 4? 각 기능은 ROS_INFO 참고
 
     double prev_x = -1.0, prev_y = -1.0;
 
@@ -128,171 +130,171 @@ int main(int argc, char** argv) {
             logging(control);
         }
 
-        if(control.optimal_throttle.eventPlaceInfoManager.getCurrEventPlaceInfo().type == EventType::STOP_PARKING && control.optimal_throttle.shouldStop){
-            int diff = control.curr_yaw - control.start_yaw;
+        // if(control.optimal_throttle.eventPlaceInfoManager.getCurrEventPlaceInfo().type == EventType::STOP_PARKING && control.optimal_throttle.shouldStop){
+        //     int diff = control.curr_yaw - control.start_yaw;
             
-            if(diff >= 180)
-                diff = abs(diff - 360);
+        //     if(diff >= 180)
+        //         diff = abs(diff - 360);
             
-            else if(diff <= -180)
-                diff = abs(diff + 360);
+        //     else if(diff <= -180)
+        //         diff = abs(diff + 360);
             
-            // 주차 공간 인식 후 이 위치에 멈출 수 있도록 함.
-            if(parking_phase == -1){
-                control.steering = 0.0;
-                control.velocity = 0.0;
-                control.brake = 1.0;
-                control.publishControlMsg();
+        //     // 주차 공간 인식 후 이 위치에 멈출 수 있도록 함.
+        //     if(parking_phase == -1){
+        //         control.steering = 0.0;
+        //         control.velocity = 0.0;
+        //         control.brake = 1.0;
+        //         control.publishControlMsg();
 
-                control.timer.start();
-                if(!control.timer.isTimeout()){
-                    ROS_INFO("[STOP PARKING] Vehicle Stabilization");
-                    continue;
-                }
+        //         control.timer.start();
+        //         if(!control.timer.isTimeout()){
+        //             ROS_INFO("[STOP PARKING] Vehicle Stabilization");
+        //             continue;
+        //         }
 
-                control.start_yaw = -400;
-                control.timer.resetTimer(0.5);
-                parking_phase += 1;
-            }
+        //         control.start_yaw = -400;
+        //         control.timer.resetTimer(0.5);
+        //         parking_phase += 1;
+        //     }
 
-            // [STOP PARKING] Back Moving (1)
-            else if(parking_phase == 0){
-                if(control.start_yaw == -400) continue;
+        //     // [STOP PARKING] Back Moving (1)
+        //     else if(parking_phase == 0){
+        //         if(control.start_yaw == -400) continue;
 
-                ROS_INFO("[STOP PARKING] Back Moving (1)");
+        //         ROS_INFO("[STOP PARKING] Back Moving (1)");
 
-                if(diff >= parking_mid_angle){
-                    control.steering = 0.0;
-                    control.velocity = 0.0;
-                    control.brake = 1.0;
-                    control.publishControlMsg();
+        //         if(diff >= parking_mid_angle){
+        //             control.steering = 0.0;
+        //             control.velocity = 0.0;
+        //             control.brake = 1.0;
+        //             control.publishControlMsg();
 
-                    control.timer.start();
-                    if(!control.timer.isTimeout()){
-                        // ROS_INFO("[STOP PARKING] Vehicle Stabilization");
-                        continue;
-                    }
+        //             control.timer.start();
+        //             if(!control.timer.isTimeout()){
+        //                 // ROS_INFO("[STOP PARKING] Vehicle Stabilization");
+        //                 continue;
+        //             }
 
-                    control.brake = 0.0;
+        //             control.brake = 0.0;
 
-                    control.timer.resetTimer(3.0);
-                    parking_phase += 1;
-                }
+        //             control.timer.resetTimer(3.0);
+        //             parking_phase += 1;
+        //         }
                 
-                else {
-                    control.steering = 30.0;
-                    control.velocity = -5.0;
-                    control.brake = 0.0; // 0.2;
-                    control.publishControlMsg();
-                }
-            }
+        //         else {
+        //             control.steering = 30.0;
+        //             control.velocity = -5.0;
+        //             control.brake = 0.0; // 0.2;
+        //             control.publishControlMsg();
+        //         }
+        //     }
             
-            // [STOP PARKING] Back Moving (2)
-            else if(parking_phase == 1){
-                ROS_INFO("[STOP PARKING] Back Moving (2)");
-                if(diff <= 3){
-                    control.steering = 0.0;
-                    control.velocity = 0.0;
-                    control.brake = 1.0;
-                    control.publishControlMsg();
+        //     // [STOP PARKING] Back Moving (2)
+        //     else if(parking_phase == 1){
+        //         ROS_INFO("[STOP PARKING] Back Moving (2)");
+        //         if(diff <= 3){
+        //             control.steering = 0.0;
+        //             control.velocity = 0.0;
+        //             control.brake = 1.0;
+        //             control.publishControlMsg();
 
-                    control.timer.start();
-                    if(!control.timer.isTimeout()){
-                        // ROS_INFO("[STOP PARKING] Vehicle Stabilization");
-                        continue;
-                    }
+        //             control.timer.start();
+        //             if(!control.timer.isTimeout()){
+        //                 // ROS_INFO("[STOP PARKING] Vehicle Stabilization");
+        //                 continue;
+        //             }
 
-                    control.start_yaw = -400;
+        //             control.start_yaw = -400;
 
-                    control.timer.resetTimer(3.5);
-                    parking_phase += 1;
-                } 
+        //             control.timer.resetTimer(3.5);
+        //             parking_phase += 1;
+        //         } 
                 
-                else {
-                    control.steering = -30.0;
-                    control.velocity = -5.0;
-                    control.brake = 0.0; // 0.2;
-                    control.publishControlMsg();
-                }
-            }
+        //         else {
+        //             control.steering = -30.0;
+        //             control.velocity = -5.0;
+        //             control.brake = 0.0; // 0.2;
+        //             control.publishControlMsg();
+        //         }
+        //     }
 
-            // [STOP PARKING] Pose Sorting & Stop 3.5 sec?
-            else if(parking_phase == 2){
-                ROS_INFO("[STOP PARKING] Pose Sorting & Stop 3.5 sec?");
+        //     // [STOP PARKING] Pose Sorting & Stop 3.5 sec?
+        //     else if(parking_phase == 2){
+        //         ROS_INFO("[STOP PARKING] Pose Sorting & Stop 3.5 sec?");
                 
-                // @@@@@@@@@@@@@@@@@@@@@@@@@@@
-                // @@@@ Pose Sorting..... @@@@ 
-                // @@@@@@@@@@@@@@@@@@@@@@@@@@@
+        //         // @@@@@@@@@@@@@@@@@@@@@@@@@@@
+        //         // @@@@ Pose Sorting..... @@@@ 
+        //         // @@@@@@@@@@@@@@@@@@@@@@@@@@@
 
-                control.steering = 0.0;
-                control.velocity = 0.0;
-                control.brake = 1.0;
-                control.publishControlMsg();
+        //         control.steering = 0.0;
+        //         control.velocity = 0.0;
+        //         control.brake = 1.0;
+        //         control.publishControlMsg();
                 
-                control.timer.start();
-                if(!control.timer.isTimeout()){
-                    // ROS_INFO("[STOP PARKING] park");
-                    continue;
-                }
+        //         control.timer.start();
+        //         if(!control.timer.isTimeout()){
+        //             // ROS_INFO("[STOP PARKING] park");
+        //             continue;
+        //         }
 
-                control.brake = 0.0;
-                parking_phase += 1;
-                control.timer.resetTimer(3.0);
-            }
+        //         control.brake = 0.0;
+        //         parking_phase += 1;
+        //         control.timer.resetTimer(3.0);
+        //     }
 
-            // [STOP PARKING] Front Moving (1)
-            else if(parking_phase == 3){
-                ROS_INFO("[STOP PARKING] Front Moving (1)");
-                if(diff >= parking_mid_angle){
-                    control.steering = 0.0;
-                    control.velocity = 0.0;
-                    control.brake = 1.0;
-                    control.publishControlMsg();
+        //     // [STOP PARKING] Front Moving (1)
+        //     else if(parking_phase == 3){
+        //         ROS_INFO("[STOP PARKING] Front Moving (1)");
+        //         if(diff >= parking_mid_angle){
+        //             control.steering = 0.0;
+        //             control.velocity = 0.0;
+        //             control.brake = 1.0;
+        //             control.publishControlMsg();
 
-                    control.timer.start();
-                    if(!control.timer.isTimeout()){
-                        // ROS_INFO("[STOP PARKING] Vehicle Stabilization");
-                        continue;
-                    }
+        //             control.timer.start();
+        //             if(!control.timer.isTimeout()){
+        //                 // ROS_INFO("[STOP PARKING] Vehicle Stabilization");
+        //                 continue;
+        //             }
 
-                    control.brake = 0.0;
+        //             control.brake = 0.0;
 
-                    parking_phase += 1;
-                    control.timer.resetTimer(3.0);
-                }
+        //             parking_phase += 1;
+        //             control.timer.resetTimer(3.0);
+        //         }
                 
-                else {
-                    control.steering = 30.0;
-                    control.velocity = 8.0;
-                    control.publishControlMsg();
-                }
-            }
+        //         else {
+        //             control.steering = 30.0;
+        //             control.velocity = 8.0;
+        //             control.publishControlMsg();
+        //         }
+        //     }
 
-            // [STOP PARKING] Front Moving (2)
-            else if(parking_phase == 4){
-                ROS_INFO("[STOP PARKING] Front Moving (2)");
-                if(diff <= 3){
-                    control.steering = 0.0;
-                    control.velocity = 0.0;
-                    control.brake = 1.0;
-                    control.publishControlMsg();
+        //     // [STOP PARKING] Front Moving (2)
+        //     else if(parking_phase == 4){
+        //         ROS_INFO("[STOP PARKING] Front Moving (2)");
+        //         if(diff <= 3){
+        //             control.steering = 0.0;
+        //             control.velocity = 0.0;
+        //             control.brake = 1.0;
+        //             control.publishControlMsg();
 
-                    parking_phase += 1;
-                    control.brake = 0.0;    
-                    control.optimal_throttle.shouldStop = false;
-                    control.optimal_throttle.shouldDecel = false;
-                    control.optimal_throttle.eventPlaceInfoManager.nextEventPlaceInfo();
-                } 
+        //             parking_phase += 1;
+        //             control.brake = 0.0;    
+        //             control.optimal_throttle.shouldStop = false;
+        //             control.optimal_throttle.shouldDecel = false;
+        //             control.optimal_throttle.eventPlaceInfoManager.nextEventPlaceInfo();
+        //         } 
                 
-                else {
-                    control.steering = -30.0;
-                    control.velocity = 8.0;
-                    control.publishControlMsg();
-                }
-            }
-        }
+        //         else {
+        //             control.steering = -30.0;
+        //             control.velocity = 8.0;
+        //             control.publishControlMsg();
+        //         }
+        //     }
+        // }
 
-        else if(control.is_local_path_set){
+        if(control.is_local_path_set){
             control.lookahead_distance = control.local_lookahead_distance;
             control.velocity = control.local_velocity;
             control.calcSteering(control.curr_pose);

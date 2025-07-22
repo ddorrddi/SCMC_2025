@@ -98,6 +98,10 @@ if __name__ == '__main__':
             }
         ]
 
+        curr_lane_str = "1차선 (Lane ONE)" if planner.obstacle_avoidance_planner.curr_lane == Lane.ONE else "2차선 (Lane TWO)"
+        log += f"📍 현재 차선: {curr_lane_str}\n"
+
+
         log = f"\ncurr lane : {planner.obstacle_avoidance_planner.curr_lane}\n"
         log += f"avoidance : {planner.obstacle_avoidance_planner.avoidance_in_progress}\n"
         log += f"blocked_idx : {planner.obstacle_avoidance_planner.blocked_idx}\n"

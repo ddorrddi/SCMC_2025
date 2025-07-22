@@ -155,7 +155,7 @@ private:
 
         // 주차 시작점 -> 이때부터 주차공간 인지 시작
         // EventPlaceInfo(935545.2449255498, 1915882.5901543524, EventType::STOP_LINE),
-        EventPlaceInfo(3401, EventType::STOP_PARKING),
+        // EventPlaceInfo(3401, EventType::STOP_PARKING),
 
         // Last Element
         EventPlaceInfo(END_NUM, EventType::STOP_LINE),

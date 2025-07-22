@@ -69,6 +69,8 @@ public:
     // global path가 세팅되었는지 아닌지
     // pose가 세팅되었는지 아닌지
     // local path가 세팅되었는지 아닌지
+
+    bool is_initial_idx_found;
     bool is_erp, is_path_set, is_pose_set, is_local_path_set;
     bool is_delivery_path_set, is_finish;
 
@@ -113,16 +115,16 @@ public:
     void deliveryEndCallback(const std_msgs::Int16& signal);
 
     // @FMTC
-    int parking_start_idx[3] = {
-        // 120, 133, 147
-        120, // 3466,
-        133, // 3479,
-        147 // 3496
-    };
+    // int parking_start_idx[3] = {
+    //     // 120, 133, 147
+    //     120, // 3466,
+    //     133, // 3479,
+    //     147 // 3496
+    // };
 
-    int parking_space_num;
-    ros::Subscriber parking_space_num_sub;
-    void parkingSpaceNumCallback(const std_msgs::Int16& parking_space_num);
+    // int parking_space_num;
+    // ros::Subscriber parking_space_num_sub;
+    // void parkingSpaceNumCallback(const std_msgs::Int16& parking_space_num);
 
     bool is_moving_front;
 
