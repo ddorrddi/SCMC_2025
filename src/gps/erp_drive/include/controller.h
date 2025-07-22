@@ -71,6 +71,7 @@ public:
     bool is_initial_idx_found;
     bool is_erp, is_path_set, is_pose_set, is_local_path_set;
     bool is_delivery_path_set, is_finish;
+    bool is_timer_on = false;
 
     // Publisher 및 Subscriber 등록용
     ros::NodeHandle nh;

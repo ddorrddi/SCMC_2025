@@ -102,11 +102,5 @@ if __name__ == '__main__':
         log += f"avoidance : {planner.obstacle_avoidance_planner.avoidance_in_progress}\n"
         log += f"blocked_idx : {planner.obstacle_avoidance_planner.blocked_idx}\n"
         log += f"curr_idx : {planner.obstacle_avoidance_planner.g_curr_idx}\n"
-        log += f"obst_type : {planner.obstacle_avoidance_planner.obst_type}\n"
-        log += f"obst_len_x : {planner.obstacle_avoidance_planner.obst_len_x}\n"
-        log += f"obst_len_y : {planner.obstacle_avoidance_planner.obst_len_y}\n"
-        log += f"obst_len_z : {planner.obstacle_avoidance_planner.obst_len_z}\n"
-        log += f"obst_angle : {np.arctan2(planner.obstacle_avoidance_planner.obst_y, planner.obstacle_avoidance_planner.obst_x) * 180 / np.pi}\n"
-
         planner.logging_pub.publish(String(log))
         planner.rate.sleep()

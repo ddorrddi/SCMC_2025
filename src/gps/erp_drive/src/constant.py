@@ -52,6 +52,6 @@ const.AVOIDANCE_SUCCESS_RAIDUS = 1.0   #1.75 default
 const.DELIVERY_SUCCESS_RADIUS = 0.3 
 # test
 const.BLOCK_CHECK_LD = 8.0
-const.LANE_WIDTH = 2.0 # 원래 : 3.5
+const.LANE_WIDTH = 3.5# 원래 : 3.5
 const.LANE_WIDTH_SMALL = 0.5# 1.0 #FMTC : 0.75 MORAI : 1.3
 const.EVENT_THRESHOLD_DIST = 10.0

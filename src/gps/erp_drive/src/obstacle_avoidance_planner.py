@@ -145,7 +145,6 @@ class ObstacleAvoidancePlanner:
         return mat_v2g, mat_g2v, curr_yaw
     
 
-    #dh
     def ready_to_override(self):
         if self.target_x is None or self.target_y is None:
             return False
@@ -158,20 +157,12 @@ class ObstacleAvoidancePlanner:
             return True
 
         return False
-    ###
+
 
     def obstacle_info_CB(self, msg : ObjectInfo):
-        # if self.g_curr_idx >= 1240:
-        #     return
 
         self.objectCounts = msg.objectCounts
 
-        # msg에 내용물이 없는 경우
-        # if msg.objectCounts == 0:
-        #     rospy.loginfo('none')
-        #     return
-        
-        ### lidar 좌표계 상의 정보를 global 좌표계 상 정보로 변경 ####
         self.rel_obstacle_info = np.array([msg.centerX, msg.centerY, msg.centerZ, msg.lengthX, msg.lengthY, msg.lengthZ])
         self.rel_obstacle_info = self.rel_obstacle_info[:, :msg.objectCounts]
         self.rel_obstacle_info[0] += 1.2
@@ -240,13 +231,6 @@ class ObstacleAvoidancePlanner:
 
         self.obstacle_makers_pub.publish(_marker_array)
 
-        # # 이미 회피 경로가 생성되어 진행 중인 경우
-        # if self.avoidance_in_progress:
-        #     if self.avoidance_success_confirm():
-        #         self.avoidance_in_progress = False 
-                
-        #     return
-        #dh
         if self.avoidance_in_progress:
             if self.ready_to_override():
                 is_blocked, is_big, ccw = self.is_obst_on_path()
@@ -263,33 +247,7 @@ class ObstacleAvoidancePlanner:
                 self.avoidance_in_progress = False
 
             return
-        ###
-
-
-        
-    #     if self.avoidance_in_progress:
-    # # 회피 경로 추종 중에도 다음 장애물이 감지되면 덮어쓰기
-    #         is_blocked, is_big, ccw = self.is_obst_on_path()
-
-    #         if is_blocked:
-    #             rospy.loginfo("[중단] 기존 로컬패스 종료 후 새 장애물 회피 시작")
-
-    #             # 기존 로컬패스 강제 종료
-    #             self.is_local_waypoint_set = False
-    #             self.avoidance_in_progress = False
-
-    #             # 새 회피 경로 생성
-    #             mat_v2g, mat_g2v, curr_yaw = self.get_transfomation_matrix()
-    #             self.make_avoidance_path(is_big, ccw, mat_v2g, mat_g2v, curr_yaw)
-    #             return
-
-            # 회피 성공 여부 판단
-            if self.avoidance_success_confirm():
-                self.avoidance_in_progress = False
-
-            return
-
-        # 현재 주행 중인 global path 위에 장애물이 존재하지 않는 경우
+    
         is_blocked, is_big, ccw = self.is_obst_on_path()
         if not is_blocked:
             return
@@ -387,33 +345,7 @@ class ObstacleAvoidancePlanner:
                 self.avoidance_in_progress = False
 
             return
-        ###
-
-
-        
-    #     if self.avoidance_in_progress:
-    # # 회피 경로 추종 중에도 다음 장애물이 감지되면 덮어쓰기
-    #         is_blocked, is_big, ccw = self.is_obst_on_path()
-
-    #         if is_blocked:
-    #             rospy.loginfo("[중단] 기존 로컬패스 종료 후 새 장애물 회피 시작")
-
-    #             # 기존 로컬패스 강제 종료
-    #             self.is_local_waypoint_set = False
-    #             self.avoidance_in_progress = False
-
-    #             # 새 회피 경로 생성
-    #             mat_v2g, mat_g2v, curr_yaw = self.get_transfomation_matrix()
-    #             self.make_avoidance_path(is_big, ccw, mat_v2g, mat_g2v, curr_yaw)
-    #             return
-
-            # 회피 성공 여부 판단
-            if self.avoidance_success_confirm():
-                self.avoidance_in_progress = False
-
-            return
-
-        # 현재 주행 중인 global path 위에 장애물이 존재하지 않는 경우
+      
         is_blocked, is_big, ccw = self.is_obst_on_path()
         if not is_blocked:
             return
@@ -434,24 +366,11 @@ class ObstacleAvoidancePlanner:
             self.curr_pose.position.y - target_y
         )
 
+        rospy.loginfo(f"[Confirm] Dist to Target: {dist_to_target:.2f}m / Success Radius: {const.AVOIDANCE_SUCCESS_RAIDUS}m")
+
         if dist_to_target > const.AVOIDANCE_SUCCESS_RAIDUS:
             return False
-
-        # # ------------------- 🟢 조향 보정 flag publish -------------------
-        # # 장애물 위치 기준: 왼쪽이면 +5도 보정, 오른쪽이면 -5도 보정
-        # if self.obst_x < 0:
-        #     rospy.loginfo("🟢 왼쪽 장애물 감지 → left_flag = True")
-        #     self.left_flag_pub.publish(Int16(1))
-        # elif self.obst_x > 0:
-        #     rospy.loginfo("🟢 오른쪽 장애물 감지 → right_flag = True")
-        #     self.right_flag_pub.publish(Int16(1))
-
-        # # local path 종료 지점 → 보정 타이밍
-        # self.just_finished_local_path_pub.publish(Int16(1))
-        # rospy.loginfo("✅ local path 종료 → just_finished_local_path = True")
-        # # ---------------------------------------------------------------
-
-        # 로컬 패스 종료 처리
+        
         signal = Int16(data=1)
         self.local_path_done_signal_pub.publish(signal)
         rospy.loginfo("성공")
@@ -530,20 +449,20 @@ class ObstacleAvoidancePlanner:
             self.blocked_idx += max(blocked_left_idx, blocked_mid_idx, blocked_right_idx)
             self.blocked_idx //= 2
             # self.blocked_idx += 2
-            ccw = -1 if self.curr_lane == Lane.ONE else 1
+            ccw = 1 if self.curr_lane == Lane.ONE else -1
             return True, True, ccw
 
         # 소형인 경우
         if blocked_left:
             rospy.loginfo('left mid')
             self.blocked_idx = blocked_left_idx
-            return True, False, 1
+            return True, True, 1
 
         # 소형인 경우
         if blocked_right:
             rospy.loginfo('mid right')
             self.blocked_idx = blocked_right_idx
-            return True, False, -1
+            return True, True, -1
         
         self.blocked_idx = -1
         return False, False, 0
@@ -607,9 +526,59 @@ class ObstacleAvoidancePlanner:
         s0, l0 = cartesian_to_frenet(curr_x, curr_y, original_ref_path, s_list)
 
         lane_offset = 0.75
-        if is_big:
-            # 4. 회피 '후에' 주행할 목표 차선을 바꿔줍니다. (계산에 영향을 주지 않음)
+
+        rospy.loginfo(f"[BIG??]: {is_big}")
+
+        if 845 <= self.g_curr_idx <= 1240 and is_big:
+            rospy.loginfo("🚨 대형 장애물 감지 -> 차선 변경 로직 실행")
+            # 목표 차선을 변경합니다.
             self.curr_lane = Lane.TWO if self.curr_lane == Lane.ONE else Lane.ONE
+            # is_obst_on_path에서 이미 ccw를 차선 변경에 맞게 계산했으므로 추가 로직은 불필요합니다.
+            self.avoidance_in_progress = True
+
+            target_lookahead = 20 # 50 * 0.2m = 10m 앞을 목표로 설정 (튜닝 필요)
+            target_idx = min(self.g_curr_idx + target_lookahead, len(self.g_path[self.curr_lane]) - 1)
+            
+            target_pose = self.g_path[self.curr_lane][target_idx].pose
+            self.target_x = target_pose.position.x
+            self.target_y = target_pose.position.y
+            rospy.loginfo(f"단순 차선 변경 완료 목표 지점 설정: ({self.target_x:.2f}, {self.target_y:.2f})")
+
+            # ======================= 👇 시각화 코드 추가 👇 =======================
+            # 4. RViz에 해당 목표 지점을 파란색 구체로 표시
+            target_marker = Marker()
+            target_marker.header.frame_id = 'map'
+            target_marker.header.stamp = rospy.Time.now()
+            target_marker.ns = 'virtual_target' # 네임스페이스를 다르게 하여 기존 마커와 구분
+            target_marker.id = 0
+            target_marker.type = Marker.SPHERE
+            target_marker.action = Marker.ADD
+
+            target_marker.pose.position.x = self.target_x - self.rviz_offset_x
+            target_marker.pose.position.y = self.target_y - self.rviz_offset_y
+            target_marker.pose.position.z = 0.5 # 살짝 띄워서 잘 보이게 함
+
+            target_marker.pose.orientation.w = 1.0
+
+            target_marker.scale.x = 0.8
+            target_marker.scale.y = 0.8
+            target_marker.scale.z = 0.8
+
+            target_marker.color.a = 0.8
+            target_marker.color.r = 0.0 # 파란색
+            target_marker.color.g = 0.5
+            target_marker.color.b = 1.0
+
+            self.target_marker_pub.publish(target_marker)
+
+            return
+        
+        # [조건] 그 외 모든 경우 (소형 장애물 구간 포함)
+        else: # 255 <= self.g_curr_idx <= 500 또는 그 외 구간
+            rospy.loginfo("🚗 소형 장애물 감지 -> 차선 내 회피 로직 실행")
+            # 목표 차선 변경 없이, 현재 차선 내에서 회피합니다.
+            # self.curr_lane은 변경하지 않습니다.
+            pass # 특별히 할 작업 없음
         
         # 회피 목표 지점 계산
         blend_margin = 0
@@ -703,148 +672,6 @@ class ObstacleAvoidancePlanner:
         self.is_local_waypoint_set = True
         self.avoidance_in_progress = True
         
-
-
-
-
-    # def make_avoidance_path(self, is_big: bool, ccw, mat_v2g: np.ndarray, mat_g2v: np.ndarray, curr_yaw: float):
-    #     target_coord = self.setting_target_point(is_big, ccw, mat_g2v, curr_yaw)
-        
-    #     self.target_x = target_coord[0]
-    #     self.target_y = target_coord[1]
-    #     target_waypoint_yaw = target_coord[2]
-
-    #     x = np.array([0, self.target_x]) #target_x 두 배 만큼만 뒤로 연장(직선으로)
-    #     y = np.array([0, self.target_y])
-
-    #     if np.any(np.diff(x) <= 0):
-    #         rospy.logerr("Error: x must be strictly increasing")
-    #         return
-
-    #     dydx = np.array([0, target_waypoint_yaw]) #연장했으니 yaw값도 그대로 가져다가 씀 > 0으로 해도 될 것 같기도
-
-    #     f = CubicHermiteSpline(x, y, dydx)
-        
-    #     resolution = int((np.hypot(self.target_x, self.target_y)) / 0.2) #연장한 것에 맞게 (기존 target_point까지의 거리 + target_x)해서 0.2로 나눔
-    #     path_x = np.linspace(x[0], x[-1], resolution)
-    #     path_y = f(path_x)
-
-    #     path = np.array([
-    #         path_x,
-    #         path_y,
-    #         np.zeros(shape=(resolution, )),
-    #         np.ones(shape=(resolution, )),
-    #     ])
-
-    #     df = f.derivative()
-    #     path_ori = df(path_x)
-        
-    #     path = mat_v2g @ path
-
-    #     self.avoidance_path = PathReference()
-    #     self.rviz_avoidance_path.poses = []
-
-    #     for x, y, yaw in zip(path[0], path[1], path_ori):
-    #         avoidance_path_element = PathReferenceElement()
-    #         avoidance_path_element.pose.position.x = x
-    #         avoidance_path_element.pose.position.y = y
-    #         avoidance_path_element.pose.position.z = 0.
-
-    #         quat = quaternion_from_euler(0., 0., yaw)
-    #         avoidance_path_element.pose.orientation.x = quat[0]
-    #         avoidance_path_element.pose.orientation.y = quat[1]
-    #         avoidance_path_element.pose.orientation.z = quat[2]
-    #         avoidance_path_element.pose.orientation.w = quat[3]
-            
-    #         avoidance_path_element.mode = 11
-
-    #         self.avoidance_path.path.append(avoidance_path_element)
-
-    #         rviz_local_pose = PoseStamped()
-    #         rviz_local_pose.header.frame_id = 'map'
-    #         rviz_local_pose.header.stamp = rospy.Time.now()
-            
-    #         rviz_local_pose.pose.position.x = avoidance_path_element.pose.position.x - self.rviz_offset_x
-    #         rviz_local_pose.pose.position.y = avoidance_path_element.pose.position.y - self.rviz_offset_y
-    #         rviz_local_pose.pose.position.z = 0.
-            
-    #         rviz_local_pose.pose.orientation.x = quat[0]
-    #         rviz_local_pose.pose.orientation.y = quat[1]
-    #         rviz_local_pose.pose.orientation.z = quat[2]
-    #         rviz_local_pose.pose.orientation.w = quat[3]
-            
-    #         self.rviz_avoidance_path.poses.append(rviz_local_pose)
-
-
-    #     # Target 위치 시각화 마커 생성
-    #     target_marker = Marker()
-    #     target_marker.header.frame_id = 'map'
-    #     target_marker.header.stamp = rospy.Time.now()
-    #     target_marker.ns = 'target'
-    #     target_marker.id = 0
-    #     target_marker.type = Marker.SPHERE
-    #     target_marker.action = Marker.ADD
-
-    #     target_marker.pose.position.x = self.avoidance_path.path[-1].pose.position.x - self.rviz_offset_x
-    #     target_marker.pose.position.y = self.avoidance_path.path[-1].pose.position.y - self.rviz_offset_y
-    #     target_marker.pose.position.z = 0.0
-
-    #     target_marker.pose.orientation = self.avoidance_path.path[-1].pose.orientation
-
-    #     target_marker.scale.x = 0.5  # 화살표 길이
-    #     target_marker.scale.y = 0.5
-    #     target_marker.scale.z = 0.5
-
-    #     target_marker.color.a = 1.0
-    #     target_marker.color.r = 1.0
-    #     target_marker.color.g = 0.3
-    #     target_marker.color.b = 0.0
-
-    #     self.target_marker_pub.publish(target_marker)
-
-
-    #     self.rviz_avoidance_path.header.stamp = rospy.Time.now()
-    #     self.is_local_waypoint_set = True
-    #     self.avoidance_in_progress = True
-
-
-    # # 로컬 패스 끝날 때마다 왼쪽이면 오른쪽으로, 오른쪽이면 왼쪽으로 각도 조정
-    # def _append_tail(self, last_pt, sign):
-    #     """로컬패스 끝에 ±tail_deg 꼬리 세그먼트 추가."""
-    #     lx, ly = last_pt.pose.position.x, last_pt.pose.position.y
-    #     _, _, last_yaw = euler_from_quaternion([
-    #         last_pt.pose.orientation.x,
-    #         last_pt.pose.orientation.y,
-    #         last_pt.pose.orientation.z,
-    #         last_pt.pose.orientation.w])
-
-    #     yaw_bias = sign * np.deg2rad(self.tail_deg)
-
-    #     for k in range(1, self.tail_steps + 1):
-    #         r   = k / float(self.tail_steps)
-    #         yaw = last_yaw + yaw_bias * r
-    #         ds  = self.tail_len * r
-    #         x   = lx + ds * np.cos(yaw)
-    #         y   = ly + ds * np.sin(yaw)
-
-    #         elem = PathReferenceElement()
-    #         elem.pose.position.x, elem.pose.position.y = x, y
-    #         q = quaternion_from_euler(0., 0., yaw)
-    #         elem.pose.orientation.x, elem.pose.orientation.y, \
-    #         elem.pose.orientation.z, elem.pose.orientation.w = q
-    #         elem.mode = 11
-    #         self.avoidance_path.path.append(elem)
-
-    #         rv = PoseStamped()
-    #         rv.header.frame_id = 'map';  rv.header.stamp = rospy.Time.now()
-    #         rv.pose.position.x = x - self.rviz_offset_x
-    #         rv.pose.position.y = y - self.rviz_offset_y
-    #         rv.pose.orientation.x, rv.pose.orientation.y, \
-    #         rv.pose.orientation.z, rv.pose.orientation.w = q
-    #         self.rviz_avoidance_path.poses.append(rv)
-
-
-
 
     def publish_avoidance_path(self):
 

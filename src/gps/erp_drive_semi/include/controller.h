@@ -39,6 +39,9 @@ class Controller {
 public:
     Controller(char control_target);
 
+    bool is_moving_back;
+
+
     // 상수 값
     const int LOOP_RATE = 30;
     const double WHEEL_BASE = 1.04;

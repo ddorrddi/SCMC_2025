@@ -70,36 +70,36 @@ int main(int argc, char** argv) {
         ros::spinOnce();
         control.flowControl(control.curr_pose);
 
-        if (control.is_avoidance_success && !control.has_turned_after_avoidance) {
-            ROS_INFO("AVOID!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+        // if (control.is_avoidance_success && !control.has_turned_after_avoidance) {
+        //     ROS_INFO("AVOID!!!!!!!!!!!!!!!!!!!!!!!!!!!");
 
-            const double steering_angle_rad = 7.0 * (M_PI / 180.0);
+        //     const double steering_angle_rad = 7.0 * (M_PI / 180.0);
             
-            // last_avoidance_direction == 1: 오른쪽 장애물을 왼쪽으로 회피 -> 오른쪽으로 꺾어 복귀
-            if (control.last_avoidance_direction == 1) {
-                ROS_INFO("RIGHT!!!!!!!!!!!!!!!!!");
-                control.steering = -steering_angle_rad;  // 
-            } 
-            // last_avoidance_direction == -1: 왼쪽 장애물을 오른쪽으로 회피 -> 왼쪽으로 꺾어 복귀
-            else if (control.last_avoidance_direction == -1) {
-                ROS_INFO("LEFT!!!!!!!!!!!!!!!!!");
-                control.steering = steering_angle_rad ; // 
-            }
+        //     // last_avoidance_direction == 1: 오른쪽 장애물을 왼쪽으로 회피 -> 오른쪽으로 꺾어 복귀
+        //     if (control.last_avoidance_direction == 1) {
+        //         ROS_INFO("RIGHT!!!!!!!!!!!!!!!!!");
+        //         control.steering = -steering_angle_rad;  // 
+        //     } 
+        //     // last_avoidance_direction == -1: 왼쪽 장애물을 오른쪽으로 회피 -> 왼쪽으로 꺾어 복귀
+        //     else if (control.last_avoidance_direction == -1) {
+        //         ROS_INFO("LEFT!!!!!!!!!!!!!!!!!");
+        //         control.steering = steering_angle_rad ; // 
+        //     }
 
-            control.velocity = 8.0; // 
-            control.brake = 0.0;
-            control.publishControlMsg();
+        //     control.velocity = 8.0; // 
+        //     control.brake = 0.0;
+        //     control.publishControlMsg();
             
-            ros::Duration(1.0).sleep(); // 
+        //     ros::Duration(1.0).sleep(); // 
 
-            // 복귀 조향이 끝났으므로 플래그들을 리셋
-            control.has_turned_after_avoidance = true;
-            control.is_avoidance_success = false; 
-            control.last_avoidance_direction = 0; 
+        //     // 복귀 조향이 끝났으므로 플래그들을 리셋
+        //     control.has_turned_after_avoidance = true;
+        //     control.is_avoidance_success = false; 
+        //     control.last_avoidance_direction = 0; 
 
-            // 바로 다음 루프로 넘어가서 일반 주행 로직을 수행하도록 함
-            continue; 
-        }
+        //     // 바로 다음 루프로 넘어가서 일반 주행 로직을 수행하도록 함
+        //     continue; 
+        // }
 
         if(isLogging && control.is_path_set && control.is_pose_set){
             logging(control);
@@ -131,28 +131,29 @@ int main(int argc, char** argv) {
             control.lookahead_distance = control.global_lookahead_distance;
             control.velocity = control.optimal_throttle.calcTanhVelocity(control.curr_pose);
             control.brake = (control.velocity < control.speed_now) ? 0.15 : 0.0;
-            ROS_INFO_STREAM("brake : " << control.brake);
-            ROS_INFO_STREAM("curr_idx : " << control.g_curr_idx);
-            ROS_INFO_STREAM("velocity : " << control.velocity << ", speed_now : " << control.speed_now);
+            // ROS_INFO_STREAM("brake : " << control.brake);
+            // ROS_INFO_STREAM("curr_idx : " << control.g_curr_idx);
+            // ROS_INFO_STREAM("velocity : " << control.velocity << ", speed_now : " << control.speed_now);
 
             const auto& event_type = control.optimal_throttle.eventPlaceInfoManager.getCurrEventPlaceInfo().type;
             if(event_type == EventType::STOP_LINE || event_type == EventType::STOP_DELIVERY_A)
                 control.brake = (control.optimal_throttle.shouldStop) ? 1.0 : 0.0;
 
             else if(event_type == EventType::STOP_TRAFFIC){
-                if(control.isLeftTurn() && !control.isLeftSign()) {
-                    control.brake = 1.0;
-                }
-
-                else if(!control.isLeftTurn() && !control.isGreenSign()) {
-                    control.brake = 1.0;
-                }
-
-                else {
-                    control.brake = 0.0;
-                    control.optimal_throttle.shouldStop = false;
-                    control.optimal_throttle.shouldDecel = false;
-                    control.optimal_throttle.eventPlaceInfoManager.nextEventPlaceInfo();
+                // flowControl이 신호등에 가까워졌다고 판단했을 때만 (shouldStop == true) 아래 로직을 실행
+                if (control.optimal_throttle.shouldStop) {
+                    bool is_red_light = (control.isLeftTurn() && !control.isLeftSign()) || (!control.isLeftTurn() && !control.isGreenSign());
+            
+                    if (is_red_light) {
+                        // 빨간불이면 계속 정지
+                        control.brake = 1.0;
+                    } else {
+                        // 초록불이면 출발!
+                        control.brake = 0.0;
+                        control.optimal_throttle.shouldStop = false;
+                        control.optimal_throttle.shouldDecel = false;
+                        control.optimal_throttle.eventPlaceInfoManager.nextEventPlaceInfo();
+                    }
                 }
             }
 

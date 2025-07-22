@@ -15,6 +15,9 @@ public:
     double lookahead_distance;
     double global_lookahead_distance;
     double local_lookahead_distance;
+
+    int g_next_idx;
+    int l_next_idx;
     
     void calcSteering(const geometry_msgs::Pose& curr_pose);
     
