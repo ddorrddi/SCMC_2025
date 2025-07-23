@@ -12,7 +12,7 @@ CONFIDENCE = 0.5
 
 # weights_path = '/home/foscar/바탕화면/changyeop_yolo/model/09_09_traffic_light_8n_20epoch.pt'
 # weights_path = '/home/foscar/isc  c_2024/src/camera/traffic_light/weight/best (1).pt'
-weights_path = '/home/foscar/SCMC_2025/src/camera/traffic_light/weight/1027_40epoch.pt'
+weights_path = '/home/foscar/SCMC_2025_Test/src/camera/traffic_light/weight/1027_40epoch.pt'
 model = YOLO(weights_path)
 bridge = CvBridge()
 

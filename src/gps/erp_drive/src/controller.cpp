@@ -221,7 +221,6 @@ void Controller::flowControl(const geometry_msgs::Pose& curr_pose){
     else if(this->optimal_throttle.shouldStop){
         switch(this->optimal_throttle.eventPlaceInfoManager.getCurrEventPlaceInfo().type){
         case EventType::STOP_TRAFFIC:
-            ROS_INFO("Traffic!!!!!!!!!!!");
             break;
 
         case EventType::STOP_LINE:

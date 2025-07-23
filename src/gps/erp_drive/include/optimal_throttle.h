@@ -130,7 +130,7 @@ private:
         EventPlaceInfo(843, EventType::STOP_TRAFFIC),
 
         // Big Obstacle deceleration
-        EventPlaceInfo(1050/*tmp*/, EventType::DECEL_BIG),
+        // EventPlaceInfo(1050/*tmp*/, EventType::DECEL_BIG),
 
         // delivery 1st stop sign 4 (배달 직전)
         // EventPlaceInfo(935650.1697879703, 1916096.433997373, EventType::STOP_LINE),
