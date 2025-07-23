@@ -1,9 +1,8 @@
 #include "pure_pursuit.h"
 
 PurePursuit::PurePursuit(char control_target):
-    Controller(control_target), g_next_idx(0), l_next_idx(0), in_parking_next_idx(0), 
-    out_parking_next_idx(0), lookahead_distance(0.), global_lookahead_distance(0.), local_lookahead_distance(0.),
-    parking_lookahead_distance(0.) {}
+    Controller(control_target), g_next_idx(0), l_next_idx(0), lookahead_distance(0.), global_lookahead_distance(0.), local_lookahead_distance(0.)
+ {}
 
 geometry_msgs::Pose PurePursuit::calcRelativeCoordinateAboutCurr(const geometry_msgs::Pose& pt, const geometry_msgs::Pose& curr_pose){
     tf::Transform inverse;

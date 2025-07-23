@@ -5,8 +5,6 @@ void paramCallback(erp_drive_semi::CtrlParamConfig &config, PurePursuit* control
     control->global_lookahead_distance = config.global_lookahead_distance;
     control->local_velocity = config.local_velocity;
     control->local_lookahead_distance = config.local_lookahead_distance;
-    control->parking_velocity = config.parking_velocity;
-    control->parking_lookahead_distance = config.parking_lookahead_distance;
 }
 
 int main(int argc, char** argv) {

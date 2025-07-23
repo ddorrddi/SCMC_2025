@@ -19,27 +19,6 @@ geometry_msgs::Pose PurePursuit::calcRelativeCoordinateAboutCurr(const geometry_
     return ret;
 }
 
-// void PurePursuit::leftFlagCB(const std_msgs::Int16::ConstPtr& msg) {
-//     if (msg->data == 1) {
-//         this->left_flag = true;
-//         ROS_INFO("[Flag 수신] left_flag = true");
-//     }
-// }
-
-// void PurePursuit::rightFlagCB(const std_msgs::Int16::ConstPtr& msg) {
-//     if (msg->data == 1) {
-//         this->right_flag = true;
-//         ROS_INFO("[Flag 수신] right_flag = true");
-//     }
-// }
-
-// void PurePursuit::localPathDoneCB(const std_msgs::Int16::ConstPtr& msg) {
-//     if (msg->data == 1) {
-//         this->just_finished_local_path = true;
-//         ROS_INFO("[Flag 수신] just_finished_local_path = true");
-//     }
-// }
-
 void PurePursuit::calcSteering(const geometry_msgs::Pose& curr_pose) {
     geometry_msgs::Pose curr_waypoint;
     geometry_msgs::Pose next_waypoint;
@@ -71,30 +50,8 @@ void PurePursuit::calcSteering(const geometry_msgs::Pose& curr_pose) {
         ROS_INFO("is_global_path_set"); 
         curr_waypoint = this->g_path.path.at(this->g_curr_idx).pose;
         next_waypoint = this->g_path.path.at(this->g_next_idx).pose;
-
-        // if (this->just_finished_local_path) {
-        //     if (this->left_flag) {
-        //         ROS_INFO("left_flag 보정 적용!");
-        //         this->steering += DEG2RAD(30.0); // 또는 += 0.087 rad
-        //         this->left_flag = false;
-        //     }
-        //     else if (this->right_flag) {
-        //         ROS_INFO("right_flag 보정 적용!");
-        //         this->steering -= DEG2RAD(30.0); // 또는 -= 0.087 rad
-        //         this->right_flag = false;
-        //     }
-        //     this->just_finished_local_path = false; // 1회성 보정 후 초기화
-        // }
     }
 
-    // 감속해야 하는데, U_TURN 임.
-    // if(this->optimal_throttle.shouldDecel 
-    //     && this->optimal_throttle.eventPlaceInfoManager.getCurrEventPlaceInfo().type == EventType::DECEL_U_TURN_END) {
-    //     // 바로 왼쪽 풀 조향
-    //     this->steering = 30.0;
-    // }
-
-    // else {
     double denominator = pow(getDistance(curr_pose, next_waypoint), 2);
     double numerator = 2 * this->calcRelativeCoordinateAboutCurr(next_waypoint, curr_pose).position.y;
 
@@ -103,7 +60,7 @@ void PurePursuit::calcSteering(const geometry_msgs::Pose& curr_pose) {
 
     else
         this->steering = atan(this->WHEEL_BASE * numerator / denominator);
-    // }
+
 }
 
 int PurePursuit::calcGlobalNextWaypoint(const geometry_msgs::Pose& curr_pose) {

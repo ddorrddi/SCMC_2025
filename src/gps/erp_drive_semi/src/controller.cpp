@@ -1,11 +1,10 @@
 #include "controller.h"
 
 Controller::Controller(char control_target):
-    optimal_throttle(), is_parking_in_path_set(false), is_parking_out_path_set(false),
-    is_parking_path_set(false), is_finish(false), flag(true),
+    optimal_throttle(), is_finish(false), flag(true),
     is_path_set(false), is_pose_set(false), is_local_path_set(false), g_curr_idx(0), 
-    velocity(0.), global_velocity(0.), local_velocity(0.), 
-    parking_velocity(0.), is_moving_back(false), is_parking_start_point(false), is_parking_finish(false){
+    velocity(0.), global_velocity(0.), local_velocity(0.), is_moving_back(false)
+    {
         this->is_erp = control_target == 'e'; // e => erp (true), m => morai (false)
        
         this->global_path_finish_pub = nh.advertise<std_msgs::Bool>("/global_path_finish", 1);
@@ -24,7 +23,6 @@ Controller::Controller(char control_target):
         this->imu_sub = nh.subscribe("/handsfree/imu", 1, &Controller::imuCallback, this);
 
         this->client = nh.serviceClient<erp_drive_semi::InitializePose>("initialize_pose");
-        this->client_for_parking_path = nh.serviceClient<erp_drive_semi::PermitParking>("permit_parking");
     }
 
 void Controller::globalPathCallback(const erp_drive_semi::PathReference& g_path){

@@ -35,7 +35,6 @@
 
 #include "optimal_throttle.h"
 #include "erp_drive/InitializePose.h"
-#include "erp_drive/PermitParking.h"
 
 #include "timer.h"
 
@@ -51,7 +50,6 @@ public:
     double velocity;
     double global_velocity;
     double local_velocity;
-    double parking_velocity;
 
     OptimalThrottle optimal_throttle;
     void flowControl(const geometry_msgs::Pose& curr_pose);
@@ -73,6 +71,7 @@ public:
     bool is_initial_idx_found;
     bool is_erp, is_path_set, is_pose_set, is_local_path_set;
     bool is_delivery_path_set, is_finish;
+    bool is_timer_on = false;
 
     // Publisher 및 Subscriber 등록용
     ros::NodeHandle nh;
@@ -115,18 +114,6 @@ public:
     void deliveryDoneCallback(const std_msgs::Int16& signal);
     void deliveryEndCallback(const std_msgs::Int16& signal);
 
-    // @FMTC
-    // int parking_start_idx[3] = {
-    //     // 120, 133, 147
-    //     120, // 3466,
-    //     133, // 3479,
-    //     147 // 3496
-    // };
-
-    // int parking_space_num;
-    // ros::Subscriber parking_space_num_sub;
-    // void parkingSpaceNumCallback(const std_msgs::Int16& parking_space_num);
-
     bool is_moving_front;
 
     int start_yaw = -400;
@@ -156,9 +143,7 @@ public:
     bool isLeftTurn();
 
     ros::ServiceClient client;
-    ros::ServiceClient client_for_parking_path;
     erp_drive::InitializePose srv;
-    erp_drive::PermitParking srv_parking_path;
      
     // geometry_msg::Pose -> tf::Vector3 로 변환
     tf::Vector3 pose2vec(const geometry_msgs::Pose& pose) {
