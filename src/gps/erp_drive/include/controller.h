@@ -142,6 +142,10 @@ public:
     bool isGreenSign();
     bool isLeftTurn();
 
+    bool is_deceleration_requested = false;
+    ros::Subscriber deceleration_request_sub; // [추가] 감속 요청 Subscriber
+    void decelerationRequestCallback(const std_msgs::Int16& msg); // [추가] 콜백 함수
+
     ros::ServiceClient client;
     erp_drive::InitializePose srv;
      

@@ -185,6 +185,12 @@ int main(int argc, char** argv) {
                 }
             }
 
+            if (control.is_deceleration_requested) {
+                // 원하는 감속 속도를 여기에 설정합니다.
+                // 예: local_velocity보다 느리게 설정
+                control.velocity = control.local_velocity; 
+            }
+
             control.calcSteering(control.curr_pose);
             control.publishControlMsg();
         }

@@ -44,6 +44,7 @@ class ObstacleAvoidancePlanner:
         # self.left_flag_pub = rospy.Publisher('/pure_pursuit/left_flag', Int16, queue_size=1)
         # self.right_flag_pub = rospy.Publisher('/pure_pursuit/right_flag', Int16, queue_size=1)
         self.ccw_pub = rospy.Publisher('/avoidance_direction', Int16, queue_size=1)
+        self.decel_request_pub = rospy.Publisher('/deceleration_request', Int16, queue_size=1)
         # self.just_finished_local_path_pub = rospy.Publisher('/pure_pursuit/just_finished_local_path', Int16, queue_size=1)
 
         #dh
@@ -371,6 +372,8 @@ class ObstacleAvoidancePlanner:
         if dist_to_target > const.AVOIDANCE_SUCCESS_RAIDUS:
             return False
         
+        self.decel_request_pub.publish(Int16(data=0))
+        
         signal = Int16(data=1)
         self.local_path_done_signal_pub.publish(signal)
         rospy.loginfo("성공")
@@ -466,47 +469,6 @@ class ObstacleAvoidancePlanner:
         
         self.blocked_idx = -1
         return False, False, 0
-    
-    def setting_target_point(self, is_big: bool, ccw, mat_g2v: np.ndarray, curr_yaw: float):
-        quat = self.g_path[self.curr_lane][self.blocked_idx].pose.orientation 
-        orientation_list = [quat.x, quat.y, quat.z, quat.w]
-        _, _, global_target_yaw = euler_from_quaternion(orientation_list)
-        yaw = global_target_yaw - curr_yaw
-        
-        if 255 <= self.g_curr_idx <= 500:
-            self.obst_type = 'small'   
-            g_x = self.g_path[self.curr_lane][self.blocked_idx].pose.position.x
-            g_y = self.g_path[self.curr_lane][self.blocked_idx].pose.position.y
-            
-            lane_width = const.LANE_WIDTH_SMALL
-            # ccw = self.CCW((g_x, g_y), self.g_obstacle_info[:, 0])
-            
-            x, y, _, _ = mat_g2v @ np.array([g_x, g_y, 0., 1.]).T
-            x += np.cos(yaw + np.pi / 2) * lane_width * ccw
-            y += np.sin(yaw + np.pi / 2) * lane_width * ccw
-        
-
-        elif 845 <= self.g_curr_idx <= 1240:
-            self.obst_type = 'big'   
-            lane_width = const.LANE_WIDTH
-            if self.curr_lane == Lane.ONE:
-                ccw = -1
-                self.curr_lane = Lane.TWO
-
-            else: 
-                ccw = 1
-                self.curr_lane = Lane.ONE
-        
-            g_x = self.g_path[self.curr_lane][self.blocked_idx].pose.position.x
-            g_y = self.g_path[self.curr_lane][self.blocked_idx].pose.position.y
-            
-            x, y, _, _ = mat_g2v @ np.array([g_x, g_y, 0., 1.]).T
-        
-        else:
-            x, y, _, _ = mat_g2v @ np.array([self.curr_pose.position.x, self.curr_pose.position.y, 0, 1]).T
-
-        return x, y, yaw
-    
 
     # # avoidance_frenet_example.py (updated from make_avoidance_path)
 
@@ -542,6 +504,9 @@ class ObstacleAvoidancePlanner:
             target_pose = self.g_path[self.curr_lane][target_idx].pose
             self.target_x = target_pose.position.x
             self.target_y = target_pose.position.y
+
+            self.decel_request_pub.publish(Int16(data=1))
+
             rospy.loginfo(f"단순 차선 변경 완료 목표 지점 설정: ({self.target_x:.2f}, {self.target_y:.2f})")
 
             # ======================= 👇 시각화 코드 추가 👇 =======================
