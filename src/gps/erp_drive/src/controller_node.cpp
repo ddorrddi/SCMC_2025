@@ -1,4 +1,5 @@
 #include "pure_pursuit.h"
+#include <ros/ros.h>
 
 void paramCallback(erp_drive::CtrlParamConfig &config, PurePursuit* control) {
     control->optimal_throttle.setMaxVelocity(config.global_velocity);
@@ -42,6 +43,10 @@ int main(int argc, char** argv) {
 
 
     bool isLogging = true; //argv[2][0] == 't';
+
+    bool delivery_stop_once_flag = false; // 배달 목적지에서 멈출때 딱 한번쓰려고 만든 플래그
+    ros::Time delivery_B_Stop_Time; // 배달 목적지에서 정지할때 쓸 타이머
+    double delivery_B_Original_Velocity = 0.0; // 배달 목적지에서 천천히 감속하려고 쓰는 변수
 
     ros::Rate loop_rate(control.LOOP_RATE);
 
@@ -301,12 +306,35 @@ int main(int argc, char** argv) {
             control.publishControlMsg();
         }
 
-        else if(control.is_delivery_path_set){ // TODO : 배달목적지에서 정지하는법 찾아서 완성하기
+        else if(control.is_delivery_path_set){
             if(control.is_delivery_done){
-                // 0.5초 뒤에
-                control.velocity = 0;
-                // 3초 뒤에
-                control.is_delivery_done = false;
+                if(!delivery_stop_once_flag){
+                    ROS_INFO("delivery_stop : init");
+                    delivery_B_Stop_Time = ros::Time::now();    // 정지 명령 시간 기록
+                    delivery_B_Original_Velocity = control.velocity;
+                    delivery_stop_once_flag = true;
+                }
+                
+                ros::Duration elapsed = ros::Time::now() - delivery_B_Stop_Time;    // 경과 시간 계산
+
+                if(elapsed < ros::Duration(0.5)){
+                    ROS_INFO("delivery_stop : decel");
+                    double ratio = 1.0 - (elapsed.toSec() / 0.5);
+                    control.velocity = delivery_B_Original_Velocity * ratio;
+                    control.brake = 0.0;
+                    control.publishControlMsg();
+                }else if(elapsed < ros::Duration(5.5)){
+                    ROS_INFO("delivery_stop : stop");
+                    control.velocity = 0.0;
+                    control.brake = 1.0;
+                    control.publishControlMsg();
+                }else{
+                    ROS_INFO("delivery_stop : go");
+                    control.brake = 0.0;
+                    control.publishControlMsg();
+                    control.is_delivery_done = false;
+                }
+
             }
             else{
                 control.lookahead_distance = control.local_lookahead_distance;

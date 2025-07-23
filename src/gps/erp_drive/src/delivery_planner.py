@@ -42,7 +42,7 @@ class DeliveryPlanner:
         # 파라미터 (조절해야됨)
         self.threshold = 0.95 # IOU 신뢰도 임계값
         self.min_queue_size = 20 # 목적지 좌표 신뢰도를 위한 큐 사이즈 (10Hz기준 20이면 2초간의 정보) !!메시지 드랍시 보완 로직이 없음!!
-        self.end_offset = 20 # 배달미션이 끝났는가 판단하는 최소 waypoint 개수
+        self.end_offset = 40 # 배달미션이 끝났는가 판단하는 최소 waypoint 개수
 
         # 로컬패스 설정
         self.pkg_path = rospkg.RosPack().get_path("erp_drive")
@@ -63,6 +63,7 @@ class DeliveryPlanner:
         self.sign_coords = None # 목적지 좌표 (x,y,z)
         self.delivery_in_progress = False # 배달 진행중인가 플래그
         self.delivery_done = False # 배달 목적지 좌표에 도착했는가 플래그
+        self.delivery_done_once = False # delivery_done 한번만 pub하기 위한 flag
         self.delivery_end = False # 배달미션이 끝났는가 플래그
         self.delivery_path_is_pub = False # 배달경로가 한번이라도 publish됐나 플래그
         self.sign_queue = deque(maxlen=70)
@@ -77,10 +78,10 @@ class DeliveryPlanner:
         rospy.Subscriber('/now_test', Int16, self.test_now_CB) # 로컬패스 생성확인하는 테스트용 구독자
 
         # 퍼블리셔
-        self.delivery_path_pub = rospy.Publisher("/local_path", PathReference, queue_size=1) # 배달경로
+        self.delivery_path_pub = rospy.Publisher("/delivery_path", PathReference, queue_size=1) # 배달경로
         self.rviz_delivery_path_pub = rospy.Publisher('/rviz_delivery_path', Path, queue_size=1) # 시각화용 배달경로
         self.delivery_done_pub = rospy.Publisher("/delivery_done", Int16, queue_size=1) # 배달 목적지에 도착했는지 플래그
-        self.delivery_end_pub = rospy.Publisher("/local_path_done", Int16, queue_size=1) # 배달미션이 끝났는지 플래그
+        self.delivery_end_pub = rospy.Publisher("/delivery_end", Int16, queue_size=1) # 배달미션이 끝났는지 플래그
 
     def test_now_CB(self,msg: Int16):
         tester = msg.data
@@ -161,9 +162,11 @@ class DeliveryPlanner:
         dist_to_target = np.hypot(self.curr_pose.position.x - self.destination[0],\
                                    self.curr_pose.position.y - self.destination[1])
 
-        if dist_to_target < const.DELIVERY_SUCCESS_RADIUS and self.delivery_in_progress: # @TODO 실험적으로 찾아야 할 값
-            rospy.loginfo(f"delivery_done_confirm() : 목적지와의 거리 {dist_to_target}, 목적지 도착!")
-            self.delivery_done = True
+        if not self.delivery_done_once:
+            if dist_to_target < const.DELIVERY_SUCCESS_RADIUS and self.delivery_in_progress: # @TODO 실험적으로 찾아야 할 값
+                rospy.loginfo(f"delivery_done_confirm() : 목적지와의 거리 {dist_to_target}, 목적지 도착!")
+                self.delivery_done = True
+                self.delivery_done_once = True
         
         self.delivery_done_pub.publish(1 if self.delivery_done else 0)
 

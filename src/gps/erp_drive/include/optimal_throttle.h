@@ -84,6 +84,10 @@ public:
     bool nextEventPlaceInfo() {
         if(this->isEventPlaceInfoEnd()) return false;
         iter++;
+        if(iter->type == EventType::STOP_DELIVERY_B){
+            iter++;
+            if(this->isEventPlaceInfoEnd()) return false;
+        }
         return true;
     }
 
@@ -106,7 +110,7 @@ private:
 
         // 배탈 A 체크
         // EventPlaceInfo(935549.5145976712, 1915871.4294302394, EventType::STOP_DELIVERY),
-        EventPlaceInfo(189 , EventType::STOP_DELIVERY_A),
+        EventPlaceInfo(179 , EventType::STOP_DELIVERY_A),
         
         // Small Obstacle deceleration
         EventPlaceInfo(210 , EventType::DECEL_BIG),
