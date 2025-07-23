@@ -7,12 +7,13 @@
 import rospy
 import numpy as np
 import cv2
-from sensor_msgs.msg import Image, PointCloud2, PointCloud
+from sensor_msgs.msg import Image, CameraInfo
 from cv_bridge import CvBridge
 import sensor_msgs.point_cloud2 as pc2
 from message_filters import Subscriber, ApproximateTimeSynchronizer
 from fusion_module import Fusion
 from lidar_object_detection.msg import PointInfo
+from delivery.msg import DetectYolo
 from erp_drive.msg import IoUFusionMsg
 
 class FusionNode:
@@ -43,21 +44,33 @@ class FusionNode:
 
         # 이미지 퍼블리셔 (RViz에서 시각화할 토픽)
         self.image_pub = rospy.Publisher('/fusion/image', Image, queue_size=1)
+        self.cam_info_pub = rospy.Publisher('/fusion/camera_info', CameraInfo, queue_size=1)
         self.fusion_pub = rospy.Publisher('/fusion/result', IoUFusionMsg, queue_size=1)
 
         # 서브스크라이버
         ### TODO : 인지팀에서 토픽/메시지 수정해서 줄때까지 스탑.
-        self.yolo_sub = Subscriber('/yolo/bbox', PointCloud) # yolo bbox 점 4개 좌표 (이미지 상) (4,2) 와 타겟넘버가 왔으면 좋겠다
+        self.yolo_sub = Subscriber('/delivery_sign_info', DetectYolo) # 욜로 bbox : class_name, center_x, center_y, width, height
         self.lidar_sub = Subscriber('/bbox_point_info_static', PointInfo) # 클러스터 박스들 (bboxCounts, xMini[], yMini[], zMini[], xMaxi[], yMaxi[], zMaxi[])
-        self.cam_sub = rospy.Subscriber('/usb_cam/image_raw', Image, self.img_callback)
+        # self.cam_sub = rospy.Subscriber('/usb_cam_right/image_raw', Image, self.img_callback)
+        self.img_sub = Subscriber('/usb_cam_right/image_raw', Image)
+        self.info_sub = Subscriber('/usb_cam_right/camera_info', CameraInfo)
 
         # 근사 시간 동기화
-        ats = ApproximateTimeSynchronizer([self.yolo_sub, self.lidar_sub], queue_size=10, slop=0.1)
+        ats = ApproximateTimeSynchronizer([self.yolo_sub, self.lidar_sub], queue_size=10, slop=0.1, allow_headerless=True)
         ats.registerCallback(self.bbox_callback)
+
+        ats_cam = ApproximateTimeSynchronizer([self.img_sub, self.info_sub], queue_size=10, slop=0.1)
+        ats_cam.registerCallback(self.img_callback)
 
     def bbox_callback(self, yolo_msg, lidar_msg): # TODO : !!인지팀에서 토픽/메시지 픽스나기 전이라서 틀만 짜둠. 픽스나면 그때 세부조정들어가야됨!! (포인트들 읽는방식이나 bbox만드는 방식이나 등등..)
         # 1. YOLO bbox 먼저 생성
-        yolo_pts = np.array([[p.x, p.y] for p in yolo_msg.points])
+        x_half = yolo_msg.width // 2
+        y_half = yolo_msg.height // 2
+        points = [(yolo_msg.center_x + x_half, yolo_msg.center_y + y_half), 
+                  (yolo_msg.center_x - x_half, yolo_msg.center_y + y_half), 
+                  (yolo_msg.center_x - x_half, yolo_msg.center_y - y_half), 
+                  (yolo_msg.center_x + x_half, yolo_msg.center_y - y_half)]
+        yolo_pts = np.array([[p[0], p[1]] for p in points])
         yolo_bbox = self.fusion.points2bbox(yolo_pts)
         self.yolo_bbox = yolo_bbox.reshape((-1,1,2)).astype(np.int32) # cv2 기능 쓰기위해서 (N, 1, 2)형태로 변환
 
@@ -67,12 +80,28 @@ class FusionNode:
 
         # 3. 각 라이다 클러스터박스들로 bbox 만들고 IoU돌리면서 best하나 고름
         for i in range(lidar_msg.bboxCounts):
-            lidar_pts = np.array(list(pc2.read_points(lidar_msg, field_names=("x", "y", "z"), skip_nans=True)))
+            x_min, y_min, z_min = lidar_msg.xMini[i], lidar_msg.yMini[i], lidar_msg.zMini[i]
+            x_max, y_max, z_max = lidar_msg.xMaxi[i], lidar_msg.yMaxi[i], lidar_msg.zMaxi[i]
+
+            corners_3d = [
+                (x_min, y_min, z_min),
+                (x_min, y_min, z_max),
+                (x_min, y_max, z_min),
+                (x_min, y_max, z_max),
+                (x_max, y_min, z_min),
+                (x_max, y_min, z_max),
+                (x_max, y_max, z_min),
+                (x_max, y_max, z_max),
+            ]
+
+            lidar_pts = np.array(corners_3d, dtype=np.float32)
             lidar_pts2d = self.fusion.rid2img(lidar_pts)
+            if lidar_pts2d is None or len(lidar_pts2d) == 0:continue
+
             lidar_bbox = self.fusion.points2bbox(lidar_pts2d).reshape((-1,1,2)).astype(np.int32) # OpenCV용 형태
 
-            temp_iou = self.fusion.bbox_iou(self.yolo_bbox, lidar_bbox)
-            if best_iou < temp_iou:
+            temp_iou = self.fusion.bbox_iou(self.yolo_bbox.squeeze(), lidar_bbox.squeeze())
+            if best_iou <= temp_iou:
                 best_iou = temp_iou
                 x = (lidar_msg.xMini[i] + lidar_msg.xMaxi[i]) / 2
                 y = (lidar_msg.yMini[i] + lidar_msg.yMaxi[i]) / 2
@@ -90,10 +119,10 @@ class FusionNode:
             self.fusion_pub.publish(msg)
 
 
-    def img_callback(self,msg):
+    def img_callback(self,img_msg, info_msg):
         # 카메라 이미지 → OpenCV 형식
         try:
-            img = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+            img = self.bridge.imgmsg_to_cv2(img_msg, desired_encoding='bgr8')
             self.cv_image = img
         except Exception as e:
             rospy.logwarn(f"CV bridge error: {e}")
@@ -114,9 +143,12 @@ class FusionNode:
 
         # 퍼블리시할 메시지로 변환
         fusion_msg = self.bridge.cv2_to_imgmsg(self.cv_image, encoding='bgr8')
-        fusion_msg.header = msg.header  # 시간 동기화용
+        fusion_msg.header = img_msg.header  # 시간 동기화용
+
+        info_msg.header = img_msg.header
 
         self.image_pub.publish(fusion_msg)
+        self.cam_info_pub.publish(info_msg)
 
     def run(self):
         rospy.spin()

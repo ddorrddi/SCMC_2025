@@ -1,6 +1,6 @@
 <launch>
     <node name="usb_cam_right" pkg="usb_cam" type="usb_cam_node" output="screen" >
-        <param name="video_device" value="/dev/video2"/>
+        <param name="video_device" value="/dev/video0"/>
         <param name="image_width" value="640" />
         <param name="image_height" value="480" />
         <param name="pixel_format" value="yuyv" />
@@ -15,5 +15,5 @@
         <remap from="image" to="/delivery_sign_yolo_result"/>
         <param name="autosize" value="true" />
     </node>
-    <node name="detect_delivery_sign" pkg="delivery_yolo" type="detect_delivery_sign.py" output="screen"/>
-</launch>
+    <node name="detect_delivery_sign" pkg="delivery" type="detect_delivery_sign.py" output="screen"/>
+</launch> 
