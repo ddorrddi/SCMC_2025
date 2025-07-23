@@ -4,6 +4,8 @@ Controller::Controller(char control_target):
     optimal_throttle(), timer(0), is_finish(false), is_delivery_path_set(false), 
     is_path_set(false), is_pose_set(false), is_local_path_set(false), g_curr_idx(0), l_curr_idx(0), delivery_curr_idx(0),
     velocity(0.), global_velocity(0.), local_velocity(0.), is_moving_front(false){
+        this->delivery_stop_once = false;
+
         this->is_erp = control_target == 'e'; // e => erp (true), m => morai (false)
        
         this->erp_drive_pub = nh.advertise<race::drive_values>("control_value", 1);
@@ -64,8 +66,13 @@ void Controller::deliveryPathCallback(const erp_drive::PathReference& delivery_p
 
 void Controller::deliveryDoneCallback(const std_msgs::Int16& signal){
     ROS_INFO_STREAM("Done");
-    if(signal.data == 1){this->is_delivery_done = true;}
-    else{this->is_delivery_done = false;}
+    if(!this->delivery_stop_once){ // 콜백 한번만 실행용
+        if(signal.data == 1){
+            this->is_delivery_done = true;
+            this->delivery_stop_once = true;
+        }
+        else{this->is_delivery_done = false;}
+    }
 }
 
 void Controller::deliveryEndCallback(const std_msgs::Int16& signal){
