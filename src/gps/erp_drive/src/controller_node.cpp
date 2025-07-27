@@ -170,7 +170,7 @@ int main(int argc, char** argv) {
             else if(event_type == EventType::STOP_TRAFFIC){
                 // flowControl이 신호등에 가까워졌다고 판단했을 때만 (shouldStop == true) 아래 로직을 실행
                 if (control.optimal_throttle.shouldStop) {
-                    bool is_red_light = (control.isLeftTurn() && !control.isLeftSign()) || (!control.isLeftTurn() && !control.isGreenSign());
+                    bool is_red_light = (control.isLeftTurn() && !control.isLeftGreenSign()) || (!control.isLeftTurn() && !control.isGreenSign());
             
                     if (is_red_light) {
                         // 빨간불이면 계속 정지

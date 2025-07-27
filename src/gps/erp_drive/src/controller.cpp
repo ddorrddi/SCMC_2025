@@ -114,8 +114,9 @@ bool Controller::isGreenSign(){
     return ret;
 }
 
-bool Controller::isLeftSign(){
-    bool ret = this->traffic_light_status.compare(TrafficLightStatus::RED_LEFT4) == 0;
+bool Controller::isLeftGreenSign(){
+    bool ret = this->traffic_light_status.compare(TrafficLightStatus::GREEN3) == 0;
+    ret = ret || this->traffic_light_status.compare(TrafficLightStatus::RED_LEFT4) == 0;
     ret = ret || this->traffic_light_status.compare(TrafficLightStatus::GREEN_LEFT4) == 0;
     return ret;
 }
