@@ -138,7 +138,7 @@ public:
     std::string traffic_light_status;
     ros::Subscriber traffic_light_status_sub;
     void trafficLightStatusCallback(const std_msgs::String& traffic_light_status);
-    bool isLeftSign();
+    bool isLeftGreenSign();
     bool isGreenSign();
     bool isLeftTurn();
 
