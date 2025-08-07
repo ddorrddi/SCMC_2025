@@ -1,6 +1,6 @@
 <launch>
     <!-- 카메라 실행 노드 -->
-    <!-- <node name="usb_cam" pkg="usb_cam" type="usb_cam_node" output="screen" >
+    <node name="usb_cam" pkg="usb_cam" type="usb_cam_node" output="screen" >
         <param name="video_device" value="/dev/video0" />
         <param name="image_width" value="640" />
         <param name="image_height" value="480" />
@@ -12,7 +12,7 @@
     <node name="image_view" pkg="image_view" type="image_view" respawn="false" output="screen">
         <remap from="image" to="/usb_cam/image_raw"/>
         <param name="autosize" value="true" />
-    </node> -->
+    </node>
     
     <!-- 모터값 제어 관련 노드 -->
     <!-- <node pkg="race" type="serial_control_node" name="serial_control_node" /> -->
