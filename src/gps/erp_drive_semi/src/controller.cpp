@@ -138,7 +138,6 @@ int Controller::calcGlobalCurrWaypoint(const geometry_msgs::Pose& curr_pose){
 
     return this->g_curr_idx;
 }
-
 int Controller::calcLocalCurrWaypoint(const geometry_msgs::Pose& curr_pose){
     int min_idx = -1;
     double min_dist = 1e9;

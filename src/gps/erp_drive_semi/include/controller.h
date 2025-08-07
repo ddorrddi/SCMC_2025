@@ -41,6 +41,8 @@ public:
 
     bool is_moving_back;
 
+    bool is_initial_idx_found;
+
 
     // 상수 값
     const int LOOP_RATE = 30;
@@ -146,6 +148,17 @@ public:
     // geometry_msgs::Point 버전 거리 구하기 
     double getDistance(const geometry_msgs::Point& a, const geometry_msgs::Point& b) {
         return tf::tfDistance(pt2vec(a), pt2vec(b));
+    }
+
+    void quaternionToEuler(const geometry_msgs::Quaternion& quat, double& roll, double& pitch, double& yaw) const {
+        // geometry_msgs::Quaternion을 tf::Quaternion으로 변환
+        tf::Quaternion tf_quat(quat.x, quat.y, quat.z, quat.w);
+        
+        // tf::Quaternion을 tf::Matrix3x3으로 변환
+        tf::Matrix3x3 m(tf_quat);
+        
+        // 행렬에서 오일러 각을 추출
+        m.getRPY(roll, pitch, yaw);
     }
 };
 

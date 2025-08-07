@@ -487,7 +487,7 @@ class ObstacleAvoidancePlanner:
         curr_y = self.curr_pose.position.y
         s0, l0 = cartesian_to_frenet(curr_x, curr_y, original_ref_path, s_list)
 
-        lane_offset = 0.75
+        lane_offset = 0.85
 
         rospy.loginfo(f"[BIG??]: {is_big}")
 
@@ -498,7 +498,7 @@ class ObstacleAvoidancePlanner:
             # is_obst_on_path에서 이미 ccw를 차선 변경에 맞게 계산했으므로 추가 로직은 불필요합니다.
             self.avoidance_in_progress = True
 
-            target_lookahead = 40 # 50 * 0.2m = 10m 앞을 목표로 설정 (튜닝 필요)
+            target_lookahead = 20 # 50 * 0.2m = 10m 앞을 목표로 설정 (튜닝 필요)
             target_idx = min(self.g_curr_idx + target_lookahead, len(self.g_path[self.curr_lane]) - 1)
             
             target_pose = self.g_path[self.curr_lane][target_idx].pose
