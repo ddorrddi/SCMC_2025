@@ -42,6 +42,7 @@ from collections import Counter
 class DeliveryPlanner:
     def __init__(self, g_path: PathReference, rviz_offset_x: float, rviz_offset_y: float):
         # 파라미터 (조절해야됨)
+        self.dests = [(0,0), (1,1), ...] # 예시
         self.threshold = 0.95 # IOU 신뢰도 임계값
         self.min_queue_size = 20 # 목적지 좌표 신뢰도를 위한 큐 사이즈 (10Hz기준 20이면 2초간의 정보) !!메시지 드랍시 보완 로직이 없음!!
         self.end_offset = 40 # 배달미션이 끝났는가 판단하는 최소 waypoint 개수
@@ -50,6 +51,8 @@ class DeliveryPlanner:
         self.marker = Marker()
         self.marker.header.frame_id = "map"  # Global 좌표계 기준
         self.rviz_offset_x, self.rviz_offset_y = rviz_offset_x, rviz_offset_y
+        self.radius_marker = Marker()
+        self.radius_marker.header.frame_id = "map"
 
         # 상태변수
         self.STOP_IDX = 1348 # 배달미션 B지점 시작하는 글로벌패스 인덱스
@@ -132,7 +135,6 @@ class DeliveryPlanner:
         # 최종 목적지 좌표 설정
         self.sign_coords = (final_pt[0], final_pt[1], final_pt[2])
 
-
     def delivery_sign_CB(self, msg: String):
         # 유효성 검사 및 타겟이 정해지지 않았을때 1회만 작동
         if self.curr_idx is None or self.delivery_done or self.delivery_target_num is not None:
@@ -199,7 +201,30 @@ class DeliveryPlanner:
 
         # 마커의 지속시간 (0으로 설정하면 영구적으로 표시)
         self.marker.lifetime = rospy.Duration()
-
         self.marker_pub.publish(self.marker)
         rospy.loginfo(f"Published delivery target marker at {self.sign_coords}")
 
+        # 2. 도착 반경 마커 (Cylinder)
+        self.radius_marker.header.stamp = rospy.Time.now()
+        self.radius_marker.ns = "delivery_radius_marker"
+        self.radius_marker.id = 1 # 다른 ID를 사용해야 두 마커가 모두 표시됨
+        self.radius_marker.type = Marker.CYLINDER
+        self.radius_marker.action = Marker.ADD
+        self.radius_marker.pose.position.x = self.sign_coords[0] - self.rviz_offset_x
+        self.radius_marker.pose.position.y = self.sign_coords[1] - self.rviz_offset_y
+        self.radius_marker.pose.position.z = self.sign_coords[2] # 바닥에 표시되도록 z 좌표 동일하게 설정
+        self.radius_marker.pose.orientation.w = 1.0
+        
+        # 지름(scale)은 const.DELIVERY_SUCCESS_RADIUS의 2배
+        radius = const.DELIVERY_SUCCESS_RADIUS
+        self.radius_marker.scale.x = radius * 2.0
+        self.radius_marker.scale.y = radius * 2.0
+        self.radius_marker.scale.z = 0.1 # 납작한 원처럼 보이도록 높이는 낮게 설정
+        
+        # 색상은 반투명한 파란색
+        self.radius_marker.color.r = 0.0
+        self.radius_marker.color.g = 0.5
+        self.radius_marker.color.b = 1.0
+        self.radius_marker.color.a = 0.4 # 반투명
+        self.radius_marker.lifetime = rospy.Duration()
+        self.marker_pub.publish(self.radius_marker)

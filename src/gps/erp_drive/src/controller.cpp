@@ -59,9 +59,9 @@ void Controller::localPathDoneCallback(const std_msgs::Int16& signal){
 }
 
 void Controller::deliveryDoneCallback(const std_msgs::Int16& signal){
-    ROS_INFO_STREAM("Done");
-    if(!this->delivery_stop_once){ // 콜백 한번만 실행용
+    if(this->delivery_stop_once){ // 콜백 한번만 실행용
         if(signal.data == 1){
+            ROS_INFO_STREAM("Delivery Done");
             this->is_delivery_done = true;
             this->delivery_stop_once = false;
         }
