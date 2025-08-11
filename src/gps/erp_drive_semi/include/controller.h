@@ -34,11 +34,15 @@
 
 #include "optimal_throttle.h"
 #include "erp_drive_semi/InitializePose.h"
-#include "erp_drive_semi/PermitParking.h"
 
 class Controller {
 public:
     Controller(char control_target);
+
+    bool is_moving_back;
+
+    bool is_initial_idx_found;
+
 
     // 상수 값
     const int LOOP_RATE = 30;
@@ -48,7 +52,6 @@ public:
     double velocity;
     double global_velocity;
     double local_velocity;
-    double parking_velocity;
 
     OptimalThrottle optimal_throttle;
 
@@ -90,9 +93,6 @@ public:
     void localPathCallback(const erp_drive_semi::PathReference& l_path);
     void localPathDoneCallback(const std_msgs::Int16& signal);
 
-    bool is_parking_path_set, is_parking_in_path_set, is_parking_out_path_set;
-    bool is_moving_back, is_parking_start_point, is_parking_finish;
-
     int start_yaw = -400;
     double curr_yaw;
     sensor_msgs::Imu imu;
@@ -119,9 +119,7 @@ public:
     ros::Time time;
 
     ros::ServiceClient client;
-    ros::ServiceClient client_for_parking_path;
     erp_drive_semi::InitializePose srv;
-    erp_drive_semi::PermitParking srv_parking_path;
      
     // geometry_msg::Pose -> tf::Vector3 로 변환
     tf::Vector3 pose2vec(const geometry_msgs::Pose& pose) {
@@ -150,6 +148,17 @@ public:
     // geometry_msgs::Point 버전 거리 구하기 
     double getDistance(const geometry_msgs::Point& a, const geometry_msgs::Point& b) {
         return tf::tfDistance(pt2vec(a), pt2vec(b));
+    }
+
+    void quaternionToEuler(const geometry_msgs::Quaternion& quat, double& roll, double& pitch, double& yaw) const {
+        // geometry_msgs::Quaternion을 tf::Quaternion으로 변환
+        tf::Quaternion tf_quat(quat.x, quat.y, quat.z, quat.w);
+        
+        // tf::Quaternion을 tf::Matrix3x3으로 변환
+        tf::Matrix3x3 m(tf_quat);
+        
+        // 행렬에서 오일러 각을 추출
+        m.getRPY(roll, pitch, yaw);
     }
 };
 

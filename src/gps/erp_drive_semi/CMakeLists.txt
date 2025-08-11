@@ -24,7 +24,6 @@ generate_dynamic_reconfigure_options(
 add_service_files(
   FILES
   InitializePose.srv
-  PermitParking.srv
 )
 
 add_message_files(

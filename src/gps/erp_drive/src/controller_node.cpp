@@ -22,24 +22,6 @@ int main(int argc, char** argv) {
 
     PurePursuit control(argv[1][0]);
 
-
-    // if(control.is_avoidance_success && !control.has_turned_after_avoidance){
-    //     ROS_INFO("[회피 후 조향]");
-    
-    //     control.steering = -20.0; // 또는 +30.0
-    //     control.velocity = 8.0;
-    //     control.brake = 0.0;
-    //     control.publishControlMsg();
-    
-    //     control.has_turned_after_avoidance = true;
-    //     ros::Duration(1.0).sleep();  // 1초 정도 꺾은 채 유지
-    // }
-    // ros::Subscriber sub_left_flag = control.nh.subscribe("/pure_pursuit/left_flag", 1, &PurePursuit::leftFlagCB, &control);
-    // ros::Subscriber sub_right_flag = control.nh.subscribe("/pure_pursuit/right_flag", 1, &PurePursuit::rightFlagCB, &control);
-    // ros::Subscriber sub_path_done = control.nh.subscribe("/pure_pursuit/just_finished_local_path", 1, &PurePursuit::localPathDoneCB, &control);
-
-    int parking_space_num = atoi(argv[3]);
-    control.parking_space_num = parking_space_num;
     bool isLogging = true; //argv[2][0] == 't';
 
     bool delivery_stop_once_flag = false; // 배달 목적지에서 멈출때 딱 한번쓰려고 만든 플래그
@@ -60,14 +42,9 @@ int main(int argc, char** argv) {
     ros::Time message_received_time;
 
     // 주차 공간 각도 349
-    bool flag = false;
-    double parking_mid_angle = 50;
-    
-    int parking_phase = -1; // ~ 4? 각 기능은 ROS_INFO 참고
 
     double prev_x = -1.0, prev_y = -1.0;
 
-    int delivery_phase = -1;  // parking_phase와 유사하게 초기화
 
     while(ros::ok()){
         ros::spinOnce();
@@ -98,206 +75,42 @@ int main(int argc, char** argv) {
         ros::spinOnce();
         control.flowControl(control.curr_pose);
 
-        if (control.is_avoidance_success && !control.has_turned_after_avoidance) {
-            ROS_INFO("AVOID!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+        // if (control.is_avoidance_success && !control.has_turned_after_avoidance) {
+        //     ROS_INFO("AVOID!!!!!!!!!!!!!!!!!!!!!!!!!!!");
 
-            const double steering_angle_rad = 7.0 * (M_PI / 180.0);
+        //     const double steering_angle_rad = 7.0 * (M_PI / 180.0);
             
-            // last_avoidance_direction == 1: 오른쪽 장애물을 왼쪽으로 회피 -> 오른쪽으로 꺾어 복귀
-            if (control.last_avoidance_direction == 1) {
-                ROS_INFO("RIGHT!!!!!!!!!!!!!!!!!");
-                control.steering = -steering_angle_rad;  // 
-            } 
-            // last_avoidance_direction == -1: 왼쪽 장애물을 오른쪽으로 회피 -> 왼쪽으로 꺾어 복귀
-            else if (control.last_avoidance_direction == -1) {
-                ROS_INFO("LEFT!!!!!!!!!!!!!!!!!");
-                control.steering = steering_angle_rad ; // 
-            }
+        //     // last_avoidance_direction == 1: 오른쪽 장애물을 왼쪽으로 회피 -> 오른쪽으로 꺾어 복귀
+        //     if (control.last_avoidance_direction == 1) {
+        //         ROS_INFO("RIGHT!!!!!!!!!!!!!!!!!");
+        //         control.steering = -steering_angle_rad;  // 
+        //     } 
+        //     // last_avoidance_direction == -1: 왼쪽 장애물을 오른쪽으로 회피 -> 왼쪽으로 꺾어 복귀
+        //     else if (control.last_avoidance_direction == -1) {
+        //         ROS_INFO("LEFT!!!!!!!!!!!!!!!!!");
+        //         control.steering = steering_angle_rad ; // 
+        //     }
 
-            control.velocity = 8.0; // 
-            control.brake = 0.0;
-            control.publishControlMsg();
+        //     control.velocity = 8.0; // 
+        //     control.brake = 0.0;
+        //     control.publishControlMsg();
             
-            ros::Duration(1.0).sleep(); // 
+        //     ros::Duration(1.0).sleep(); // 
 
-            // 복귀 조향이 끝났으므로 플래그들을 리셋
-            control.has_turned_after_avoidance = true;
-            control.is_avoidance_success = false; 
-            control.last_avoidance_direction = 0; 
+        //     // 복귀 조향이 끝났으므로 플래그들을 리셋
+        //     control.has_turned_after_avoidance = true;
+        //     control.is_avoidance_success = false; 
+        //     control.last_avoidance_direction = 0; 
 
-            // 바로 다음 루프로 넘어가서 일반 주행 로직을 수행하도록 함
-            continue; 
-        }
+        //     // 바로 다음 루프로 넘어가서 일반 주행 로직을 수행하도록 함
+        //     continue; 
+        // }
 
         if(isLogging && control.is_path_set && control.is_pose_set){
             logging(control);
         }
 
-        if(control.optimal_throttle.eventPlaceInfoManager.getCurrEventPlaceInfo().type == EventType::STOP_PARKING && control.optimal_throttle.shouldStop){
-            int diff = control.curr_yaw - control.start_yaw;
-            
-            if(diff >= 180)
-                diff = abs(diff - 360);
-            
-            else if(diff <= -180)
-                diff = abs(diff + 360);
-            
-            // 주차 공간 인식 후 이 위치에 멈출 수 있도록 함.
-            if(parking_phase == -1){
-                control.steering = 0.0;
-                control.velocity = 0.0;
-                control.brake = 1.0;
-                control.publishControlMsg();
-
-                control.timer.start();
-                if(!control.timer.isTimeout()){
-                    ROS_INFO("[STOP PARKING] Vehicle Stabilization");
-                    continue;
-                }
-
-                control.start_yaw = -400;
-                control.timer.resetTimer(0.5);
-                parking_phase += 1;
-            }
-
-            // [STOP PARKING] Back Moving (1)
-            else if(parking_phase == 0){
-                if(control.start_yaw == -400) continue;
-
-                ROS_INFO("[STOP PARKING] Back Moving (1)");
-
-                if(diff >= parking_mid_angle){
-                    control.steering = 0.0;
-                    control.velocity = 0.0;
-                    control.brake = 1.0;
-                    control.publishControlMsg();
-
-                    control.timer.start();
-                    if(!control.timer.isTimeout()){
-                        // ROS_INFO("[STOP PARKING] Vehicle Stabilization");
-                        continue;
-                    }
-
-                    control.brake = 0.0;
-
-                    control.timer.resetTimer(3.0);
-                    parking_phase += 1;
-                }
-                
-                else {
-                    control.steering = 30.0;
-                    control.velocity = -5.0;
-                    control.brake = 0.0; // 0.2;
-                    control.publishControlMsg();
-                }
-            }
-            
-            // [STOP PARKING] Back Moving (2)
-            else if(parking_phase == 1){
-                ROS_INFO("[STOP PARKING] Back Moving (2)");
-                if(diff <= 3){
-                    control.steering = 0.0;
-                    control.velocity = 0.0;
-                    control.brake = 1.0;
-                    control.publishControlMsg();
-
-                    control.timer.start();
-                    if(!control.timer.isTimeout()){
-                        // ROS_INFO("[STOP PARKING] Vehicle Stabilization");
-                        continue;
-                    }
-
-                    control.start_yaw = -400;
-
-                    control.timer.resetTimer(3.5);
-                    parking_phase += 1;
-                } 
-                
-                else {
-                    control.steering = -30.0;
-                    control.velocity = -5.0;
-                    control.brake = 0.0; // 0.2;
-                    control.publishControlMsg();
-                }
-            }
-
-            // [STOP PARKING] Pose Sorting & Stop 3.5 sec?
-            else if(parking_phase == 2){
-                ROS_INFO("[STOP PARKING] Pose Sorting & Stop 3.5 sec?");
-                
-                // @@@@@@@@@@@@@@@@@@@@@@@@@@@
-                // @@@@ Pose Sorting..... @@@@ 
-                // @@@@@@@@@@@@@@@@@@@@@@@@@@@
-
-                control.steering = 0.0;
-                control.velocity = 0.0;
-                control.brake = 1.0;
-                control.publishControlMsg();
-                
-                control.timer.start();
-                if(!control.timer.isTimeout()){
-                    // ROS_INFO("[STOP PARKING] park");
-                    continue;
-                }
-
-                control.brake = 0.0;
-                parking_phase += 1;
-                control.timer.resetTimer(3.0);
-            }
-
-            // [STOP PARKING] Front Moving (1)
-            else if(parking_phase == 3){
-                ROS_INFO("[STOP PARKING] Front Moving (1)");
-                if(diff >= parking_mid_angle){
-                    control.steering = 0.0;
-                    control.velocity = 0.0;
-                    control.brake = 1.0;
-                    control.publishControlMsg();
-
-                    control.timer.start();
-                    if(!control.timer.isTimeout()){
-                        // ROS_INFO("[STOP PARKING] Vehicle Stabilization");
-                        continue;
-                    }
-
-                    control.brake = 0.0;
-
-                    parking_phase += 1;
-                    control.timer.resetTimer(3.0);
-                }
-                
-                else {
-                    control.steering = 30.0;
-                    control.velocity = 8.0;
-                    control.publishControlMsg();
-                }
-            }
-
-            // [STOP PARKING] Front Moving (2)
-            else if(parking_phase == 4){
-                ROS_INFO("[STOP PARKING] Front Moving (2)");
-                if(diff <= 3){
-                    control.steering = 0.0;
-                    control.velocity = 0.0;
-                    control.brake = 1.0;
-                    control.publishControlMsg();
-
-                    parking_phase += 1;
-                    control.brake = 0.0;    
-                    control.optimal_throttle.shouldStop = false;
-                    control.optimal_throttle.shouldDecel = false;
-                    control.optimal_throttle.eventPlaceInfoManager.nextEventPlaceInfo();
-                } 
-                
-                else {
-                    control.steering = -30.0;
-                    control.velocity = 8.0;
-                    control.publishControlMsg();
-                }
-            }
-        }
-
-        else if(control.is_local_path_set){
+        if(control.is_local_path_set){
             control.lookahead_distance = control.local_lookahead_distance;
             control.velocity = control.local_velocity;
             control.calcSteering(control.curr_pose);
@@ -337,29 +150,36 @@ int main(int argc, char** argv) {
             control.lookahead_distance = control.global_lookahead_distance;
             control.velocity = control.optimal_throttle.calcTanhVelocity(control.curr_pose);
             control.brake = (control.velocity < control.speed_now) ? 0.15 : 0.0;
-            ROS_INFO_STREAM("brake : " << control.brake);
-            ROS_INFO_STREAM("curr_idx : " << control.g_curr_idx);
-            ROS_INFO_STREAM("velocity : " << control.velocity << ", speed_now : " << control.speed_now);
+            // ROS_INFO_STREAM("brake : " << control.brake);
+            // ROS_INFO_STREAM("curr_idx : " << control.g_curr_idx);
+            // ROS_INFO_STREAM("velocity : " << control.velocity << ", speed_now : " << control.speed_now);
 
             const auto& event_type = control.optimal_throttle.eventPlaceInfoManager.getCurrEventPlaceInfo().type;
             if(event_type == EventType::STOP_LINE || event_type == EventType::STOP_DELIVERY_A)
                 control.brake = (control.optimal_throttle.shouldStop) ? 1.0 : 0.0;
 
             else if(event_type == EventType::STOP_TRAFFIC){
-                if(control.isLeftTurn() && !control.isLeftSign()) {
-                    control.brake = 1.0;
+                // flowControl이 신호등에 가까워졌다고 판단했을 때만 (shouldStop == true) 아래 로직을 실행
+                if (control.optimal_throttle.shouldStop) {
+                    bool is_red_light = (control.isLeftTurn() && !control.isLeftGreenSign()) || (!control.isLeftTurn() && !control.isGreenSign());
+            
+                    if (is_red_light) {
+                        // 빨간불이면 계속 정지
+                        control.brake = 1.0;
+                    } else {
+                        // 초록불이면 출발!
+                        control.brake = 0.0;
+                        control.optimal_throttle.shouldStop = false;
+                        control.optimal_throttle.shouldDecel = false;
+                        control.optimal_throttle.eventPlaceInfoManager.nextEventPlaceInfo();
+                    }
                 }
+            }
 
-                else if(!control.isLeftTurn() && !control.isGreenSign()) {
-                    control.brake = 1.0;
-                }
-
-                else {
-                    control.brake = 0.0;
-                    control.optimal_throttle.shouldStop = false;
-                    control.optimal_throttle.shouldDecel = false;
-                    control.optimal_throttle.eventPlaceInfoManager.nextEventPlaceInfo();
-                }
+            if (control.is_deceleration_requested) {
+                // 원하는 감속 속도를 여기에 설정합니다.
+                // 예: local_velocity보다 느리게 설정
+                control.velocity = control.local_velocity; 
             }
 
             control.calcSteering(control.curr_pose);
@@ -404,8 +224,6 @@ void logging(const PurePursuit& control){
     //     fmt::print("{:<20} ", "STOP_DELIVERY_A");
     // } else if(control.optimal_throttle.eventPlaceInfoManager.getCurrEventPlaceInfo().type == EventType::STOP_DELIVERY_B){
     //     fmt::print("{:<20} ", "STOP_DELIVERY_B");
-    // } else if(control.optimal_throttle.eventPlaceInfoManager.getCurrEventPlaceInfo().type == EventType::STOP_PARKING){
-    //     fmt::print("{:<20} ", "STOP_PARKING");
     // } else if(control.optimal_throttle.eventPlaceInfoManager.getCurrEventPlaceInfo().type == EventType::STOP_LINE){
     //     fmt::print("{:<20} ", "STOP_LINE");
     // } else {

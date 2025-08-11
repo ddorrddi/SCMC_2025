@@ -30,7 +30,6 @@
 
 typedef enum {
     STOP_LINE = 9,
-    STOP_PARKING = 10,
     STOP_DELIVERY_A = 11,
     STOP_DELIVERY_B = 12,
     STOP_TRAFFIC = 13,
@@ -104,7 +103,6 @@ private:
     // @TODO 신호등 위치마다 번호 적기. 증가하는 순으로
     // 530, 590, 700, 925, 1490, 1915, 2040, 3470, 3655, 
     std::vector<EventPlaceInfo> event_place = {
-        // EventPlaceInfo(60, EventType::STOP_PARKING),
 
         // EventPlaceInfo(END_NUM, EventType::STOP_LINE),
 
@@ -132,7 +130,7 @@ private:
         EventPlaceInfo(843, EventType::STOP_TRAFFIC),
 
         // Big Obstacle deceleration
-        EventPlaceInfo(1050/*tmp*/, EventType::DECEL_BIG),
+        // EventPlaceInfo(1050/*tmp*/, EventType::DECEL_BIG),
 
         // delivery 1st stop sign 4 (배달 직전)
         // EventPlaceInfo(935650.1697879703, 1916096.433997373, EventType::STOP_LINE),
@@ -156,10 +154,6 @@ private:
 
         // 그냥 정지선
         EventPlaceInfo(3072, EventType::STOP_LINE),
-
-        // 주차 시작점 -> 이때부터 주차공간 인지 시작
-        // EventPlaceInfo(935545.2449255498, 1915882.5901543524, EventType::STOP_LINE),
-        EventPlaceInfo(3401, EventType::STOP_PARKING),
 
         // Last Element
         EventPlaceInfo(END_NUM, EventType::STOP_LINE),
