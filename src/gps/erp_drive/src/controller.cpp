@@ -4,7 +4,7 @@ Controller::Controller(char control_target):
     optimal_throttle(), timer(0), is_finish(false), is_delivery_path_set(false), parking_space_num(-1),
     is_path_set(false), is_pose_set(false), is_local_path_set(false), g_curr_idx(0), l_curr_idx(0), delivery_curr_idx(0),
     velocity(0.), global_velocity(0.), local_velocity(0.), is_moving_front(false){
-        this->delivery_stop_once = false;
+        this->delivery_stop_once = true;
 
         this->is_erp = control_target == 'e'; // e => erp (true), m => morai (false)
        
@@ -21,9 +21,7 @@ Controller::Controller(char control_target):
         this->l_path_sub = nh.subscribe("/local_path", 1, &Controller::localPathCallback, this);
         this->l_path_done_sub = nh.subscribe("/local_path_done", 1, &Controller::localPathDoneCallback, this); 
 
-        this->delivery_path_sub = nh.subscribe("/delivery_path", 1, &Controller::deliveryPathCallback, this);
         this->delivery_done_sub = nh.subscribe("/delivery_done", 1, &Controller::deliveryDoneCallback, this);
-        this->delivery_end_sub = nh.subscribe("/delivery_end", 1, &Controller::deliveryEndCallback, this);
         
         this->curr_pose_sub = nh.subscribe("/current_pose", 1, &Controller::currentPoseCallback, this);
     
@@ -60,30 +58,15 @@ void Controller::localPathDoneCallback(const std_msgs::Int16& signal){
     this->has_turned_after_avoidance = false;
 }
 
-void Controller::deliveryPathCallback(const erp_drive::PathReference& delivery_path){
-    this->delivery_path = delivery_path;
-    this->delivery_path_size = delivery_path.path.size();
-    this->is_delivery_path_set = true;
-}
-
 void Controller::deliveryDoneCallback(const std_msgs::Int16& signal){
     ROS_INFO_STREAM("Done");
     if(!this->delivery_stop_once){ // 콜백 한번만 실행용
         if(signal.data == 1){
             this->is_delivery_done = true;
-            this->delivery_stop_once = true;
+            this->delivery_stop_once = false;
         }
         else{this->is_delivery_done = false;}
     }
-}
-
-void Controller::deliveryEndCallback(const std_msgs::Int16& signal){
-    ROS_INFO_STREAM("End");
-    if(signal.data == 1){
-        this->is_delivery_end = true;
-        this->is_delivery_path_set = false;
-    }
-    else{this->is_delivery_end = false;}
 }
 
 void Controller::imuCallback(const sensor_msgs::Imu& imu_data){

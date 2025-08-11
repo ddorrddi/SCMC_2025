@@ -304,41 +304,32 @@ int main(int argc, char** argv) {
             control.publishControlMsg();
         }
 
-        else if(control.is_delivery_path_set){
-            if(control.is_delivery_done){
-                if(!delivery_stop_once_flag){
-                    ROS_INFO("delivery_stop : init");
-                    delivery_B_Stop_Time = ros::Time::now();    // 정지 명령 시간 기록
-                    delivery_B_Original_Velocity = control.velocity;
-                    delivery_stop_once_flag = true;
-                }
-                
-                ros::Duration elapsed = ros::Time::now() - delivery_B_Stop_Time;    // 경과 시간 계산
-
-                if(elapsed < ros::Duration(0.5)){
-                    ROS_INFO("delivery_stop : decel");
-                    double ratio = 1.0 - (elapsed.toSec() / 0.5);
-                    control.velocity = delivery_B_Original_Velocity * ratio;
-                    control.brake = 0.0;
-                    control.publishControlMsg();
-                }else if(elapsed < ros::Duration(5.5)){
-                    ROS_INFO("delivery_stop : stop");
-                    control.velocity = 0.0;
-                    control.brake = 1.0;
-                    control.publishControlMsg();
-                }else{
-                    ROS_INFO("delivery_stop : go");
-                    control.brake = 0.0;
-                    control.publishControlMsg();
-                    control.is_delivery_done = false;
-                }
-
+        else if(control.is_delivery_done){
+            if(!delivery_stop_once_flag){
+                ROS_INFO("delivery_stop : init");
+                delivery_B_Stop_Time = ros::Time::now();    // 정지 명령 시간 기록
+                delivery_B_Original_Velocity = control.velocity;
+                delivery_stop_once_flag = true;
             }
-            else{
-                control.lookahead_distance = control.local_lookahead_distance;
-                control.velocity = control.local_velocity;
-                control.calcSteering(control.curr_pose);
+            
+            ros::Duration elapsed = ros::Time::now() - delivery_B_Stop_Time;    // 경과 시간 계산
+
+            if(elapsed < ros::Duration(0.5)){
+                ROS_INFO("delivery_stop : decel");
+                double ratio = 1.0 - (elapsed.toSec() / 0.5);
+                control.velocity = delivery_B_Original_Velocity * ratio;
+                control.brake = 0.0;
                 control.publishControlMsg();
+            }else if(elapsed < ros::Duration(5.5)){
+                ROS_INFO("delivery_stop : stop");
+                control.velocity = 0.0;
+                control.brake = 1.0;
+                control.publishControlMsg();
+            }else{
+                ROS_INFO("delivery_stop : go");
+                control.brake = 0.0;
+                control.publishControlMsg();
+                control.is_delivery_done = false;
             }
         }
 
