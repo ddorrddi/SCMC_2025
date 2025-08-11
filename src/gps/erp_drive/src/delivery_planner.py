@@ -82,14 +82,16 @@ class DeliveryPlanner:
 
 
     def test_CB(self, msg:Bool):
-        self.sign_coords = (0.,0.,0.)
+        self.sign_coords = (935542.6609013955,
+                            1915913.7353171674,
+                            0.)
+        self.delivery_in_progress = True
 
     def curr_idx_CB(self, msg: Int16):
         self.curr_idx = msg.data
 
     def curr_pose_CB(self, msg: Pose):
         self.curr_pose = msg
-        self.delivery_done_confirm()
 
     def iou_fusion_CB(self, msg: IoUFusionMsg): # TODO : 메시지로 넘어온 number가 현재 설정된 target_number와 같은지 체크가 빠져있어요!!!!
         # 유효성 체크
@@ -174,8 +176,8 @@ class DeliveryPlanner:
         self.marker.action = Marker.ADD
 
         # 마커의 위치 설정
-        self.marker.pose.position.x = self.sign_coords[0] + self.rviz_offset_x
-        self.marker.pose.position.y = self.sign_coords[1] + self.rviz_offset_y
+        self.marker.pose.position.x = self.sign_coords[0] - self.rviz_offset_x
+        self.marker.pose.position.y = self.sign_coords[1] - self.rviz_offset_y
         self.marker.pose.position.z = self.sign_coords[2]
         
         # 마커의 방향 설정 (회전 없음)
