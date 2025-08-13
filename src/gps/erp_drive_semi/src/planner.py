@@ -18,6 +18,7 @@ from constant import const, Lane
 
 # 각종 Planner 관련 클래스
 from global_path_planner import GlobalPathPlanner
+from parking_planner import ParkingPlanner
 from waypoint_maker.msg import Waypoint
 from std_msgs.msg import String
 from erp_drive.msg import PathReference, PathReferenceElement
@@ -35,6 +36,8 @@ class Planner(object):
 
         self.g_path_planner = GlobalPathPlanner('erp_drive_semi')
         self.g_path_planner.set_g_path(file_name)
+
+        self.parking_planner = ParkingPlanner(self.g_path_planner.rviz_offset_x, self.g_path_planner.rviz_offset_y)
         
         self.rviz_curr_pose = PoseStamped()
         self.rviz_curr_pose.header.frame_id = 'map'
@@ -153,5 +156,8 @@ if __name__ == '__main__':
     while not rospy.is_shutdown():
         if planner.g_path_planner.is_path_set:
             planner.g_path_planner.publish_global_path(Lane.ONE)
+
+        if planner.parking_planner.is_parking_path_set:
+            planner.parking_planner.publish_path_and_viz()
 
         planner.rate.sleep()

@@ -28,20 +28,39 @@
 
 // velocity 등 parameter 서버를 위한 헤더 
 #include <dynamic_reconfigure/server.h>
-#include <erp_drive_semi/CtrlParamConfig.h>
+#include <erp_drive_semi/CtrlParamSemiConfig.h>
 
 #include <string>
 
 #include "optimal_throttle.h"
 #include "erp_drive_semi/InitializePose.h"
 
+#include <morai_msgs/MoraiEventCmdSrv.h>
+
+enum class VehicleState {
+    GLOBAL_PATH_DRIVING,
+    LOCAL_PATH_DRIVING, // 기존 로컬 경로와 주차 경로를 모두 처리
+    PARKING_DONE_STOPPING,
+    PARKING_REVERSING,
+    RESUMING_GLOBAL_PATH // 전진 기어 변경 후 잠시 대기 상태
+};
+
 class Controller {
 public:
     Controller(char control_target);
 
+    VehicleState current_state;
+    ros::ServiceClient morai_event_cmd_client;
+    ros::Timer stop_timer;
+    ros::Timer reverse_timer;
+    void stopTimerCallback(const ros::TimerEvent&);
+    void reverseTimerCallback(const ros::TimerEvent&);
+
     bool is_moving_back;
 
     bool is_initial_idx_found;
+
+    bool is_parking_complete;
 
 
     // 상수 값
@@ -92,6 +111,12 @@ public:
     ros::Subscriber l_path_done_sub;
     void localPathCallback(const erp_drive_semi::PathReference& l_path);
     void localPathDoneCallback(const std_msgs::Int16& signal);
+
+
+    ros::Subscriber parking_path_sub;
+    ros::Subscriber parking_path_done_sub;
+    void parkingPathCallback(const erp_drive_semi::PathReference& parking_path);
+    void parkingPathDoneCallback(const std_msgs::Int16& signal);
 
     int start_yaw = -400;
     double curr_yaw;
