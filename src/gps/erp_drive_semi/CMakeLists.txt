@@ -18,7 +18,7 @@ find_package(catkin REQUIRED COMPONENTS
 find_package(fmt)
 
 generate_dynamic_reconfigure_options(
-  cfg/controller.cfg
+  cfg/controller_semi.cfg
 )
 
 add_service_files(

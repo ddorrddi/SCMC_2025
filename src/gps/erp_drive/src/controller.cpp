@@ -1,6 +1,7 @@
 #include "controller.h"
 
 Controller::Controller(char control_target):
+
     optimal_throttle(), timer(0), is_finish(false), is_delivery_path_set(false), 
     is_path_set(false), is_pose_set(false), is_local_path_set(false), g_curr_idx(0), l_curr_idx(0), delivery_curr_idx(0),
     velocity(0.), global_velocity(0.), local_velocity(0.), is_moving_front(false){
