@@ -47,7 +47,7 @@ void PurePursuit::calcSteering(const geometry_msgs::Pose& curr_pose) {
     }
     
     else {
-        ROS_INFO("is_global_path_set"); 
+        // ROS_INFO("is_global_path_set"); 
         curr_waypoint = this->g_path.path.at(this->g_curr_idx).pose;
         next_waypoint = this->g_path.path.at(this->g_next_idx).pose;
     }

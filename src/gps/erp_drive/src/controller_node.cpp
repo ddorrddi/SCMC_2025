@@ -133,7 +133,7 @@ int main(int argc, char** argv) {
                 control.velocity = delivery_B_Original_Velocity * ratio;
                 control.brake = 0.0;
                 control.publishControlMsg();
-            }else if(elapsed < ros::Duration(5.5)){
+            }else if(elapsed < ros::Duration(3.5)){
                 ROS_INFO("delivery_stop : stop");
                 control.velocity = 0.0;
                 control.brake = 1.0;
@@ -148,7 +148,15 @@ int main(int argc, char** argv) {
 
         else if(!control.is_finish && control.is_path_set && control.is_pose_set){
             control.lookahead_distance = control.global_lookahead_distance;
+
+            // if (control.g_curr_idx < 300) {
+            //     control.velocity = 5.0; // 저속 설정
+            // } else {
+            //     control.velocity = control.optimal_throttle.calcTanhVelocity(control.curr_pose);
+            // } delivery 구간에 맞게 수정
+
             control.velocity = control.optimal_throttle.calcTanhVelocity(control.curr_pose);
+        
             control.brake = (control.velocity < control.speed_now) ? 0.15 : 0.0;
             // ROS_INFO_STREAM("brake : " << control.brake);
             // ROS_INFO_STREAM("curr_idx : " << control.g_curr_idx);

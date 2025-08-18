@@ -73,13 +73,13 @@ class DeliveryPlanner:
 
         # 표지판 / 정지 좌표 튜플
         self.delivery_spots = [
-            {"id": 1, "sign_xy": (935540.0, 1915910.0), "stop_xy": (935535.0, 1915907.0)},
-            {"id": 2, "sign_xy": (935560.0, 1915920.0), "stop_xy": (935555.0, 1915917.0)},
-            {"id": 3, "sign_xy": (935580.0, 1915930.0), "stop_xy": (935575.0, 1915927.0)},
-            {"id": 4, "sign_xy": (935600.0, 1915940.0), "stop_xy": (935595.0, 1915937.0)},
-            {"id": 5, "sign_xy": (935620.0, 1915950.0), "stop_xy": (935615.0, 1915947.0)},
-            {"id": 6, "sign_xy": (935640.0, 1915960.0), "stop_xy": (935635.0, 1915957.0)},
-            {"id": 7, "sign_xy": (935660.0, 1915970.0), "stop_xy": (935655.0, 1915967.0)},
+            {"id": 1, "stop_xy": (935534.553, 1915840.552), "sign_xy": (935537.841, 1915840.430)},
+            {"id": 2, "stop_xy": (935535.852, 1915842.632), "sign_xy": (935539.031, 1915842.589)},
+            {"id": 3, "stop_xy": (935537.158, 1915844.797), "sign_xy": (935540.203, 1915844.801)},
+            {"id": 4, "stop_xy": (935538.466, 1915846.969), "sign_xy": (935541.244, 1915847.013)}
+            # {"id": 5, "sign_xy": (935620.0, 1915950.0), "stop_xy": (935615.0, 1915947.0)},
+            # {"id": 6, "sign_xy": (935640.0, 1915960.0), "stop_xy": (935635.0, 1915957.0)},
+            # {"id": 7, "sign_xy": (935660.0, 1915970.0), "stop_xy": (935655.0, 1915967.0)},
         ]
 
         # 서브스크라이버
@@ -96,17 +96,19 @@ class DeliveryPlanner:
 
 
     def test_CB(self, msg:Bool):
-        self.sign_coords = (935542.6609013955,
-                            1915913.7353171674,
+        self.sign_coords = (935537.845,
+                            1915840.433,
                             0.)
+
         self.delivery_in_progress = True
+        self.get_stop_coords()
 
     def curr_idx_CB(self, msg: Int16):
         self.curr_idx = msg.data
-        self.delivery_done_confirm()
 
     def curr_pose_CB(self, msg: Pose):
         self.curr_pose = msg
+        self.delivery_done_confirm()
 
     def iou_fusion_CB(self, msg: IoUFusionMsg): # TODO : 메시지로 넘어온 number가 현재 설정된 target_number와 같은지 체크가 빠져있어요!!!!
         # 유효성 체크
@@ -171,6 +173,7 @@ class DeliveryPlanner:
 
         # stop_xy 저장
         self.target_stop_xy = candidates[idx]["stop_xy"]
+        rospy.loginfo(f"가장 가까운 표지판 좌표: {self.sign_coords}, 정지 좌표: {self.target_stop_xy}, idx: {idx}")
 
     def delivery_sign_CB(self, msg: String):
         # 유효성 검사 및 타겟이 정해지지 않았을때 1회만 작동
@@ -194,8 +197,11 @@ class DeliveryPlanner:
 
         dist_to_target = np.hypot(self.curr_pose.position.x - stop_x,\
                                    self.curr_pose.position.y - stop_y)
+        
 
+        rospy.loginfo(f"self.delivery_done_once: {self.delivery_done_once}, dist_to_target: {dist_to_target}")
         if not self.delivery_done_once:
+            # rospy.loginfo(f"목적지와의 거리 {dist_to_target}")
             if dist_to_target < const.DELIVERY_SUCCESS_RADIUS and self.delivery_in_progress: # @TODO 실험적으로 찾아야 할 값
                 rospy.loginfo(f"delivery_done_confirm() : 목적지와의 거리 {dist_to_target}, 목적지 도착!")
                 self.delivery_done = True
