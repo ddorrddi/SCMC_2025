@@ -42,7 +42,6 @@ from collections import Counter
 class DeliveryPlanner:
     def __init__(self, g_path: PathReference, rviz_offset_x: float, rviz_offset_y: float):
         # 파라미터 (조절해야됨)
-        self.dests = [(0,0), (1,1), ...] # 예시
         self.threshold = 0.95 # IOU 신뢰도 임계값
         self.min_queue_size = 20 # 목적지 좌표 신뢰도를 위한 큐 사이즈 (10Hz기준 20이면 2초간의 정보) !!메시지 드랍시 보완 로직이 없음!!
         self.end_offset = 40 # 배달미션이 끝났는가 판단하는 최소 waypoint 개수
@@ -70,6 +69,18 @@ class DeliveryPlanner:
         self.delivery_path_is_pub = False # 배달경로가 한번이라도 publish됐나 플래그
         self.sign_queue = deque(maxlen=70)
         self.result_queue = deque(maxlen=100)
+        self.target_stop_xy = None
+
+        # 표지판 / 정지 좌표 튜플
+        self.delivery_spots = [
+            {"id": 1, "sign_xy": (935540.0, 1915910.0), "stop_xy": (935535.0, 1915907.0)},
+            {"id": 2, "sign_xy": (935560.0, 1915920.0), "stop_xy": (935555.0, 1915917.0)},
+            {"id": 3, "sign_xy": (935580.0, 1915930.0), "stop_xy": (935575.0, 1915927.0)},
+            {"id": 4, "sign_xy": (935600.0, 1915940.0), "stop_xy": (935595.0, 1915937.0)},
+            {"id": 5, "sign_xy": (935620.0, 1915950.0), "stop_xy": (935615.0, 1915947.0)},
+            {"id": 6, "sign_xy": (935640.0, 1915960.0), "stop_xy": (935635.0, 1915957.0)},
+            {"id": 7, "sign_xy": (935660.0, 1915970.0), "stop_xy": (935655.0, 1915967.0)},
+        ]
 
         # 서브스크라이버
         rospy.Subscriber("/current_pose", Pose, self.curr_pose_CB) # 현재 Pose업데이트용
@@ -92,6 +103,7 @@ class DeliveryPlanner:
 
     def curr_idx_CB(self, msg: Int16):
         self.curr_idx = msg.data
+        self.delivery_done_confirm()
 
     def curr_pose_CB(self, msg: Pose):
         self.curr_pose = msg
@@ -132,8 +144,33 @@ class DeliveryPlanner:
         final_pt = inliers.mean(axis=0) if inliers.size else mean_pt
         self.result_queue.clear()
 
-        # 최종 목적지 좌표 설정
+        # 표지판 좌표 생성
         self.sign_coords = (final_pt[0], final_pt[1], final_pt[2])
+        self.get_stop_coords()
+
+    # 가장 가까운 이론상의 표지판 좌표 추출
+    def get_stop_coords(self):
+        if self.sign_coords is None:
+            return None
+        if not hasattr(self, "delivery_spots") or not self.delivery_spots:
+            return None
+
+        x, y = float(self.sign_coords[0]), float(self.sign_coords[1])
+
+        # sign_xy가 유효한 후보만 대상으로 최근접 탐색
+        candidates = [s for s in self.delivery_spots if s.get("sign_xy") is not None]
+        if not candidates:
+            return None
+
+        # numpy로 빠르게 거리 계산
+        arr = np.asarray([s["sign_xy"] for s in candidates], dtype=np.float64)  # shape (N,2)
+        dx = arr[:, 0] - x
+        dy = arr[:, 1] - y
+        d2 = dx * dx + dy * dy
+        idx = int(np.argmin(d2))
+
+        # stop_xy 저장
+        self.target_stop_xy = candidates[idx]["stop_xy"]
 
     def delivery_sign_CB(self, msg: String):
         # 유효성 검사 및 타겟이 정해지지 않았을때 1회만 작동
@@ -149,12 +186,14 @@ class DeliveryPlanner:
 
     # 배달 목적지 좌표에 도착했는가 확인하는 함수
     def delivery_done_confirm(self):
-        if self.sign_coords is None or self.curr_pose is None:
+        if self.target_stop_xy is None or self.curr_pose is None:
             self.delivery_done = False
             return
         
-        dist_to_target = np.hypot(self.curr_pose.position.x - self.sign_coords[0],\
-                                   self.curr_pose.position.y - self.sign_coords[1])
+        stop_x, stop_y = self.target_stop_xy
+
+        dist_to_target = np.hypot(self.curr_pose.position.x - stop_x,\
+                                   self.curr_pose.position.y - stop_y)
 
         if not self.delivery_done_once:
             if dist_to_target < const.DELIVERY_SUCCESS_RADIUS and self.delivery_in_progress: # @TODO 실험적으로 찾아야 할 값
