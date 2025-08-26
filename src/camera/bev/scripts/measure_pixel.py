@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 # --- 설정 ---
-IMAGE_PATH = '/home/ivsp/SCMC_2025_Test/src/camera/bev/scripts/BEV Parking Detection_screenshot_13.08.2025.png'  # 거리를 측정할 BEV 이미지 파일 경로
+IMAGE_PATH = '/home/foscar/SCMC_2025_Test/bev/Image_Stitching/BEV Parking Detection_screenshot_17.08.2025.png'  # 거리를 측정할 BEV 이미지 파일 경로
 # --- 설정 끝 ---
 
 # 클릭한 두 점을 저장할 리스트
@@ -22,7 +22,7 @@ def mouse_callback(event, x, y, flags, param):
         points.append((x, y))
         
         # 클릭한 위치에 초록색 원 그리기
-        cv2.circle(img_display, (x, y), 5, (0, 255, 0), -1)
+        cv2.circle(img_display, (x, y), 1, (0, 255, 0), -1)
         
         # 점이 2개 선택되면 거리 계산 및 표시
         if len(points) == 2:

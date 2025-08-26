@@ -36,6 +36,7 @@ void Controller::globalPathCallback(const erp_drive_semi::PathReference& g_path)
     this->g_path = g_path;
     this->g_path_size = g_path.path.size();
     this->is_path_set = true;
+    // this->current_state = VehicleState::GLOBAL_PATH_DRIVING;
 }
 
 void Controller::localPathCallback(const erp_drive_semi::PathReference& l_path){
@@ -47,6 +48,11 @@ void Controller::localPathCallback(const erp_drive_semi::PathReference& l_path){
     this->l_path = l_path;
     this->l_path_size = l_path.path.size();
     this->is_local_path_set = true;
+    if(this->g_curr_idx < 1380){
+        this->current_state = VehicleState::LOCAL_PATH_DRIVING;
+    } else {
+        this->current_state = VehicleState::GLOBAL_PATH_DRIVING;
+    }
 }
 
 void Controller::imuCallback(const sensor_msgs::Imu& imu_data){

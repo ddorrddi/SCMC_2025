@@ -45,7 +45,7 @@ int main(int argc, char** argv) {
                 continue;
             }
 
-            ROS_INFO_STREAM("start_yaw : " << control.start_yaw << ", curr_yaw : " << control.curr_yaw << ", _diff : " << _diff);
+            // ROS_INFO_STREAM("start_yaw : " << control.start_yaw << ", curr_yaw : " << control.curr_yaw << ", _diff : " << _diff);
         }
 
         switch(control.current_state) {
@@ -56,7 +56,9 @@ int main(int argc, char** argv) {
                     
                     // g_idx가 300 전까지 저속 주행
                     if (control.g_curr_idx < 300) {
-                        control.velocity = 7.5; // 저속 설정
+                        control.velocity = 5; // 저속 설정
+                    } else if (1050 < control.g_curr_idx && control.g_curr_idx < 1200) {
+                        control.velocity = 8.0;
                     } else {
                         control.velocity = control.global_velocity;
                     }

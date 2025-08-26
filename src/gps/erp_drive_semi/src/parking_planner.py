@@ -32,7 +32,7 @@ class ParkingPlanner:
         self.parking_path_global = PathReference() # 생성된 '고정된' 전역 경로
         self.current_pose = None
         self.final_destination_global = None
-        self.completion_threshold = 0.2 # 20cm 이내로 들어오면 도착으로 간주
+        self.completion_threshold = 0.3 # 20cm 이내로 들어오면 도착으로 간주
 
         self.parking_mission_complete = False
 

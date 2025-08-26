@@ -2,10 +2,10 @@
 
 <launch>
   <!-- 모라이 사용 시 주석 바람 -->
-  <!-- <include file="$(find handsfree_ros_imu)/launch/handsfree_imu.launch"/>
-  <include file="$(find ublox_gps)/launch/ublox_zed-f9p_base.launch"/>
-  <node pkg="race" type="serial_control_node" name="serial_control_node" /> -->
-  <!-- <include file="$(find traffic_light)/launch/yolo_traffic_light_morai.launch" /> -->
+  <!-- <include file="$(find handsfree_ros_imu)/launch/handsfree_imu.launch"/> -->
+  <!-- <include file="$(find ublox_gps)/launch/ublox_zed-f9p_base.launch"/> -->
+  <!-- <node pkg="race" type="serial_control_node" name="serial_control_node" />  -->
+  <include file="$(find traffic_light)/launch/yolo_traffic_light_morai.launch" /> 
 
 
   
