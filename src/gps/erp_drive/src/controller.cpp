@@ -115,47 +115,6 @@ bool Controller::isGreenSign(){
     return ret;
 }
 
-// bool Controller::isLeftGreenSign(){
-//     bool ret = this->traffic_light_status.compare(TrafficLightStatus::GREEN3) == 0;
-//     ret = ret || this->traffic_light_status.compare(TrafficLightStatus::RED_LEFT4) == 0;
-//     ret = ret || this->traffic_light_status.compare(TrafficLightStatus::GREEN_LEFT4) == 0;
-//     return ret;
-// }
-
-// bool Controller::isLeftTurn() {
-//     calcGlobalCurrWaypoint(curr_pose);
-//     ROS_INFO_STREAM("isLeftTurn : " << this->g_curr_idx);
-//     geometry_msgs::Pose curr_waypoint, target_waypoint;
-    
-//     curr_waypoint = this->g_path.path.at(this->g_curr_idx).pose;
-//     target_waypoint = this->g_path.path.at(std::min(this->g_curr_idx + 30, this->g_path_size - 1)).pose;
-    
-//     double roll, pitch, curr_yaw, target_yaw;
-
-//     tf2::Quaternion _curr_yaw(
-//         curr_waypoint.orientation.x,
-//         curr_waypoint.orientation.y,
-//         curr_waypoint.orientation.z,
-//         curr_waypoint.orientation.w
-//     );
-//     tf2::Matrix3x3(_curr_yaw).getRPY(roll, pitch, curr_yaw);
-
-//     tf2::Quaternion _target_yaw(
-//         target_waypoint.orientation.x,
-//         target_waypoint.orientation.y,
-//         target_waypoint.orientation.z,
-//         target_waypoint.orientation.w
-//     );
-    
-//     tf2::Matrix3x3(_target_yaw).getRPY(roll, pitch, target_yaw);
-
-//     curr_yaw = curr_yaw * 180 / M_PI;
-//     target_yaw = target_yaw * 180 / M_PI;
-
-//     // @@@ TODO @@@ 적절한 각도 찾기
-//     return std::abs(curr_yaw - target_yaw) >= 30;
-// }
-
 void Controller::trafficLightStatusCallback(const std_msgs::String& msg){
     bool isNone = msg.data.compare(TrafficLightStatus::NONE) == 0;
     if(!isNone)

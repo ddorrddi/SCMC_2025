@@ -89,7 +89,7 @@ class LanenetDetection:
         self.current_lane = "LEFT"
         self.last_angle = 0
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        self.model_path = '/home/foscar/SCMC_2025_Test/src/camera/lanenet/src/lanenet_.model'
+        self.model_path = '/home/ivsp/SCMC_2025_Test/src/camera/lanenet/src/lanenet_.model'
         self.LaneNet_model = Lanenet(2, 4)
         self.LaneNet_model.load_state_dict(torch.load(self.model_path, map_location=torch.device(self.device)))
         self.LaneNet_model.to(self.device)
@@ -155,7 +155,7 @@ class LanenetDetection:
             pid = PID(0.015, 0.003, 0.010)
             try:
                 
-                cv2.imshow("lane_image", self.image)
+                # cv2.imshow("lane_image", self.image)
 
                 show_img = self.inference(self.image)
                 # init_show_img(show_img)

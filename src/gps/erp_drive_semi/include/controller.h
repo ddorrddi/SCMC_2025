@@ -17,6 +17,7 @@
 #include <std_msgs/String.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/TwistStamped.h>
+#include <nav_msgs/Path.h>
 
 // Path 관련 커스텀 메세지
 #include <erp_drive_semi/PathReference.h>
@@ -42,6 +43,7 @@ enum class VehicleState {
     LOCAL_PATH_DRIVING, // 기존 로컬 경로와 주차 경로를 모두 처리
     PARKING_DONE_STOPPING,
     PARKING_REVERSING,
+    REVERSE_DONE_STOPPING, // 후진 완료 후 1초 정지
     RESUMING_GLOBAL_PATH // 전진 기어 변경 후 잠시 대기 상태
 };
 
@@ -53,8 +55,10 @@ public:
     ros::ServiceClient morai_event_cmd_client;
     ros::Timer stop_timer;
     ros::Timer reverse_timer;
+    ros::Timer reverse_done_timer;
     void stopTimerCallback(const ros::TimerEvent&);
     void reverseTimerCallback(const ros::TimerEvent&);
+    void reverseDoneTimerCallback(const ros::TimerEvent&);
 
     bool is_moving_back;
 
@@ -93,6 +97,7 @@ public:
     ros::Publisher morai_drive_pub;
     void publishControlMsg();
 
+
     bool flag;
 
     // planner 에서 활용 하기 위한 현재 차량 인덱스 Publisher
@@ -112,11 +117,18 @@ public:
     void localPathCallback(const erp_drive_semi::PathReference& l_path);
     void localPathDoneCallback(const std_msgs::Int16& signal);
 
+    // reverse parking path (역순 주차 경로)
+    erp_drive_semi::PathReference reverse_path;
+    int reverse_path_size, reverse_curr_idx;
 
     ros::Subscriber parking_path_sub;
     ros::Subscriber parking_path_done_sub;
+    ros::Subscriber reverse_path_sub;
+    ros::Subscriber reverse_path_done_sub;
     void parkingPathCallback(const erp_drive_semi::PathReference& parking_path);
     void parkingPathDoneCallback(const std_msgs::Int16& signal);
+    void reversePathCallback(const erp_drive_semi::PathReference& reverse_path);
+    void reversePathDoneCallback(const std_msgs::Int16& signal);
 
     int start_yaw = -400;
     double curr_yaw;
