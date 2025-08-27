@@ -158,6 +158,18 @@ int main(int argc, char** argv) {
         else if(!control.is_finish && control.is_path_set && control.is_pose_set){
             control.lookahead_distance = control.global_lookahead_distance;
             control.velocity = control.optimal_throttle.calcTanhVelocity(control.curr_pose);
+            
+            // BIG 장애물 회피 구간 제한 속도 10
+            if(710 < control.g_curr_idx && control.g_curr_idx < 930) {
+                control.velocity = std::min(control.velocity, 10.0);
+            }
+
+            // PARKING 모드: 인덱스 3200부터 속도 5로 제한
+            if(control.g_curr_idx >= 3200){
+                ROS_INFO("[PARKING MODE] Speed limited to 5.0 (idx: %d)", control.g_curr_idx);
+                control.velocity = std::min(control.velocity, 5.0);
+            }
+            
             control.brake = (control.velocity < control.speed_now) ? 0.15 : 0.0;
             // ROS_INFO_STREAM("brake : " << control.brake);
             // ROS_INFO_STREAM("curr_idx : " << control.g_curr_idx);
@@ -168,15 +180,23 @@ int main(int argc, char** argv) {
                 control.brake = (control.optimal_throttle.shouldStop) ? 1.0 : 0.0;
 
             else if(event_type == EventType::STOP_TRAFFIC){
+                // 신호등 이벤트 감지 로그
+                int traffic_event_idx = control.optimal_throttle.eventPlaceInfoManager.getCurrEventPlaceInfo().index;
+                
                 // flowControl이 신호등에 가까워졌다고 판단했을 때만 (shouldStop == true) 아래 로직을 실행
                 if (control.optimal_throttle.shouldStop) {
-                    bool is_red_light = (control.isLeftTurn() && !control.isLeftGreenSign()) || (!control.isLeftTurn() && !control.isGreenSign());
+                    bool is_red_light = !control.isGreenSign();
+                    
+                    // 현재 신호등 상태 로그
+                    ROS_INFO("[TRAFFIC LIGHT] Light state: %s", is_red_light ? "RED (STOP)" : "GREEN (GO)");
             
                     if (is_red_light) {
                         // 빨간불이면 계속 정지
+                        ROS_INFO("[TRAFFIC LIGHT] RED LIGHT - Vehicle stopping");
                         control.brake = 1.0;
                     } else {
                         // 초록불이면 출발!
+                        ROS_INFO("[TRAFFIC LIGHT] GREEN LIGHT - Vehicle proceeding");
                         control.brake = 0.0;
                         control.optimal_throttle.shouldStop = false;
                         control.optimal_throttle.shouldDecel = false;
@@ -231,8 +251,6 @@ void logging(const PurePursuit& control){
     
     // if(control.optimal_throttle.eventPlaceInfoManager.getCurrEventPlaceInfo().type == EventType::STOP_DELIVERY_A){
     //     fmt::print("{:<20} ", "STOP_DELIVERY_A");
-    // } else if(control.optimal_throttle.eventPlaceInfoManager.getCurrEventPlaceInfo().type == EventType::STOP_DELIVERY_B){
-    //     fmt::print("{:<20} ", "STOP_DELIVERY_B");
     // } else if(control.optimal_throttle.eventPlaceInfoManager.getCurrEventPlaceInfo().type == EventType::STOP_LINE){
     //     fmt::print("{:<20} ", "STOP_LINE");
     // } else {

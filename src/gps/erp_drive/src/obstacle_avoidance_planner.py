@@ -491,14 +491,14 @@ class ObstacleAvoidancePlanner:
 
         rospy.loginfo(f"[BIG??]: {is_big}")
 
-        if 845 <= self.g_curr_idx <= 1240 and is_big:
+        if 710 <= self.g_curr_idx <= 930 and is_big:
             rospy.loginfo("🚨 대형 장애물 감지 -> 차선 변경 로직 실행")
             # 목표 차선을 변경합니다.
             self.curr_lane = Lane.TWO if self.curr_lane == Lane.ONE else Lane.ONE
             # is_obst_on_path에서 이미 ccw를 차선 변경에 맞게 계산했으므로 추가 로직은 불필요합니다.
             self.avoidance_in_progress = True
 
-            target_lookahead = 20 # 50 * 0.2m = 10m 앞을 목표로 설정 (튜닝 필요)
+            target_lookahead = 40 # 50 * 0.2m = 10m 앞을 목표로 설정 (튜닝 필요)
             target_idx = min(self.g_curr_idx + target_lookahead, len(self.g_path[self.curr_lane]) - 1)
             
             target_pose = self.g_path[self.curr_lane][target_idx].pose
@@ -538,12 +538,17 @@ class ObstacleAvoidancePlanner:
 
             return
         
-        # [조건] 그 외 모든 경우 (소형 장애물 구간 포함)
-        else: # 255 <= self.g_curr_idx <= 500 또는 그 외 구간
+        # [조건] 소형 장애물 회피 구간 (2890~2970)
+        elif 2890 <= self.g_curr_idx <= 2970:
             rospy.loginfo("🚗 소형 장애물 감지 -> 차선 내 회피 로직 실행")
             # 목표 차선 변경 없이, 현재 차선 내에서 회피합니다.
             # self.curr_lane은 변경하지 않습니다.
             pass # 특별히 할 작업 없음
+        
+        # [조건] 회피 구간 밖 - 회피하지 않음
+        else:
+            rospy.loginfo("회피 구간 밖 - 장애물 감지되었지만 회피하지 않음")
+            return
         
         # 회피 목표 지점 계산
         blend_margin = 0

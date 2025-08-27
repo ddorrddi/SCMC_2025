@@ -10,7 +10,7 @@ from ultralytics import YOLO
 
 CONFIDENCE = 0.5
 
-weights_path = '/home/foscar/SCMC_2025_Test/src/camera/traffic_light/weight/1027_40epoch.pt'
+weights_path = '/home/ivsp/SCMC_2025_Test/src/camera/traffic_light/weight/1027_40epoch.pt'
 model = YOLO(weights_path)
 bridge = CvBridge()
 
@@ -24,7 +24,7 @@ def image_callback(msg):
         rospy.logerr(f"CvBridge Error: {e}")
         return
 
-    results = model.predict(cv_image, conf=CONFIDENCE)
+    results = model.predict(cv_image, conf=CONFIDENCE, verbose=False)
     results = results[0]
     boxes = results.boxes
     names = results.names
