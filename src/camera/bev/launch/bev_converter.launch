@@ -1,4 +1,9 @@
 <launch>
-    <node pkg="bev" type="bev_node.py" name="bev_converter" ns="bev_converter" output="screen">
+    <node pkg="bev" type="bev_node.py" name="bev_converter" ns="bev_converter" output="screen" />
+    
+    <node pkg="bev" type="bev_image_saver.py" name="bev_image_saver" ns="bev_converter" output="screen">
+        <!-- 이미지 저장 설정 -->
+        <param name="save_folder" value="/home/foscar/bev_captured_images" />
+        <param name="capture_interval" value="0.5" />
     </node>
 </launch>

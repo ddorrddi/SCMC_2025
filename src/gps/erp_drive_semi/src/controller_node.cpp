@@ -56,10 +56,13 @@ int main(int argc, char** argv) {
                     
                     // g_idx가 300 전까지 저속 주행
                     if (100 < control.g_curr_idx && control.g_curr_idx < 300) {
+                        control.brake = 0.0;
                         control.velocity = 5.0; // 저속 설정
                     } else if (1050 < control.g_curr_idx && control.g_curr_idx < 1200) {
+                        control.brake = 0.0;
                         control.velocity = 8.0;
                     } else {
+                        control.brake = 0.0;
                         control.velocity = control.global_velocity;
                     }
                     
@@ -90,8 +93,9 @@ int main(int argc, char** argv) {
                     ROS_INFO_STREAM("State: PARKING_REVERSING (Following reverse path)");
                     control.lookahead_distance = control.local_lookahead_distance;
                     control.brake = 0.0;
-                    control.velocity = 1.0; // 후진 속도 -1.0 m/s
+                    control.velocity = 5.0; // 후진 속도 -1.0 m/s
                     control.calcSteering(control.curr_pose);
+                    control.is_moving_back = true;
                     control.publishControlMsg();
                     
                     // 후진 경로 완료는 parking_planner에서 감지하여 토픽으로 알려줌
@@ -103,6 +107,7 @@ int main(int argc, char** argv) {
                 control.velocity = 0.0;
                 control.brake = 1.0;
                 control.publishControlMsg();
+                control.is_moving_back = false;
                 break;
         }
 
