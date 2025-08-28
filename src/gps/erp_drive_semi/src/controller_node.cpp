@@ -141,6 +141,8 @@ int main(int argc, char** argv) {
                 control.publishControlMsg();
             }
 
+            msg.data = control.is_finish;
+            control.global_path_finish_pub.publish(std_msgs::Bool(msg));
             break;
         }
         
