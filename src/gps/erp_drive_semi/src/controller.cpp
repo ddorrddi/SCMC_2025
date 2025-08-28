@@ -21,6 +21,8 @@ Controller::Controller(char control_target):
 
         this->parking_path_sub = nh.subscribe("/parking_path", 1, &Controller::parkingPathCallback, this);
         this->parking_path_done_sub = nh.subscribe("/parking_path_done", 1, &Controller::parkingPathDoneCallback, this);
+        this->reverse_path_sub = nh.subscribe("/reverse_parking_path", 1, &Controller::reversePathCallback, this);
+        this->reverse_path_done_sub = nh.subscribe("/reverse_parking_done", 1, &Controller::reversePathDoneCallback, this);
 
         this->curr_pose_sub = nh.subscribe("/current_pose", 1, &Controller::currentPoseCallback, this);
 
@@ -36,6 +38,7 @@ void Controller::globalPathCallback(const erp_drive_semi::PathReference& g_path)
     this->g_path = g_path;
     this->g_path_size = g_path.path.size();
     this->is_path_set = true;
+    // this->current_state = VehicleState::GLOBAL_PATH_DRIVING;
 }
 
 void Controller::localPathCallback(const erp_drive_semi::PathReference& l_path){
@@ -47,6 +50,11 @@ void Controller::localPathCallback(const erp_drive_semi::PathReference& l_path){
     this->l_path = l_path;
     this->l_path_size = l_path.path.size();
     this->is_local_path_set = true;
+    if(this->g_curr_idx < 1380){
+        this->current_state = VehicleState::LOCAL_PATH_DRIVING;
+    } else {
+        this->current_state = VehicleState::GLOBAL_PATH_DRIVING;
+    }
 }
 
 void Controller::imuCallback(const sensor_msgs::Imu& imu_data){
@@ -204,7 +212,7 @@ void Controller::publishControlMsg(){
 
 void Controller::parkingPathCallback(const erp_drive_semi::PathReference& parking_path){
 
-    if(this->g_curr_idx < 180 or this->g_curr_idx > 300) return;
+    if(this->g_curr_idx < 120 or this->g_curr_idx > 200) return;
 
     ROS_INFO("Received New Parking Path, treating as a local path.");
     
@@ -243,41 +251,45 @@ void Controller::parkingPathDoneCallback(const std_msgs::Int16& signal){
 void Controller::stopTimerCallback(const ros::TimerEvent&) {
     ROS_INFO("3-second stop finished. Switching to REVERSING state and changing gear to R.");
     
-    // 1. 기어 변경 서비스 메시지 생성
-    morai_msgs::MoraiEventCmdSrv srv;
-    srv.request.request.option = 2; // Gear 제어
-    srv.request.request.ctrl_mode = 3; // ExternalCtrl 모드
-    srv.request.request.gear = 2; // R (후진)
-    
-    // 2. 서비스 호출
-    if (this->morai_event_cmd_client.call(srv)) {
-        ROS_INFO("Successfully changed gear to REVERSE.");
-    } else {
-        ROS_ERROR("Failed to call gear change service.");
-    }
+    // 1. 후진 경로가 준비되어 있는지 확인
+    if(this->reverse_path_size > 0) {
+        // 2. 역순 경로를 로컬 경로로 설정
+        this->l_path = this->reverse_path;
+        this->l_path_size = this->reverse_path_size;
+        this->l_curr_idx = 0;
+        this->is_local_path_set = true;
+        ROS_INFO("Set reverse path as local path for backing up (%d waypoints)", this->reverse_path_size);
 
-    // 3. 상태를 '후진'으로 변경
-    this->current_state = VehicleState::PARKING_REVERSING;
-    
-    // 4. 3초 후에 reverseTimerCallback을 호출하는 타이머 시작
-    this->reverse_timer = nh.createTimer(ros::Duration(3.0), &Controller::reverseTimerCallback, this, true);
+        // 3. 상태를 '후진'으로 변경
+        this->current_state = VehicleState::PARKING_REVERSING;
+    } else {
+        ROS_WARN("No reverse path available! Staying in PARKING_DONE_STOPPING state.");
+    }
 }
 
-void Controller::reverseTimerCallback(const ros::TimerEvent&) {
-    ROS_INFO("3-second reverse finished. Switching to DRIVE and resuming global path.");
+void Controller::reversePathCallback(const erp_drive_semi::PathReference& reverse_path){
+    ROS_INFO("Received reverse parking path with %d waypoints", (int)reverse_path.path.size());
     
-    // 1. 기어를 다시 D (전진)로 변경
-    morai_msgs::MoraiEventCmdSrv srv;
-    srv.request.request.option = 2;
-    srv.request.request.ctrl_mode = 3;
-    srv.request.request.gear = 4; // D (전진)
-    
-    if (this->morai_event_cmd_client.call(srv)) {
-        ROS_INFO("Successfully changed gear to DRIVE.");
-    } else {
-        ROS_ERROR("Failed to call gear change service.");
+    this->reverse_path = reverse_path;
+    this->reverse_path_size = reverse_path.path.size();
+}
+
+void Controller::reversePathDoneCallback(const std_msgs::Int16& signal){
+    if(signal.data == 1){
+        ROS_INFO("Reverse path completed! Stopping for 1 second before resuming global path.");
+        
+        // 1. 후진 모드 종료
+        this->is_local_path_set = false;
+        this->current_state = VehicleState::REVERSE_DONE_STOPPING;
+        
+        // 2. 1초 후에 글로벌 경로로 복귀하는 타이머 시작
+        this->reverse_done_timer = nh.createTimer(ros::Duration(1.0), &Controller::reverseDoneTimerCallback, this, true);
     }
+}
+
+void Controller::reverseDoneTimerCallback(const ros::TimerEvent&) {
+    ROS_INFO("1-second stop finished. Resuming global path driving.");
     
-    // 2. 상태를 '전역 경로 주행'으로 복귀
+    // 글로벌 경로 주행으로 복귀
     this->current_state = VehicleState::GLOBAL_PATH_DRIVING;
 }

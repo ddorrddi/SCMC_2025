@@ -3,8 +3,10 @@
 <launch>
   <!-- <include file="$(find handsfree_ros_imu)/launch/handsfree_imu.launch"/> -->
   <!-- <include file="$(find ublox_gps)/launch/ublox_zed-f9p_base.launch"/>  -->
-  <!-- <include file="$(find lanenet)/launch/lanenet_drive_morai.launch"/> -->
+  <!-- <include file="$(find lanenet)/launch/lanenet_drive_erp42.launch"/> -->
+  <include file="$(find lanenet)/launch/lanenet_drive_morai.launch"/>
 
+  <!-- <include file="$(find bev)/launch/bev_converter_erp.launch" /> -->
   <include file="$(find bev)/launch/bev_converter.launch" />
   
   <node pkg="waypoint_maker" type="waypoint_maker_right_only.py" name="waypoint_maker_right_only" />

@@ -18,13 +18,15 @@ class BEVParkingDetector:
 
         # 1단계에서 계산했던 고정 Homography 행렬
         self.H = np.array([
-            [-5.78070696e-02, -1.33321174e+00,  3.02610363e+02],
-            [-1.11038792e-01, -9.95878489e-01,  2.99861573e+02],
-            [ 4.51520156e-05, -4.18312629e-03,  1.00000000e+00]
+
+            [-9.49144753e-02, -1.37770938e+00, 3.60924395e+02],
+            [ 1.45962627e-02, -9.91594887e-01,  2.69889792e+02],
+            [ 7.34354190e-05, -4.27074219e-03,  1.00000000e+00]
+
         ])
         
         # === [추가] === 캘리브레이션을 통해 얻은 실제 스케일 값
-        self.METERS_PER_PIXEL = 0.0423
+        self.METERS_PER_PIXEL = 0.05
 
         # Publisher 설정
         self.image_pub = rospy.Publisher("/bev_image", Image, queue_size=1)
@@ -74,12 +76,15 @@ class BEVParkingDetector:
             
             # 원본 이미지의 불필요한 부분 제거 (0으로 채우기)
             height, width, _ = original_image.shape
-            original_image[0:height//2, :] = 0
-            original_image[:, (width//3)*2:width] = 0
+            original_image[0:270, :] = 0
+
+            # original_image[:, 0:width//2] = 0
+
+            # original_image[350:480,:]=0
         except Exception as e:
             rospy.logerr(f"Image decoding error: {e}")
             return
-
+        # cv2.imshow("1",original_image)
         # --- BEV 변환 로직 ---
         img1_height, img1_width, _ = original_image.shape
 
@@ -111,7 +116,7 @@ class BEVParkingDetector:
 
         # cv2.imshow("1. Original Edges", edges)
         # cv2.imshow("2. Eroded Mask", eroded_mask)
-        cv2.imshow("3. Final Edges (After Masking)", final_edges)
+        # cv2.imshow("3. Final Edges (After Masking)", final_edges)
 
         contours, _ = cv2.findContours(final_edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         

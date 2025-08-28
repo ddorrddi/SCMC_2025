@@ -45,7 +45,7 @@ int main(int argc, char** argv) {
                 continue;
             }
 
-            ROS_INFO_STREAM("start_yaw : " << control.start_yaw << ", curr_yaw : " << control.curr_yaw << ", _diff : " << _diff);
+            // ROS_INFO_STREAM("start_yaw : " << control.start_yaw << ", curr_yaw : " << control.curr_yaw << ", _diff : " << _diff);
         }
 
         switch(control.current_state) {
@@ -55,9 +55,14 @@ int main(int argc, char** argv) {
                     control.lookahead_distance = control.global_lookahead_distance;
                     
                     // g_idx가 300 전까지 저속 주행
-                    if (control.g_curr_idx < 300) {
-                        control.velocity = 7.5; // 저속 설정
+                    if (100 < control.g_curr_idx && control.g_curr_idx < 300) {
+                        control.brake = 0.0;
+                        control.velocity = 5.0; // 저속 설정
+                    } else if (1050 < control.g_curr_idx && control.g_curr_idx < 1200) {
+                        control.brake = 0.0;
+                        control.velocity = 8.0;
                     } else {
+                        control.brake = 0.0;
                         control.velocity = control.global_velocity;
                     }
                     
@@ -84,11 +89,25 @@ int main(int argc, char** argv) {
                 break;
 
             case VehicleState::PARKING_REVERSING:
-                ROS_INFO_STREAM("State: PARKING_REVERSING (3 seconds)");
-                control.velocity = -1.0; // 후진 속도 (m/s)
-                control.steering = 0.0;  // 직진 후진
-                control.brake = 0.0;
+                if(control.is_local_path_set){
+                    ROS_INFO_STREAM("State: PARKING_REVERSING (Following reverse path)");
+                    control.lookahead_distance = control.local_lookahead_distance;
+                    control.brake = 0.0;
+                    control.velocity = 5.0; // 후진 속도 -1.0 m/s
+                    control.calcSteering(control.curr_pose);
+                    control.is_moving_back = true;
+                    control.publishControlMsg();
+                    
+                    // 후진 경로 완료는 parking_planner에서 감지하여 토픽으로 알려줌
+                }
+                break;
+
+            case VehicleState::REVERSE_DONE_STOPPING:
+                ROS_INFO_STREAM("State: REVERSE_DONE_STOPPING (1 second)");
+                control.velocity = 0.0;
+                control.brake = 1.0;
                 control.publishControlMsg();
+                control.is_moving_back = false;
                 break;
         }
 
@@ -122,6 +141,8 @@ int main(int argc, char** argv) {
                 control.publishControlMsg();
             }
 
+            msg.data = control.is_finish;
+            control.global_path_finish_pub.publish(std_msgs::Bool(msg));
             break;
         }
         

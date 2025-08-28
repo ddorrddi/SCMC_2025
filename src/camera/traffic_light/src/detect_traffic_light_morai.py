@@ -24,7 +24,7 @@ def image_callback(msg):
         rospy.logerr(f"CvBridge Error: {e}")
         return
 
-    results = model.predict(cv_image, conf=CONFIDENCE)
+    results = model.predict(cv_image, conf=CONFIDENCE, verbose=False)
     results = results[0]
     boxes = results.boxes
     names = results.names

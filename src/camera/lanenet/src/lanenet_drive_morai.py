@@ -155,7 +155,7 @@ class LanenetDetection:
             pid = PID(0.015, 0.003, 0.010)
             try:
                 
-                cv2.imshow("lane_image", self.image)
+                # cv2.imshow("lane_image", self.image)
 
                 show_img = self.inference(self.image)
                 # init_show_img(show_img)

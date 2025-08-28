@@ -153,12 +153,12 @@ class LanenetDetection:
 
             try:
                 # pid = PID(0.2, 0.05, 0.01)
-                cv2.imshow("lane_image", self.image)
+                # cv2.imshow("lane_image", self.image)
 
                 show_img = self.inference(self.image)
                 # init_show_img(show_img)
 
-                cv2.imshow("show", show_img)
+                # cv2.imshow("show", show_img)
 
 
                 img_frame = show_img.copy() # img_frame변수에 카메라 이미지를 받아옵니다.  
@@ -171,7 +171,7 @@ class LanenetDetection:
                 height, width, channel = img_filtered.shape
 
 
-                cv2.imshow("filter", img_filtered)
+                # cv2.imshow("filter", img_filtered)
                
                
                 # img_warped = bird_eye_view(img_filtered,width,height) # 앞서 구현한 bird-eye-view 함수를 이용하여 시점변환해줍니다.
