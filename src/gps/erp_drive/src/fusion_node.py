@@ -24,30 +24,26 @@ class FusionNode:
         # 카메라 파라미터값 (일단 임시값)
         Fx, Fy = 511, 513
         Cx, Cy = 324, 241
-        R = [
-            [0.0, -1.0, 0.0],
-            [0.0, 0.0, -1.0],
-            [1.0, 0.0, 0.0]
-        ]
-        T = [
-            [0.0],
-            [0.0],
-            [0.0]
-        ]
+
+        # 라이다 → 카메라 상대 위치와 자세 (예시 값)
+        x, y, z = 0.0, 0.0, 0.0        # m 단위
+        roll, pitch, yaw = 0.0, 0.0, 0.0  # rad 단위
 
         img_width = 640
         img_height = 480
         self.img_width = img_width
         self.img_height = img_height
 
+        R, T = Fusion.make_extrinsics(x, y, z, roll, pitch, yaw)
         self.fusion = Fusion(Fx, Fy, Cx, Cy, R, T, img_width, img_height)
+
         self.cv_image = None
         self.yolo_bbox = None
         self.lidar_bbox = None
         self.lidar_pts2d = None
 
-        self.cloud_stride = 8
-        self.max_projected_points = 2000
+        self.cloud_stride = 1
+        self.max_projected_points = 10000
 
         # 이미지 퍼블리셔 (RViz에서 시각화할 토픽)
         self.image_pub = rospy.Publisher('/fusion/image', Image, queue_size=1)
@@ -58,16 +54,17 @@ class FusionNode:
         ### TODO : 인지팀에서 토픽/메시지 수정해서 줄때까지 스탑.
         self.yolo_sub = Subscriber('/delivery_sign_info', DetectYolo) # 욜로 bbox : class_name, center_x, center_y, width, height
         self.lidar_sub = Subscriber('/bbox_point_info_static', PointInfo) # 클러스터 박스들 (bboxCounts, xMini[], yMini[], zMini[], xMaxi[], yMaxi[], zMaxi[])
-        self.img_sub = Subscriber('/usb_cam_right/image_raw', Image)
-        self.info_sub = Subscriber('/usb_cam_right/camera_info', CameraInfo)
+        # self.img_sub = Subscriber('/usb_cam/image_raw', Image)
+        # self.info_sub = Subscriber('/usb_cam/camera_info', CameraInfo)
+        self.img_sub = rospy.Subscriber('/usb_cam_right/image_raw', Image, self.img_callback, queue_size=1)
         self.cloud_sub = rospy.Subscriber('/velodyne_points', PointCloud2, self.cloud_callback, queue_size=1)
 
         # 근사 시간 동기화
         ats = ApproximateTimeSynchronizer([self.yolo_sub, self.lidar_sub], queue_size=10, slop=0.1, allow_headerless=True)
         ats.registerCallback(self.bbox_callback)
 
-        ats_cam = ApproximateTimeSynchronizer([self.img_sub, self.info_sub], queue_size=10, slop=0.1)
-        ats_cam.registerCallback(self.img_callback)
+        # ats_cam = ApproximateTimeSynchronizer([self.img_sub, self.info_sub], queue_size=10, slop=0.1)
+        # ats_cam.registerCallback(self.img_callback)
 
 
     def bbox_callback(self, yolo_msg, lidar_msg): # TODO : !!인지팀에서 토픽/메시지 픽스나기 전이라서 틀만 짜둠. 픽스나면 그때 세부조정들어가야됨!! (포인트들 읽는방식이나 bbox만드는 방식이나 등등..)
@@ -128,63 +125,63 @@ class FusionNode:
 
 
     def cloud_callback(self, cloud_msg: PointCloud2):
-        """
-        /velodyne_points 수신 → 일부 샘플링 → 카메라로 투영 → 이미지 좌표 배열을 self.lidar_pts2d에 저장
-        실제 그리기는 img_callback에서 수행 (카메라 타이밍에 맞춤)
-        """
         try:
-            # PointCloud2 → (x,y,z) 제너레이터
             gen = pc2.read_points(cloud_msg, field_names=('x', 'y', 'z'), skip_nans=True)
 
-            # 부하를 줄이기 위한 stride 샘플링 및 상한
+            # stride 기반 샘플링 (속도 제어)
             sampled = []
             for idx, (x, y, z) in enumerate(gen):
                 if idx % self.cloud_stride == 0:
                     sampled.append([x, y, z])
-                    if len(sampled) >= self.max_projected_points * 3:  # 여유 샘플(투영 후 화면 밖 제외 대비)
+                    if len(sampled) >= self.max_projected_points * 3:
                         break
 
             if not sampled:
                 self.lidar_pts2d = None
                 return
 
-            lidar_pts = np.asarray(sampled, dtype=np.float32)  # (N,3)
+            lidar_pts = np.asarray(sampled, dtype=np.float32)  # [N,3]
 
-            # LiDAR → 이미지 좌표로 투영
-            pts2d = self.fusion.rid2img(lidar_pts)  # (N,2) expected
+            # ★ 유효 인덱스 함께 받기 (Z>0 필터 반영)
+            pts2d, valid_idx = self.fusion.rid2img(lidar_pts, return_mask=True)  # pts2d:[M,2], valid_idx:[M]
             if pts2d is None or len(pts2d) == 0:
                 self.lidar_pts2d = None
                 return
 
+            # 동일한 점들만 남기도록 3D도 정렬
+            lidar_pts = lidar_pts[valid_idx]  # [M,3] ← pts2d와 길이 일치 보장
+
             # 이미지 경계 내부만 필터링
             u = pts2d[:, 0]
             v = pts2d[:, 1]
-            mask = (u >= 0) & (u < self.img_width) & (v >= 0) & (v < self.img_height)
-            pts2d = pts2d[mask]
-            lidar_pts = lidar_pts[mask]
+            inb = (u >= 0) & (u < self.img_width) & (v >= 0) & (v < self.img_height)
 
-            if pts2d.shape[0] == 0:
+            if not np.any(inb):
                 self.lidar_pts2d = None
                 return
-            
-            # 거리계산
-            dist = np.linalg.norm(lidar_pts, axis=1)
 
-            # 너무 많으면 랜덤 샘플 (그리기 성능 보호)
+            pts2d = pts2d[inb]         # [K,2]
+            lidar_pts = lidar_pts[inb] # [K,3]
+
+            # 거리 계산
+            dist = np.linalg.norm(lidar_pts, axis=1)  # [K]
+
+            # 너무 많으면 랜덤 샘플링
             if pts2d.shape[0] > self.max_projected_points:
-                idx = np.random.choice(pts2d.shape[0], self.max_projected_points, replace=False)
-                pts2d = pts2d[idx]
-                dist = dist[idx]
+                sel = np.random.choice(pts2d.shape[0], self.max_projected_points, replace=False)
+                pts2d = pts2d[sel]
+                dist  = dist[sel]
 
-            # (u,v,d) 형태로 저장
-            self.lidar_pts2d = np.hstack([pts2d.astype(np.int32), dist.reshape(-1, 1)])
+            # (u,v,d) 저장 (그리기는 img_callback에서)
+            uv = pts2d.astype(np.int32)
+            self.lidar_pts2d = np.column_stack([uv, dist])
 
         except Exception as e:
             rospy.logwarn(f"[cloud_callback] error: {e}")
             self.lidar_pts2d = None
 
 
-    def img_callback(self,img_msg, info_msg):
+    def img_callback(self, img_msg):
         # 카메라 이미지 → OpenCV 형식
         try:
             img = self.bridge.imgmsg_to_cv2(img_msg, desired_encoding='bgr8')
@@ -210,15 +207,15 @@ class FusionNode:
         # LiDAR 포인트 그리기 (거리 기반 색상)
         if self.lidar_pts2d is not None and self.lidar_pts2d.size > 0:
             for (u, v, d) in self.lidar_pts2d:
-                if d > 40:         # 40m 이상 → 회색
+                if d > 5:         # 5m 이상 → 회색
                     color = (128, 128, 128)
-                elif d < 5:        # 5m 이내 → 빨강
+                elif d < 1:        # 1m 이내 → 빨강
                     color = (0, 0, 255)
-                elif d < 20:       # 5~20m → 빨강→노랑 보간
-                    ratio = (d - 5) / 15.0
+                elif d < 3:       # 1~3m → 빨강→노랑 보간
+                    ratio = (d - 1) / 2.0
                     color = (0, int(255 * ratio), 255)  # BGR
-                else:              # 20~40m → 노랑→초록 보간
-                    ratio = (d - 20) / 20.0
+                else:              # 3~5m → 노랑→초록 보간
+                    ratio = (d - 3) / 2.0
                     color = (0, 255, int(255 * (1 - ratio)))
 
                 cv2.circle(self.cv_image, (int(u), int(v)), 2, color, -1)
@@ -227,10 +224,7 @@ class FusionNode:
         fusion_msg = self.bridge.cv2_to_imgmsg(self.cv_image, encoding='bgr8')
         fusion_msg.header = img_msg.header  # 시간 동기화용
 
-        info_msg.header = img_msg.header
-
         self.image_pub.publish(fusion_msg)
-        self.cam_info_pub.publish(info_msg)
 
 
     def run(self):
