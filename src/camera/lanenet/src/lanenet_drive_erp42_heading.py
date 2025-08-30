@@ -124,7 +124,7 @@ class LanenetDetection:
        
 
         #------------------------------------- 정적 장애물 파라미터 --------------------------------------#
-        tunnel_statlc_roi_check_arr = [0, 0, 0]
+        tunnel_static_roi_check_arr = [0, 0, 0]
         self.static_state = 'L'
         self.obstacle_list_static = []
 
@@ -260,7 +260,7 @@ class LanenetDetection:
                     
                 # ---------------------- 정적 회피 주행 ---------------------- #
                 if self.is_dynamic == False:
-                    tunnel_statlc_roi_check_arr = [0, 0, 0]
+                    tunnel_static_roi_check_arr = [0, 0, 0]
                     self.theta_list = []
                     # 터널 정적 PE-Drum s자 회피
                     if len(self.obstacle_list_static) > 0:
@@ -270,16 +270,16 @@ class LanenetDetection:
                             if self.static_state == 'L':
                                 # 전방 체크
                                 if 0.5 < obstacle.x < 6.5 and -4.0 <= obstacle.y <= 4.0:
-                                    tunnel_statlc_roi_check_arr[1] = 1
+                                    tunnel_static_roi_check_arr[1] = 1
                                 # 왼쪽뒤 체크
                                 if -6 <= obstacle.x <= -0.5 and 0 < obstacle.y <= 4.5:
-                                    tunnel_statlc_roi_check_arr[0] = 1
+                                    tunnel_static_roi_check_arr[0] = 1
                                         
                         # 시작 타이밍 체크
-                        if tunnel_statlc_roi_check_arr == [1, 1, 0]:
+                        if tunnel_static_roi_check_arr == [1, 1, 0]:
                             for obstacle in self.obstacle_list_static:
                                 if 1.0 < obstacle.x < 4.2:
-                                    tunnel_statlc_roi_check_arr[2] = 1
+                                    tunnel_static_roi_check_arr[2] = 1
                                     # flag
                                     self.static_state = 'A'
                                     
@@ -313,7 +313,7 @@ class LanenetDetection:
                 # ---------------------- 정적 회피 주행 end ---------------------- #
 
 
-                print("flag list", tunnel_statlc_roi_check_arr)
+                print("flag list", tunnel_static_roi_check_arr)
                 print("정적 회피 시작: ", self.static_state)
                 print("local_heading", self.local_heading)
                 print("gt_heading", self.gt_heading)
