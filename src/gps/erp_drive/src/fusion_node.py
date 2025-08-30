@@ -54,8 +54,6 @@ class FusionNode:
         ### TODO : 인지팀에서 토픽/메시지 수정해서 줄때까지 스탑.
         self.yolo_sub = Subscriber('/delivery_sign_info', DetectYolo) # 욜로 bbox : class_name, center_x, center_y, width, height
         self.lidar_sub = Subscriber('/bbox_point_info_static', PointInfo) # 클러스터 박스들 (bboxCounts, xMini[], yMini[], zMini[], xMaxi[], yMaxi[], zMaxi[])
-        # self.img_sub = Subscriber('/usb_cam/image_raw', Image)
-        # self.info_sub = Subscriber('/usb_cam/camera_info', CameraInfo)
         self.img_sub = rospy.Subscriber('/usb_cam_right/image_raw', Image, self.img_callback, queue_size=1)
         self.cloud_sub = rospy.Subscriber('/velodyne_points', PointCloud2, self.cloud_callback, queue_size=1)
 

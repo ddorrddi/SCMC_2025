@@ -19,6 +19,8 @@ from geometry_msgs.msg import Pose
 from geometry_msgs.msg import PoseStamped
 # 라이다 관련 -> 패키지명 확인 후 수정 
 from std_msgs.msg import Int16, String, Bool
+# 표지판 전용 메시지
+from delivery.msg import DetectYolo
 # RViz 시각화를 위한 마커 메시지
 from visualization_msgs.msg import Marker
 
@@ -86,11 +88,12 @@ class DeliveryPlanner:
         rospy.Subscriber("/current_pose", Pose, self.curr_pose_CB) # 현재 Pose업데이트용
         rospy.Subscriber("/curr_idx", Int16, self.curr_idx_CB) # 현재 idx업데이트용
         rospy.Subscriber('/fusion_iou', IoUFusionMsg, self.iou_fusion_CB) # 퓨전노드에서 다 처리하고 싹 넘겨받는용 (예상치 10Hz)
-        rospy.Subscriber('/delivery_sign', String, self.delivery_sign_CB) # 배달목적지 표지판 텍스트
+        rospy.Subscriber('/delivery_sign_info', DetectYolo, self.delivery_sign_CB) # 배달목적지 표지판 텍스트
 
         rospy.Subscriber('/test_delivery', Bool, self.test_CB) # 테스트 서브스크라이버
 
         # 퍼블리셔
+        self.delivery_target_num_pub = rospy.Publisher("/delivery_target", String, queue_size=1)
         self.delivery_done_pub = rospy.Publisher("/delivery_done", Int16, queue_size=1) # 배달 목적지에 도착했는지 플래그
         self.marker_pub = rospy.Publisher("/delivery_target_marker", Marker, queue_size=1) # RViz 시각화를 위한 마커 퍼블리셔
 
@@ -175,16 +178,17 @@ class DeliveryPlanner:
         self.target_stop_xy = candidates[idx]["stop_xy"]
         rospy.loginfo(f"가장 가까운 표지판 좌표: {self.sign_coords}, 정지 좌표: {self.target_stop_xy}, idx: {idx}")
 
-    def delivery_sign_CB(self, msg: String):
+    def delivery_sign_CB(self, msg:DetectYolo):
         # 유효성 검사 및 타겟이 정해지지 않았을때 1회만 작동
         if self.curr_idx is None or self.delivery_done or self.delivery_target_num is not None:
             return
         if (self.STOP_IDX <= self.curr_idx <= self.STOP_IDX + self.segment_len): # 배달 B구간일때는 작동안함
             return
-        # 큐에 샘플 데이터 수집 이후 충분히 수집하면
-        self.sign_queue.append(int(msg.data))
+        # 큐에 샘플 데이터 수집 이후 충분히 수집하면 target 설정하고 publish
+        self.sign_queue.append(int(msg.class_name))
         if len(self.sign_queue) >= self.min_queue_size:
             self.delivery_target_num = Counter(self.sign_queue).most_common(1)[0][0]
+            self.delivery_target_num_pub.publish(String(self.delivery_target_num))
             self.sign_queue.clear()
 
     # 배달 목적지 좌표에 도착했는가 확인하는 함수
