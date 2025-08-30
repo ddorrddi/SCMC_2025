@@ -42,7 +42,7 @@ class FusionNode:
 
         self.cv_image = None
         self.yolo_bbox = None
-        self.lidar_bbox = None
+        self.lidar_bboxes = []
         self.lidar_pts2d = None
 
         # 포인트클라우드 시각화 파라미터
@@ -60,8 +60,8 @@ class FusionNode:
         self.cloud_sub = rospy.Subscriber('/velodyne_points', PointCloud2, self.cloud_callback, queue_size=1)
 
 
-    def bbox_callback(self, yolo_msg, lidar_msg): # TODO : !!인지팀에서 토픽/메시지 픽스나기 전이라서 틀만 짜둠. 픽스나면 그때 세부조정들어가야됨!! (포인트들 읽는방식이나 bbox만드는 방식이나 등등..)
-        # 1. YOLO bbox 먼저 생성
+    def yolo_bbox_callback(self, yolo_msg):
+        # YOLO bbox 저장
         x_half = yolo_msg.width // 2
         y_half = yolo_msg.height // 2
         points = [(yolo_msg.center_x + x_half, yolo_msg.center_y + y_half), 
@@ -72,11 +72,9 @@ class FusionNode:
         yolo_bbox = self.fusion.points2bbox(yolo_pts)
         self.yolo_bbox = yolo_bbox.reshape((-1,1,2)).astype(np.int32) # cv2 기능 쓰기위해서 (N, 1, 2)형태로 변환
 
-        # 2. 여러개의 클러스터 박스중 가장 IoU값이 높은 하나를 정하기 위한 변수
-        best_iou = 0.
-        x = y = z = 0.
 
-        # 3. 각 라이다 클러스터박스들로 bbox 만들고 IoU돌리면서 best하나 고름
+    def lidar_bbox_callback(self, lidar_msg):
+        # 라이다 bbox 리스트 저장
         for i in range(lidar_msg.bboxCounts):
             x_min, y_min, z_min = lidar_msg.xMini[i], lidar_msg.yMini[i], lidar_msg.zMini[i]
             x_max, y_max, z_max = lidar_msg.xMaxi[i], lidar_msg.yMaxi[i], lidar_msg.zMaxi[i]
@@ -97,32 +95,7 @@ class FusionNode:
             if lidar_pts2d is None or len(lidar_pts2d) == 0:continue
 
             lidar_bbox = self.fusion.points2bbox(lidar_pts2d).reshape((-1,1,2)).astype(np.int32) # OpenCV용 형태
-
-            temp_iou = self.fusion.bbox_iou(self.yolo_bbox.squeeze(), lidar_bbox.squeeze())
-            if best_iou <= temp_iou:
-                best_iou = temp_iou
-                x = (lidar_msg.xMini[i] + lidar_msg.xMaxi[i]) / 2
-                y = (lidar_msg.yMini[i] + lidar_msg.yMaxi[i]) / 2
-                z = (lidar_msg.zMini[i] + lidar_msg.zMaxi[i]) / 2
-                self.lidar_bbox = lidar_bbox
-        
-        # 4. 
-        if best_iou > 0:
-            msg = IoUFusionMsg()
-            msg.dest_num = yolo_msg.num
-            msg.score = best_iou
-            msg.x = x
-            msg.y = y
-            msg.z = z
-            self.fusion_pub.publish(msg)
-
-
-    def yolo_bbox_callback(self, yolo_msg):
-        pass
-
-
-    def lidar_bbox_callback(self, lidar_msg):
-        pass
+            self.lidar_bboxes.append(lidar_bbox)
 
 
     def cloud_callback(self, cloud_msg: PointCloud2):
@@ -199,11 +172,12 @@ class FusionNode:
                 cv2.circle(self.cv_image, (int(u), int(v)), 4, (0, 0, 255), -1)  # 빨강 점
             cv2.polylines(self.cv_image, [self.yolo_bbox], isClosed=True, color=(0, 0, 255), thickness=2) # 빨간색 박스
             
-        if self.lidar_bbox is not None:
-            pts = self.lidar_bbox.reshape(-1, 2)
-            for (u, v) in pts:
-                cv2.circle(self.cv_image, (int(u), int(v)), 4, (0, 255, 255), -1)  # 노랑 점
-            cv2.polylines(self.cv_image, [self.lidar_bbox], isClosed=True, color=(0, 255, 255), thickness=2) # 노란색 박스
+        if self.lidar_bbox:
+            for lidar_bbox in self.lidar_bboxes:
+                pts = lidar_bbox.reshape(-1, 2)
+                for (u, v) in pts:
+                    cv2.circle(self.cv_image, (int(u), int(v)), 4, (0, 255, 255), -1)  # 노랑 점
+                cv2.polylines(self.cv_image, [lidar_bbox], isClosed=True, color=(0, 255, 255), thickness=2) # 노란색 박스
         
         # LiDAR 포인트 그리기 (거리 기반 색상)
         if self.lidar_pts2d is not None and self.lidar_pts2d.size > 0:
