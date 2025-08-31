@@ -179,16 +179,18 @@ class DeliveryPlanner:
         rospy.loginfo(f"가장 가까운 표지판 좌표: {self.sign_coords}, 정지 좌표: {self.target_stop_xy}, idx: {idx}")
 
     def delivery_sign_CB(self, msg:DetectYolo):
+        print(self.sign_queue)
         # 유효성 검사 및 타겟이 정해지지 않았을때 1회만 작동
-        if self.curr_idx is None or self.delivery_done or self.delivery_target_num is not None:
-            return
-        if (self.STOP_IDX <= self.curr_idx <= self.STOP_IDX + self.segment_len): # 배달 B구간일때는 작동안함
-            return
+        # if self.curr_idx is None or self.delivery_done or self.delivery_target_num is not None:
+        #     return
+        # if (self.STOP_IDX <= self.curr_idx <= self.STOP_IDX + self.segment_len): # 배달 B구간일때는 작동안함
+        #     return
         # 큐에 샘플 데이터 수집 이후 충분히 수집하면 target 설정하고 publish
-        self.sign_queue.append(int(msg.class_name))
+        if msg.class_name != "None":
+            self.sign_queue.append(int(msg.class_name))
         if len(self.sign_queue) >= self.min_queue_size:
             self.delivery_target_num = Counter(self.sign_queue).most_common(1)[0][0]
-            self.delivery_target_num_pub.publish(String(self.delivery_target_num))
+            self.delivery_target_num_pub.publish(String(str(self.delivery_target_num)))
             self.sign_queue.clear()
 
     # 배달 목적지 좌표에 도착했는가 확인하는 함수

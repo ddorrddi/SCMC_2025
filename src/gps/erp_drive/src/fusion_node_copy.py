@@ -47,7 +47,7 @@ class FusionNode:
 
         # 포인트클라우드 시각화 파라미터
         self.cloud_stride = 1
-        self.max_projected_points = 10000
+        self.max_projected_points = 100000
 
         # 이미지 퍼블리셔 (RViz에서 시각화할 토픽)
         self.image_pub = rospy.Publisher('/fusion/image', Image, queue_size=1)
@@ -75,6 +75,7 @@ class FusionNode:
 
     def lidar_bbox_callback(self, lidar_msg):
         # 라이다 bbox 리스트 저장
+        self.lidar_bboxes = []
         for i in range(lidar_msg.bboxCounts):
             x_min, y_min, z_min = lidar_msg.xMini[i], lidar_msg.yMini[i], lidar_msg.zMini[i]
             x_max, y_max, z_max = lidar_msg.xMaxi[i], lidar_msg.yMaxi[i], lidar_msg.zMaxi[i]
@@ -172,7 +173,7 @@ class FusionNode:
                 cv2.circle(self.cv_image, (int(u), int(v)), 4, (0, 0, 255), -1)  # 빨강 점
             cv2.polylines(self.cv_image, [self.yolo_bbox], isClosed=True, color=(0, 0, 255), thickness=2) # 빨간색 박스
             
-        if self.lidar_bbox:
+        if self.lidar_bboxes:
             for lidar_bbox in self.lidar_bboxes:
                 pts = lidar_bbox.reshape(-1, 2)
                 for (u, v) in pts:
@@ -182,15 +183,15 @@ class FusionNode:
         # LiDAR 포인트 그리기 (거리 기반 색상)
         if self.lidar_pts2d is not None and self.lidar_pts2d.size > 0:
             for (u, v, d) in self.lidar_pts2d:
-                if d > 5:         # 5m 이상 → 회색
+                if d > 3:         # 3m 이상 → 회색
                     color = (128, 128, 128)
-                elif d < 1:        # 1m 이내 → 빨강
+                elif d < 0.5:        # 0.5m 이내 → 빨강
                     color = (0, 0, 255)
-                elif d < 3:       # 1~3m → 빨강→노랑 보간
-                    ratio = (d - 1) / 2.0
+                elif d < 1:       # 0.5~1m → 빨강→노랑 보간
+                    ratio = (d - 0.5) / 0.5
                     color = (0, int(255 * ratio), 255)  # BGR
-                else:              # 3~5m → 노랑→초록 보간
-                    ratio = (d - 3) / 2.0
+                else:              # 1~3m → 노랑→초록 보간
+                    ratio = (d - 1) / 2.0
                     color = (0, 255, int(255 * (1 - ratio)))
 
                 cv2.circle(self.cv_image, (int(u), int(v)), 2, color, -1)
