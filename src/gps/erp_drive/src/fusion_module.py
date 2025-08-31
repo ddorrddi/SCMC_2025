@@ -74,6 +74,70 @@ class Fusion:
         T = np.array([[x], [y], [z]])
         return R, T
 
+
+    # @staticmethod
+    # def make_extrinsics(
+    #     x, y, z, roll, pitch, yaw,
+    #     convention="velodyne_to_cam",
+    #     angles_in="lidar",      # "lidar" or "camera"
+    #     trans_in="lidar",       # "lidar" or "camera"
+    #     rpy_order="zyx"         # yaw-pitch-roll(=ZYX) 권장
+    # ):
+    #     """
+    #     Returns R, T for p_cam = R * p_lidar + T
+
+    #     x,y,z:
+    #     - trans_in=="lidar":  LiDAR축 기준의 'LiDAR→Camera' 벡터 d_l (O_c - O_l)
+    #     - trans_in=="camera": 카메라축 기준의 LiDAR 원점 위치 T (즉, 그대로 T)
+
+    #     roll,pitch,yaw:
+    #     - angles_in=="lidar": LiDAR축 기준 추가 회전
+    #     - angles_in=="camera": 카메라축 기준 추가 회전
+
+    #     convention:
+    #     "velodyne_to_cam" => 고정 축치환( LiDAR( +X fwd, +Y left, +Z up ) → Camera( +X right, +Y down, +Z fwd ) )
+    #     """
+    #     # 1) 추가 오차 회전 R_rpy
+    #     R_rpy = Fusion.rpy_to_matrix(roll, pitch, yaw, order=rpy_order)
+
+    #     # 2) 축 치환 행렬 A (LiDAR basis -> Camera basis)
+    #     if convention == "velodyne_to_cam":
+    #         A = np.array([
+    #             [0, -1,  0],  # X_cam = -Y_lidar
+    #             [0,  0, -1],  # Y_cam = -Z_lidar
+    #             [1,  0,  0],  # Z_cam =  X_lidar
+    #         ], dtype=float)
+    #     else:
+    #         A = np.eye(3)
+
+    #     # 3) 전체 회전 R_total 구성
+    #     if angles_in == "lidar":
+    #         # LiDAR축에서 오차회전을 준 다음 카메라축으로 치환
+    #         R = A @ R_rpy
+    #     elif angles_in == "camera":
+    #         # 먼저 카메라축으로 치환한 뒤 카메라축에서 오차회전
+    #         R = R_rpy @ A
+    #     else:
+    #         raise ValueError("angles_in must be 'lidar' or 'camera'")
+
+    #     # 4) 평행이동 T 계산
+    #     tvec = np.array([x, y, z], dtype=float).reshape(3)
+
+    #     if trans_in == "lidar":
+    #         # 입력은 d_l = (O_c - O_l) expressed in LiDAR frame
+    #         # 카메라 좌표로 변환: d_c = R * d_l
+    #         d_c = R @ tvec
+    #         # T = O_l (in camera) = -d_c
+    #         T = (-d_c).reshape(3, 1)
+    #     elif trans_in == "camera":
+    #         # 이미 카메라좌표계에서의 LiDAR 원점 위치라면 그대로 T
+    #         T = tvec.reshape(3, 1)
+    #     else:
+    #         raise ValueError("trans_in must be 'lidar' or 'camera'")
+
+    # return R, T
+
+
     def update_extrinsics(self, R, T):
         self.R = R
         self.T = T
