@@ -17,6 +17,9 @@ from lidar_object_detection.msg import PointInfo
 from delivery.msg import DetectYolo
 from erp_drive.msg import IoUFusionMsg
 
+from dynamic_reconfigure.server import Server
+from erp_drive.cfg import FusionExtrinsicsConfig
+
 class FusionNode:
     def __init__(self):
         rospy.init_node('fusion_node')
@@ -27,18 +30,18 @@ class FusionNode:
         Cx, Cy = 324, 241
 
         # 외부 파라미터
-        x, y, z = 0.0, 0.0, 0.0        # m 단위
-        roll, pitch, yaw = 0.0, 0.0, 0.0  # rad 단위
-        R, T = Fusion.make_extrinsics(x, y, z, roll, pitch, yaw)
+        self.x, self.y, self.z = 0.0, 0.0, 0.0        # m 단위
+        self.roll, self.pitch, self.yaw = 0.0, 0.0, 0.0  # rad 단위
 
         # 카메라 해상도
-        img_width = 640
-        img_height = 480
-        self.img_width = img_width
-        self.img_height = img_height
+        self.img_width = 640
+        self.img_height = 480
+
+        # 초기 R, T
+        self.R, self.T = Fusion.make_extrinsics(self.x, self.y, self.z, self.roll, self.pitch, self.yaw)
 
         # Fusion 객체
-        self.fusion = Fusion(Fx, Fy, Cx, Cy, R, T, img_width, img_height)
+        self.fusion = Fusion(Fx, Fy, Cx, Cy, self.R, self.T, self.img_width, self.img_height)
 
         self.cv_image = None
         self.yolo_bbox = None
@@ -59,6 +62,25 @@ class FusionNode:
         self.img_sub = rospy.Subscriber('/usb_cam_right/image_raw', Image, self.img_callback, queue_size=1)
         self.cloud_sub = rospy.Subscriber('/velodyne_points', PointCloud2, self.cloud_callback, queue_size=1)
 
+        # Dynamic Reconfigure 서버 시작
+        self.dr_srv = Server(FusionExtrinsicsConfig, self.reconfigure_callback)
+
+    def reconfigure_callback(self, config, level):
+        # 동적 재구성 콜백
+        self.x = config.x
+        self.y = config.y
+        self.z = config.z
+        self.roll = config.roll_deg * np.pi / 180.0
+        self.pitch = config.pitch_deg * np.pi / 180.0
+        self.yaw = config.yaw_deg * np.pi / 180.0
+        self.cloud_stride = config.cloud_stride
+        self.max_projected_points = config.max_projected_points
+
+        # Extrinsics 업데이트
+        self.R, self.T = Fusion.make_extrinsics(self.x, self.y, self.z, self.roll, self.pitch, self.yaw)
+        self.fusion.update_extrinsics(self.R, self.T)
+
+        return config
 
     def yolo_bbox_callback(self, yolo_msg):
         # YOLO bbox 저장

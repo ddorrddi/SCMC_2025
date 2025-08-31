@@ -73,7 +73,11 @@ class Fusion:
         R = R_axes @ R_rpy
         T = np.array([[x], [y], [z]])
         return R, T
-    
+
+    def update_extrinsics(self, R, T):
+        self.R = R
+        self.T = T
+        self.Rt = np.hstack((self.R, self.T))
 
     def getInvMat(self, mat:np.ndarray)->np.ndarray: # 역행렬 리턴
         return np.linalg.inv(mat)
