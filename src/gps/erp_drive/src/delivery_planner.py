@@ -13,6 +13,7 @@ from erp_drive.msg import PathReferenceElement
 
 # 퓨전전용 메시지
 from erp_drive.msg import IoUFusionMsg
+from geometry_msgs.msg import PointStamped
 
 # Pose 등등 위치 관련 모듈
 from geometry_msgs.msg import Pose
@@ -87,7 +88,7 @@ class DeliveryPlanner:
         # 서브스크라이버
         rospy.Subscriber("/current_pose", Pose, self.curr_pose_CB) # 현재 Pose업데이트용
         rospy.Subscriber("/curr_idx", Int16, self.curr_idx_CB) # 현재 idx업데이트용
-        rospy.Subscriber('/fusion_iou', IoUFusionMsg, self.iou_fusion_CB) # 퓨전노드에서 다 처리하고 싹 넘겨받는용 (예상치 10Hz)
+        rospy.Subscriber('/fusion/matched_center', PointStamped, self.center_point_CB) # 퓨전노드에서 다 처리하고 싹 넘겨받는용
         rospy.Subscriber('/delivery_sign_info', DetectYolo, self.delivery_sign_CB) # 배달목적지 표지판 텍스트
 
         rospy.Subscriber('/test_delivery', Bool, self.test_CB) # 테스트 서브스크라이버
@@ -113,15 +114,13 @@ class DeliveryPlanner:
         self.curr_pose = msg
         self.delivery_done_confirm()
 
-    def iou_fusion_CB(self, msg: IoUFusionMsg): # TODO : 메시지로 넘어온 number가 현재 설정된 target_number와 같은지 체크가 빠져있어요!!!!
+    def center_point_CB(self, pt_msg: PointStamped):
         # 유효성 체크
         if self.delivery_in_progress:
             return
         if self.curr_idx is None or self.curr_pose is None: # 현재 idx와 Pose가 세팅돼있어야 유효
             return
         if not (self.STOP_IDX <= self.curr_idx <= self.STOP_IDX + self.segment_len): # 배달 B구간일때만 유효
-            return
-        if msg.score < self.threshold: # IOU 스코어가 임계치 이상일때만 유효
             return
 
         # 메시지로 넘어온 목적지 좌표(라이다 좌표계)를 글로벌좌표계로 고치기
@@ -131,7 +130,7 @@ class DeliveryPlanner:
         x_r, y_r, z_r = (self.curr_pose.position.x,
                          self.curr_pose.position.y,
                          self.curr_pose.position.z)
-        lx, ly, lz = msg.x, msg.y, msg.z
+        lx, ly, lz = pt_msg.point.x, pt_msg.point.y, pt_msg.point.z
         x_g = x_r + (lx * np.cos(yaw) - ly * np.sin(yaw))
         y_g = y_r + (lx * np.sin(yaw) + ly * np.cos(yaw))
         z_g = z_r + lz
