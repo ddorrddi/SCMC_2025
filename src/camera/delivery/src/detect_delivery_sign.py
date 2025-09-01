@@ -292,7 +292,7 @@ class Yolov7Publisher:
         self.tensorize = ToTensor()
         self.model = YoloV7()
         self.img_subscriber = rospy.Subscriber(
-            "/usb_cam_right/image_raw", Image, self.process_img_msg
+            "/usb_cam/image_raw", Image, self.process_img_msg # 원래는 usb_cam_right
         )
 
         self.delivery_target = None

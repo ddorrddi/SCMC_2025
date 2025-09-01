@@ -150,6 +150,7 @@ class DeliveryPlanner:
 
         # 표지판 좌표 생성
         self.sign_coords = (final_pt[0], final_pt[1], final_pt[2])
+        self.delivery_in_progress = True
         self.get_stop_coords()
 
     # 가장 가까운 이론상의 표지판 좌표 추출
@@ -178,6 +179,7 @@ class DeliveryPlanner:
         rospy.loginfo(f"가장 가까운 표지판 좌표: {self.sign_coords}, 정지 좌표: {self.target_stop_xy}, idx: {idx}")
 
     def delivery_sign_CB(self, msg:DetectYolo):
+        print(self.delivery_target_num)
         print(self.sign_queue)
         # 유효성 검사 및 타겟이 정해지지 않았을때 1회만 작동
         # if self.curr_idx is None or self.delivery_done or self.delivery_target_num is not None:
@@ -209,6 +211,7 @@ class DeliveryPlanner:
             # rospy.loginfo(f"목적지와의 거리 {dist_to_target}")
             if dist_to_target < const.DELIVERY_SUCCESS_RADIUS and self.delivery_in_progress: # @TODO 실험적으로 찾아야 할 값
                 rospy.loginfo(f"delivery_done_confirm() : 목적지와의 거리 {dist_to_target}, 목적지 도착!")
+                self.delivery_in_progress = False
                 self.delivery_done = True
                 self.delivery_done_once = True
         

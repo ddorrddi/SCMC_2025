@@ -337,12 +337,12 @@ int main (int argc, char** argv) {
     ros::Subscriber sub = nh.subscribe ("velodyne_points", 1, mainCallback);
 
     // Create a ROS publisher for the output point cloud
-    pubROI = nh.advertise<sensor_msgs::PointCloud2> ("roi_raw_static", 1);
-    pubCluster = nh.advertise<sensor_msgs::PointCloud2>("cluster_static", 1);
+    pubROI = nh.advertise<sensor_msgs::PointCloud2> ("roi_raw_delivery", 1);
+    pubCluster = nh.advertise<sensor_msgs::PointCloud2>("cluster_delivery", 1);
     pubObjectInfo = nh.advertise<lidar_object_detection::ObjectInfo>("delivery_info", 1);
-    pubPointInfo = nh.advertise<lidar_object_detection::PointInfo>("bbox_point_info_static", 1);
-    pubObjectMarkerArray = nh.advertise<visualization_msgs::MarkerArray>("bounding_box_static", 1);
-    pubPlaneInfo = nh.advertise<sensor_msgs::PointCloud2> ("plane_static", 1);
+    pubPointInfo = nh.advertise<lidar_object_detection::PointInfo>("bbox_point_info_delivery", 1);
+    pubObjectMarkerArray = nh.advertise<visualization_msgs::MarkerArray>("bounding_box_delivery", 1);
+    pubPlaneInfo = nh.advertise<sensor_msgs::PointCloud2> ("plane_delivery", 1);
 
     // Spin
     ros::spin();

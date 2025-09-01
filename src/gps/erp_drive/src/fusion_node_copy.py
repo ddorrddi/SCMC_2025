@@ -67,8 +67,8 @@ class FusionNode:
 
         # 서브스크라이버
         self.yolo_sub = rospy.Subscriber('/delivery_sign_info', DetectYolo, self.yolo_bbox_callback, queue_size=1) # 욜로 bbox : class_name, center_x, center_y, width, height
-        self.lidar_sub = rospy.Subscriber('/bbox_point_info_static', PointInfo, self.lidar_bbox_callback, queue_size=1) # 클러스터 박스들 (bboxCounts, xMini[], yMini[], zMini[], xMaxi[], yMaxi[], zMaxi[])
-        self.img_sub = rospy.Subscriber('/usb_cam_right/image_raw', Image, self.img_callback, queue_size=1)
+        self.lidar_sub = rospy.Subscriber('/bbox_point_info_delivery', PointInfo, self.lidar_bbox_callback, queue_size=1) # 클러스터 박스들 (bboxCounts, xMini[], yMini[], zMini[], xMaxi[], yMaxi[], zMaxi[])
+        self.img_sub = rospy.Subscriber('/usb_cam/image_raw', Image, self.img_callback, queue_size=1)
         self.cloud_sub = rospy.Subscriber('/velodyne_points', PointCloud2, self.cloud_callback, queue_size=1)
 
         # Dynamic Reconfigure 서버 시작
@@ -229,17 +229,17 @@ class FusionNode:
 
         # 라이다 박스: 유효/무효 나누기
         lidar_candidates = []  # IoU 후보: (lidar_poly, center3d)
-        if self.lidar_bboxes and yolo_area is not None and yolo_area > 0:
+        if self.lidar_bboxes and yolo_poly_for_match is not None and yolo_area is not None:
             tol = float(self.size_tolerance_pct)  # 예: 0.40 -> ±40%
             min_area = yolo_area * (1.0 - tol)
             max_area = yolo_area * (1.0 + tol)
-            for lidar_bbox, center3d in self.lidar_bboxes:
+            for lidar_poly, center3d in self.lidar_bboxes:
                 lidar_area = self._bbox_area_xyminmax(lidar_poly)
                 if min_area <= lidar_area <= max_area:
-                    pts = lidar_bbox.reshape(-1, 2)
+                    pts = lidar_poly.reshape(-1, 2)
                     for (u, v) in pts:
                         cv2.circle(self.cv_image, (int(u), int(v)), 4, (0, 255, 255), -1)  # 노랑 점
-                    cv2.polylines(self.cv_image, [lidar_bbox], isClosed=True, color=(0, 255, 255), thickness=2) # 노란색 박스
+                    cv2.polylines(self.cv_image, [lidar_poly], isClosed=True, color=(0, 255, 255), thickness=2) # 노란색 박스
                     lidar_candidates.append((lidar_poly, center3d))
                 else:
                     cv2.polylines(self.cv_image, [lidar_poly], isClosed=True, color=(180, 180, 180), thickness=1)
@@ -247,15 +247,15 @@ class FusionNode:
         # LiDAR 포인트 그리기 (거리 기반 색상)
         if self.lidar_pts2d is not None and self.lidar_pts2d.size > 0:
             for (u, v, d) in self.lidar_pts2d:
-                if d > 3:         # 3m 이상 → 회색
+                if d > 5:         # 5m 이상 → 회색
                     color = (128, 128, 128)
-                elif d < 0.5:        # 0.5m 이내 → 빨강
+                elif d < 1:        # 1m 이내 → 빨강
                     color = (0, 0, 255)
-                elif d < 1:       # 0.5~1m → 빨강→노랑 보간
-                    ratio = (d - 0.5) / 0.5
+                elif d < 3:       # 1~3m → 빨강→노랑 보간
+                    ratio = (d - 1) / 2
                     color = (0, int(255 * ratio), 255)  # BGR
-                else:              # 1~3m → 노랑→초록 보간
-                    ratio = (d - 1) / 2.0
+                else:              # 3~5m → 노랑→초록 보간
+                    ratio = (d - 3) / 2.0
                     color = (0, 255, int(255 * (1 - ratio)))
 
                 cv2.circle(self.cv_image, (int(u), int(v)), 2, color, -1)

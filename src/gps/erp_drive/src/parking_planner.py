@@ -10,7 +10,10 @@ from tf.transformations import euler_from_quaternion
 from constant import const
 
 class ParkingPlanner:
-    def __init__(self):
+    def __init__(self, rviz_offset_x: float, rviz_offset_y: float):
+        self.rviz_offset_x = rviz_offset_x
+        self.rviz_offset_y = rviz_offset_y
+
         self.num_rows = 13
         self.ROI_radius   = 1.5
         self.gate         = 0.30
