@@ -5,6 +5,7 @@ Controller::Controller(char control_target):
     is_path_set(false), is_pose_set(false), is_local_path_set(false), g_curr_idx(0), l_curr_idx(0), delivery_curr_idx(0),
     velocity(0.), global_velocity(0.), local_velocity(0.), is_moving_front(false){
         this->delivery_stop_once = true;
+        this->parking_stop_once = true;
 
         this->is_erp = control_target == 'e'; // e => erp (true), m => morai (false)
        
@@ -22,6 +23,7 @@ Controller::Controller(char control_target):
         this->l_path_done_sub = nh.subscribe("/local_path_done", 1, &Controller::localPathDoneCallback, this); 
 
         this->delivery_done_sub = nh.subscribe("/delivery_done", 1, &Controller::deliveryDoneCallback, this);
+        this->parking_stop_done_sub = nh.subscribe("/parking_stop_done", 1, &Controller::parkingStopDoneCallback, this);
         
         this->curr_pose_sub = nh.subscribe("/current_pose", 1, &Controller::currentPoseCallback, this);
     
@@ -66,6 +68,16 @@ void Controller::deliveryDoneCallback(const std_msgs::Int16& signal){
             this->delivery_stop_once = false;
         }
         else{this->is_delivery_done = false;}
+    }
+}
+
+void Controller::parkingStopDoneCallback(const std_msgs::Int16& signal){
+    if(this->parking_stop_once){
+        if(signal.data == 1){
+            this->is_parking_stop_done = true;
+            this->parking_stop_once = false;
+        }
+        else{this->is_parking_stop_done = false;}
     }
 }
 

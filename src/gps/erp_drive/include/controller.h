@@ -103,16 +103,19 @@ public:
 
 
     erp_drive::PathReference delivery_path;
+
     bool delivery_stop_once;
     int delivery_path_size, delivery_curr_idx;
     bool is_delivery_done = false;
     bool is_delivery_end = false;
-    ros::Subscriber delivery_path_sub;
+    bool is_parking_stop_done = false;
+    bool parking_stop_once;
+
     ros::Subscriber delivery_done_sub;
-    ros::Subscriber delivery_end_sub;
-    void deliveryPathCallback(const erp_drive::PathReference& delivery_path);
+    ros::Subscriber parking_stop_done_sub;
+
     void deliveryDoneCallback(const std_msgs::Int16& signal);
-    void deliveryEndCallback(const std_msgs::Int16& signal);
+    void parkingStopDoneCallback(const std_msgs::Int16& signal);
 
     bool is_moving_front;
 

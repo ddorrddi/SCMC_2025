@@ -146,6 +146,11 @@ int main(int argc, char** argv) {
             }
         }
 
+        else if(control.is_parking_stop_done){
+            //여기 뭐 하드코딩해서 들어가도록 할까 어때??
+            //아니면 parking_planner에서 로컬패스 만들어서 들어가는거는?
+        }
+
         else if(!control.is_finish && control.is_path_set && control.is_pose_set){
             control.lookahead_distance = control.global_lookahead_distance;
 
