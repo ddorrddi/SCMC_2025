@@ -135,7 +135,7 @@ class Fusion:
     #     else:
     #         raise ValueError("trans_in must be 'lidar' or 'camera'")
 
-    # return R, T
+    #     return R, T
 
 
     def update_extrinsics(self, R, T):
