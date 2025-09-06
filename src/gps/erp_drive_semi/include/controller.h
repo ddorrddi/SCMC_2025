@@ -62,6 +62,8 @@ public:
 
     bool is_moving_back;
 
+    bool is_reverse_done;
+
     bool is_initial_idx_found;
 
     bool is_parking_complete;

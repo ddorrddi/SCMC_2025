@@ -4,7 +4,7 @@ Controller::Controller(char control_target):
     current_state(VehicleState::GLOBAL_PATH_DRIVING),
     optimal_throttle(), is_finish(false), flag(true),
     is_path_set(false), is_pose_set(false), is_local_path_set(false), g_curr_idx(0), 
-    velocity(0.), global_velocity(0.), local_velocity(0.), is_moving_back(false), is_parking_complete(false)
+    velocity(0.), global_velocity(0.), local_velocity(0.), is_moving_back(false), is_parking_complete(false), is_reverse_done(false)
     {
         this->is_erp = control_target == 'e'; // e => erp (true), m => morai (false)
        
