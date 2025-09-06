@@ -23,7 +23,7 @@
 
 // velocity 등 parameter 서버를 위한 헤더 
 #include <dynamic_reconfigure/server.h>
-#include <erp_drive_semi/CtrlParamConfig.h>
+#include <erp_drive_semi/CtrlParamSemiConfig.h>
 
 #include <vector>
 #include <string>

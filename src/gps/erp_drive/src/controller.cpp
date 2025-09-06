@@ -1,6 +1,7 @@
 #include "controller.h"
 
 Controller::Controller(char control_target):
+
     optimal_throttle(), timer(0), is_finish(false), is_delivery_path_set(false), 
     is_path_set(false), is_pose_set(false), is_local_path_set(false), g_curr_idx(0), l_curr_idx(0), delivery_curr_idx(0),
     velocity(0.), global_velocity(0.), local_velocity(0.), is_moving_front(false){
@@ -109,47 +110,6 @@ bool Controller::isGreenSign(){
     return ret;
 }
 
-bool Controller::isLeftGreenSign(){
-    bool ret = this->traffic_light_status.compare(TrafficLightStatus::GREEN3) == 0;
-    ret = ret || this->traffic_light_status.compare(TrafficLightStatus::RED_LEFT4) == 0;
-    ret = ret || this->traffic_light_status.compare(TrafficLightStatus::GREEN_LEFT4) == 0;
-    return ret;
-}
-
-bool Controller::isLeftTurn() {
-    calcGlobalCurrWaypoint(curr_pose);
-    ROS_INFO_STREAM("isLeftTurn : " << this->g_curr_idx);
-    geometry_msgs::Pose curr_waypoint, target_waypoint;
-    
-    curr_waypoint = this->g_path.path.at(this->g_curr_idx).pose;
-    target_waypoint = this->g_path.path.at(std::min(this->g_curr_idx + 30, this->g_path_size - 1)).pose;
-    
-    double roll, pitch, curr_yaw, target_yaw;
-
-    tf2::Quaternion _curr_yaw(
-        curr_waypoint.orientation.x,
-        curr_waypoint.orientation.y,
-        curr_waypoint.orientation.z,
-        curr_waypoint.orientation.w
-    );
-    tf2::Matrix3x3(_curr_yaw).getRPY(roll, pitch, curr_yaw);
-
-    tf2::Quaternion _target_yaw(
-        target_waypoint.orientation.x,
-        target_waypoint.orientation.y,
-        target_waypoint.orientation.z,
-        target_waypoint.orientation.w
-    );
-    
-    tf2::Matrix3x3(_target_yaw).getRPY(roll, pitch, target_yaw);
-
-    curr_yaw = curr_yaw * 180 / M_PI;
-    target_yaw = target_yaw * 180 / M_PI;
-
-    // @@@ TODO @@@ 적절한 각도 찾기
-    return std::abs(curr_yaw - target_yaw) >= 30;
-}
-
 void Controller::trafficLightStatusCallback(const std_msgs::String& msg){
     bool isNone = msg.data.compare(TrafficLightStatus::NONE) == 0;
     if(!isNone)
@@ -193,24 +153,6 @@ void Controller::flowControl(const geometry_msgs::Pose& curr_pose){
             
             break;
 
-        case EventType::STOP_DELIVERY_B:
-            if(!this->is_delivery_path_set){
-                if(this->g_curr_idx >= 1468){
-                    this->brake = 0.0;
-                    this->optimal_throttle.shouldDecel = false;
-                    this->optimal_throttle.shouldStop = false;
-                    this->optimal_throttle.eventPlaceInfoManager.nextEventPlaceInfo();
-                }
-                
-                return;
-            }
-
-            ROS_INFO_STREAM("I get path");
-
-            // 여기서는 path 가 확정된 상태이니 그냥 바로 Stop 으로 넘어감
-            this->optimal_throttle.shouldDecel = false;
-            this->optimal_throttle.shouldStop = true;
-            break;
 
         default: break;
         }
@@ -244,8 +186,6 @@ void Controller::flowControl(const geometry_msgs::Pose& curr_pose){
 
             break;
 
-        case EventType::STOP_DELIVERY_B:
-            break;
 
         default: break;
         }
@@ -268,10 +208,6 @@ void Controller::flowControl(const geometry_msgs::Pose& curr_pose){
             this->optimal_throttle.shouldDecel = true;
             break;
 
-        case EventType::STOP_DELIVERY_B:
-            this->timer.resetTimer(5);
-            this->optimal_throttle.shouldDecel = true;
-            break;
 
         default: break;
         }

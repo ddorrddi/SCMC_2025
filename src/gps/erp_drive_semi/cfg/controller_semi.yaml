@@ -1,0 +1,5 @@
+global_velocity: 10.0
+global_lookahead_distance: 5.0
+
+local_velocity: 5.0
+local_lookahead_distance: 2.0

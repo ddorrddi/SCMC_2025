@@ -1,6 +1,0 @@
-float32 thrust
-float32 rudder
-GeoVector3Message position
-GeoVector3Message rotation
-GeoVector3Message velocity
-GeoVector3Message angular_velocity

@@ -31,7 +31,6 @@
 typedef enum {
     STOP_LINE = 9,
     STOP_DELIVERY_A = 11,
-    STOP_DELIVERY_B = 12,
     STOP_TRAFFIC = 13,
     DECEL_BIG = 14
 } EventType;
@@ -83,10 +82,6 @@ public:
     bool nextEventPlaceInfo() {
         if(this->isEventPlaceInfoEnd()) return false;
         iter++;
-        if(iter->type == EventType::STOP_DELIVERY_B){
-            iter++;
-            if(this->isEventPlaceInfoEnd()) return false;
-        }
         return true;
     }
 
@@ -108,52 +103,49 @@ private:
 
         // 배탈 A 체크
         // EventPlaceInfo(935549.5145976712, 1915871.4294302394, EventType::STOP_DELIVERY),
-        EventPlaceInfo(179 , EventType::STOP_DELIVERY_A),
-        
-        // Small Obstacle deceleration
-        EventPlaceInfo(210 , EventType::DECEL_BIG),
+        EventPlaceInfo(220 , EventType::STOP_DELIVERY_A),
 
         // 그냥 정지선 1
         // EventPlaceInfo(935531.6553283043, 1915951.8808367082, EventType::STOP_LINE),
-        EventPlaceInfo(532, EventType::STOP_LINE),
+        EventPlaceInfo(425, EventType::STOP_TRAFFIC),
 
         // 그냥 정지선 2
         // EventPlaceInfo(935539.5026992218, 1915963.0705893768, EventType::STOP_LINE),
-        EventPlaceInfo(583, EventType::STOP_LINE),
+        EventPlaceInfo(605, EventType::STOP_TRAFFIC),
 
         // traffic 1
         // EventPlaceInfo(935562.5859266134, 1915954.1952024777, EventType::STOP_LINE),
-        EventPlaceInfo(669, EventType::STOP_TRAFFIC),
+        EventPlaceInfo(1045, EventType::STOP_TRAFFIC),
 
         // traffic 2
         // EventPlaceInfo(935599.9336382326, 1915972.0595697816, EventType::STOP_LINE),
-        EventPlaceInfo(843, EventType::STOP_TRAFFIC),
+        EventPlaceInfo(1470, EventType::STOP_LINE),
 
         // Big Obstacle deceleration
         // EventPlaceInfo(1050/*tmp*/, EventType::DECEL_BIG),
 
         // delivery 1st stop sign 4 (배달 직전)
         // EventPlaceInfo(935650.1697879703, 1916096.433997373, EventType::STOP_LINE),
-        EventPlaceInfo(1248, EventType::STOP_TRAFFIC),
+        EventPlaceInfo(1570, EventType::STOP_LINE),
 
         // 수정 시 delivery_planner.py 에서도 수정
         // 배달 시작 지점 >> 중복인데 넌 누구냐?
-        EventPlaceInfo(1348, EventType::STOP_DELIVERY_B),
+        // EventPlaceInfo(1348, EventType::STOP_DELIVERY_B),
 
         // 좌회전 traffic (1)
-        EventPlaceInfo(1597, EventType::STOP_TRAFFIC),
+        EventPlaceInfo(2650, EventType::STOP_TRAFFIC),
 
         // 좌회전 traffic (2)
-        EventPlaceInfo(1854, EventType::STOP_TRAFFIC),
+        // EventPlaceInfo(1854, EventType::STOP_TRAFFIC),
 
-        // 그냥 정지선
-        EventPlaceInfo(2443, EventType::STOP_LINE),
+        // // 그냥 정지선
+        // EventPlaceInfo(2443, EventType::STOP_LINE),
         
-        // traffic
-        EventPlaceInfo(2914, EventType::STOP_TRAFFIC),
+        // // traffic
+        // EventPlaceInfo(2914, EventType::STOP_TRAFFIC),
 
-        // 그냥 정지선
-        EventPlaceInfo(3072, EventType::STOP_LINE),
+        // // 그냥 정지선
+        // EventPlaceInfo(3072, EventType::STOP_LINE),
 
         // Last Element
         EventPlaceInfo(END_NUM, EventType::STOP_LINE),

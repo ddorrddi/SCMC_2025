@@ -1,0 +1,3 @@
+rosbag
+
+rosbag record -O 0824_Kcity.bag /velodyne_points /usb_cam/image_raw /gps_front/fix /gps_front/velocity
