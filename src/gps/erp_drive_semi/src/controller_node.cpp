@@ -55,7 +55,7 @@ int main(int argc, char** argv) {
                     control.lookahead_distance = control.global_lookahead_distance;
                     
                     // g_idx가 300 전까지 저속 주행
-                    if (100 < control.g_curr_idx && control.g_curr_idx < 300) {
+                    if (100 < control.g_curr_idx && control.g_curr_idx < 300 && !control.is_reverse_done) {
                         control.brake = 0.0;
                         control.velocity = 5.0; // 저속 설정
                     } else if (1050 < control.g_curr_idx && control.g_curr_idx < 1200) {
@@ -106,8 +106,9 @@ int main(int argc, char** argv) {
                 ROS_INFO_STREAM("State: REVERSE_DONE_STOPPING (1 second)");
                 control.velocity = 0.0;
                 control.brake = 1.0;
-                control.publishControlMsg();
                 control.is_moving_back = false;
+                control.is_reverse_done = true;
+                control.publishControlMsg();
                 break;
         }
 

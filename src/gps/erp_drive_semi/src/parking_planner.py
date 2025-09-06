@@ -39,8 +39,8 @@ class ParkingPlanner:
         self.current_pose = None
         self.final_destination_global = None
         self.reverse_start_global = None # 후진 시작점 (주차 완료 지점)
-        self.completion_threshold = 0.3 # 30cm 이내로 들어오면 도착으로 간주
-        self.reverse_completion_threshold = 3.0  # 후진은 50cm 이내
+        self.completion_threshold = 0.5 # 30cm 이내로 들어오면 도착으로 간주
+        self.reverse_completion_threshold = 5.0  # 후진은 50cm 이내
 
         self.parking_mission_complete = False
         self.is_reversing = False # 현재 후진 중인지 플래그
@@ -147,6 +147,7 @@ class ParkingPlanner:
                 
                 # 충분히 뒤로 갔다가(2m 이상) 끝점 근처에 도착했으면 완료
                 if dist_from_start > 2.0 and dist_to_end < self.reverse_completion_threshold:
+                    rospy.loginfo(f"후진 시작점에서 충분히 멀어짐: {dist_from_start:.2f}m")
                     rospy.loginfo(f"후진 완료! 반전 패스 목표점과의 거리: {dist_to_end:.2f}m")
                     self.reverse_path_done_pub.publish(Int16(data=1))
                     self.is_reversing = False
@@ -158,7 +159,7 @@ class ParkingPlanner:
             return
         
         if self.parking_mission_complete:
-            rospy.loginfo("주차 임무가 완료되어 경로를 발행하지 않습니다.")
+            # rospy.loginfo("주차 임무가 완료되어 경로를 발행하지 않습니다.")
             return
 
         # 1. 제어기에 전역 좌표계 기준의 주차 경로 발행
@@ -220,10 +221,11 @@ class ParkingPlanner:
         self.reverse_path_global = PathReference()
         reversed_path = list(reversed(self.parking_path_global.path))
         
-        # 3. A를 기준으로 B의 대칭점 A' 계산: A' = 2*A - B
+        # 3. A를 기준으로 B의 대칭점 A' 계산 (거리를 절반으로 축소)
         symmetric_point = PathReferenceElement()
-        symmetric_point.pose.position.x = 2 * original_start.pose.position.x - original_end.pose.position.x
-        symmetric_point.pose.position.y = 2 * original_start.pose.position.y - original_end.pose.position.y
+        # A-B 벡터의 절반만 사용해서 A' 생성
+        symmetric_point.pose.position.x = original_start.pose.position.x + 0.5 * (original_start.pose.position.x - original_end.pose.position.x)
+        symmetric_point.pose.position.y = original_start.pose.position.y + 0.5 * (original_start.pose.position.y - original_end.pose.position.y)
         symmetric_point.pose.position.z = original_start.pose.position.z
         symmetric_point.pose.orientation = original_start.pose.orientation
         symmetric_point.mode = original_start.mode
@@ -240,13 +242,22 @@ class ParkingPlanner:
         extension_distance = np.sqrt((Ap_x - A_x)**2 + (Ap_y - A_y)**2)
         num_extension_points = max(int(extension_distance / 0.2), 1)  # 0.2m 간격
         
-        # A에서 A'까지 보간된 웨이포인트 생성
+        # A에서 A'까지 보간된 웨이포인트 생성 (지수함수 곡선으로 부드럽게 아래로 꺾임)
         extended_points = []
         for i in range(1, num_extension_points + 1):
             ratio = i / num_extension_points
             extended_point = PathReferenceElement()
-            extended_point.pose.position.x = A_x + (Ap_x - A_x) * ratio
-            extended_point.pose.position.y = A_y + (Ap_y - A_y) * ratio
+            
+            # 기본 직선 보간
+            base_x = A_x + (Ap_x - A_x) * ratio
+            base_y = A_y + (Ap_y - A_y) * ratio
+            
+            # A 지점에서 기울기 0으로 시작해서 점점 가파르게 꺾이는 오프셋 (제곱 함수 사용)
+            # ratio=0에서 0이고 기울기도 0, ratio=1에서 최대값
+            curve_offset = (ratio ** 1.5) * 4.0  # A지점에서 부드럽게 시작해서 점점 가파르게
+
+            extended_point.pose.position.x = base_x
+            extended_point.pose.position.y = base_y - curve_offset  # Y축 음의 방향으로 오프셋
             extended_point.pose.position.z = original_start.pose.position.z
             extended_point.pose.orientation = original_start.pose.orientation
             extended_point.mode = original_start.mode
