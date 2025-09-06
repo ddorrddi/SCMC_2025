@@ -15,93 +15,117 @@ class Fusion:
         # 외부 파라미터 t (라이다-카메라)
         self.T = np.array(T).reshape(3,1) # 3x1
 
-        # K, Rt np행렬
-        self.K = self.getKMat()
-        self.Rt = self.getRtMat()
+        # 카메라 내부 파라미터
+        self.K = np.array([
+            [Fx, 0, Cx],
+            [0, Fy, Cy],
+            [0,  0,  1]
+        ])
+
+        # Extrinsic
+        self.Rt = np.hstack((self.R, self.T))
 
         # 카메라 해상도
         self.img_width = img_width
         self.img_height = img_height
-
-
-    def getKMat(self)->np.ndarray: # K행렬 리턴 (3x3)
-        K = np.array([
-            [self.Fx,       0, self.Cx],
-            [      0, self.Fy, self.Cy],
-            [      0,       0,       1]
+ 
+    @staticmethod
+    def rpy_to_matrix(roll, pitch, yaw):
+        """Roll, Pitch, Yaw(rad) → 회전행렬 (Z-Y-X 순서)"""
+        Rx = np.array([
+            [1, 0, 0],
+            [0, np.cos(roll), -np.sin(roll)],
+            [0, np.sin(roll),  np.cos(roll)]
         ])
-        return K
-    
+        Ry = np.array([
+            [ np.cos(pitch), 0, np.sin(pitch)],
+            [0, 1, 0],
+            [-np.sin(pitch), 0, np.cos(pitch)]
+        ])
+        Rz = np.array([
+            [np.cos(yaw), -np.sin(yaw), 0],
+            [np.sin(yaw),  np.cos(yaw), 0],
+            [0, 0, 1]
+        ])
+        return Rz @ Ry @ Rx
 
-    def getRtMat(self)->np.ndarray: # R|t 행렬 리턴 (3x4)
-        Rt = np.hstack((self.R, self.T)).reshape(3,4)
-        return Rt
-    
+    @staticmethod
+    def make_extrinsics(x, y, z, roll, pitch, yaw, convention="velodyne_to_cam"):
+        """
+        라이다 → 카메라 외부 파라미터(R, T) 생성
+        x, y, z: [m]
+        roll, pitch, yaw: [rad]
+        convention: 좌표계 축 변환 (default: Velodyne → Camera(OpenCV))
+        """
+        R_rpy = Fusion.rpy_to_matrix(roll, pitch, yaw)
+
+        if convention == "velodyne_to_cam":
+            # Velodyne(+X forward, +Y left, +Z up)
+            # Camera  (+X right, +Y down, +Z forward)
+            R_axes = np.array([
+                [0, -1, 0],   # X_cam = -Y_lidar
+                [0,  0, -1],  # Y_cam = -Z_lidar
+                [1,  0,  0]   # Z_cam =  X_lidar
+            ])
+        else:
+            R_axes = np.eye(3)
+
+        R = R_axes @ R_rpy
+        T = np.array([[x], [y], [z]])
+        return R, T
+
+
+    def update_extrinsics(self, R, T):
+        self.R = R
+        self.T = T
+        self.Rt = np.hstack((self.R, self.T))
 
     def getInvMat(self, mat:np.ndarray)->np.ndarray: # 역행렬 리턴
         return np.linalg.inv(mat)
 
 
-    def rid2img(self, points_ridar:np.ndarray)->np.ndarray: # 라이다좌표계의 점[[X,Y,Z], ...]들을 이미지상의[[u,v], ...]로 바꿔주는 함수
-        if points_ridar is None or len(points_ridar) == 0: # 빈 points_ridar 방지
+    def rid2img(self, points_ridar:np.ndarray, return_mask:bool=False)->np.ndarray:
+        """라이다 좌표계 점들(N,3)을 이미지 좌표(N',2)로 투영.
+        return_mask=True이면 입력 배열에 대한 유효 인덱스(np.int64)를 함께 반환.
+        """
+        if points_ridar is None or len(points_ridar) == 0:
             raise ValueError("empty points_ridar")
-
-        if points_ridar.shape[1] != 3: # 형태가 N,3형태가 아닌경우 방지
+        if points_ridar.shape[1] != 3:
             raise ValueError("points_ridar is not (N,3)")
         
-        points_2d = [] # 결과값
-        k = self.K # 내부 파라미터
-        rt = self.Rt # 외부 파라미터
+        k = self.K
+        rt = self.Rt
 
-        # for문 기반은 속도가 느리기때문에 벡터연산 기반으로 바꿈
-        # for point_ridar in points_ridar: # [[X,Y,Z], ...]
-        #     point_4d = np.append(point_ridar, 1).reshape(4,1) # 4x1
-        #     point_cam = rt @ point_4d # 3x1
-        #     point_img = k @ point_cam # 3x1
-        #     # 정규화
-        #     u = point_img[0][0] / point_img[2][0] # u/w
-        #     v = point_img[1][0] / point_img[2][0] # v/w
-        #     points_2d.append([u,v])
-        # points_2d = np.array(points_2d) # [[u,v], ...] 리스트를 np행렬로 변환
+        N = points_ridar.shape[0]
+        points_homo = np.hstack([points_ridar, np.ones((N, 1))])   # [N,4]
+        points_cam = (rt @ points_homo.T).T                        # [N,3]
 
-        N = points_ridar.shape[0] # 라이다로 인지한 포인트들의 개수
-        points_homo = np.hstack([points_ridar, np.ones((N, 1))])  # [N,4] ← 4차 동차좌표로 확장
-        points_cam = (rt @ points_homo.T).T                       # [N,3] ← 카메라 좌표계로 변환
+        # 카메라 뒤쪽(Z<=0) 제거
+        cam_mask = points_cam[:, 2] > 0                            # [N]
+        if not np.any(cam_mask):
+            if return_mask:
+                return np.empty((0, 2), dtype=np.float32), np.array([], dtype=np.int64)
+            return np.empty((0, 2), dtype=np.float32)
+        points_cam = points_cam[cam_mask]                          # [M,3]
 
-        # 카메라 뒤쪽 (Z <= 0) 제거
-        mask = points_cam[:, 2] > 0                               # [N] ← Z축이 양수인 점만
-        points_cam = points_cam[mask]                             # [M,3]
+        # 투영
+        points_img = (k @ points_cam.T).T                          # [M,3]
 
-        """"""
-        print("[points_cam]")
-        print(points_cam)
-        """"""
+        # 정규화
+        points_2d = np.empty((points_cam.shape[0], 2), dtype=np.float32)
+        points_2d[:, 0] = points_img[:, 0] / points_img[:, 2]
+        points_2d[:, 1] = points_img[:, 1] / points_img[:, 2]
 
-        if points_cam.shape[0] == 0:
-            return np.empty((0, 2))
+        # 이미지 경계 clip
+        points_2d[:, 0] = np.clip(points_2d[:, 0], 0, self.img_width - 1)
+        points_2d[:, 1] = np.clip(points_2d[:, 1], 0, self.img_height - 1)
 
-        points_img = (k @ points_cam.T).T                         # [M,3] ← 이미지 평면으로 변환 (투영)]
-        """"""
-        print("[points_img]")
-        print(points_img)
-        """"""
-
-        u = points_img[:, 0] / points_img[:, 2]                   # [M] ← u 좌표 정규화
-        v = points_img[:, 1] / points_img[:, 2]                   # [M] ← v 좌표 정규화
-        points_2d = np.stack([u, v], axis=1)                      # [M,2] ← 2D 이미지 좌표 조합
-
-        """"""
-        print("[points_2d]")
-        print(points_2d)
-        """"""
-
-        # 이미지 해상도에 맞게 clip
-        points_2d[:, 0] = np.clip(points_2d[:, 0], 0, self.img_width-1)
-        points_2d[:, 1] = np.clip(points_2d[:, 1], 0, self.img_height-1)
-
-        points_2d.astype(np.float32)/1000.0
+        if return_mask:
+            idx = np.nonzero(cam_mask)[0]  # ← 원본(N)에서 살아남은 M개의 인덱스
+            return points_2d, idx
 
         return points_2d
+
 
 
     def points2bbox(self, points_2d:np.ndarray)->np.ndarray: # 이미지상의 점들을 입력으로 받아 모든 점들을 가두는 BoundingBox행렬을 만든다.

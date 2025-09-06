@@ -292,8 +292,14 @@ class Yolov7Publisher:
         self.tensorize = ToTensor()
         self.model = YoloV7()
         self.img_subscriber = rospy.Subscriber(
-            "/usb_cam_right/image_raw", Image, self.process_img_msg
+            "/usb_cam/image_raw", Image, self.process_img_msg # 원래는 usb_cam_right
         )
+
+        self.delivery_target = None
+        self.delivery_target_subscriber = rospy.Subscriber("/delivery_target", String, self.delivery_target_callback, queue_size=1)
+
+    def delivery_target_callback(self, msg):
+        self.delivery_target = msg.data
 
     def process_img_msg(self, img_msg):
         """ callback function for publisher """
@@ -331,9 +337,8 @@ class Yolov7Publisher:
         self.visualization_publisher.publish(vis_msg)
 
 
-        # === 수정된 부분 2: 메시지 발행 로직 변경 ===
+        # === 수정된 부분 2: 메시지 발행 로직 변경 (타겟 우선 매칭) ===
         if detections is None or len(detections) == 0:
-            # 검출된 객체가 없으면 "None"을 포함한 메시지를 발행
             msg = DetectYolo()
             msg.class_name = "None"
             msg.center_x = 0.0
@@ -343,33 +348,78 @@ class Yolov7Publisher:
             self.delivery_sign_publisher.publish(msg)
             return
 
-        # y좌표(bbox[1])를 기준으로 정렬하여 가장 위에 있는 객체를 찾습니다.
-        # detections 텐서를 리스트로 변환하여 정렬합니다.
-        sorted_detections = sorted(detections.tolist(), key=lambda x: x[1])
-        
-        # 가장 위에 있는 객체의 정보를 가져옵니다.
-        top_detection = sorted_detections[0]
-        
-        x1, y1, x2, y2 = top_detection[:4]
-        class_id = int(top_detection[5])
-        
-        # 중심 좌표와 크기 계산
-        center_x = (x1 + x2) / 2
-        center_y = (y1 + y2) / 2
-        width = x2 - x1
-        height = y2 - y1
+        # 좌표를 원본 해상도로 되돌림
+        detections[:, :4] = rescale([h_scaled, w_scaled], detections[:, :4], [h_orig, w_orig])
+        detections[:, :4] = detections[:, :4].round()
 
-        detected_class_label = self.class_labels[class_id]
-        
-        # 메시지 생성 및 채우기
+        rows = detections.tolist()
+
+        # 관심 클래스만 유지 (B1:14, B2:16, B3:17, A1:18, A2:19, A3:20)
+        allow_ids = {14, 16, 17, 18, 19, 20}
+        candidates = []
+        for r in rows:
+            x1, y1, x2, y2, conf, cls_id = r
+            cls_id = int(cls_id)
+            if cls_id not in allow_ids:
+                continue
+            label = self.class_labels[cls_id]  # "A1"/"B2"/...
+            if label not in self.sign_mapping:
+                continue
+            mapped_num = self.sign_mapping[label]  # "1"/"2"/"3"
+            candidates.append({
+                "row": r,
+                "label": label,
+                "num": mapped_num,
+                "conf": float(conf),
+                "y1": float(y1)
+            })
+
+        if not candidates:
+            msg = DetectYolo()
+            msg.class_name = "None"
+            msg.center_x = 0.0
+            msg.center_y = 0.0
+            msg.width = 0.0
+            msg.height = 0.0
+            self.delivery_sign_publisher.publish(msg)
+            return
+
+        selected = None
+        # 타겟이 지정된 경우: 타겟과 라벨(A1/B2/...) 또는 매핑숫자(1/2/3)가 같은 것만 선택
+        if self.delivery_target and self.delivery_target not in ("NONE", ""):
+            tgt = self.delivery_target  # 이미 upper()
+            matches = [c for c in candidates if (c["label"] == tgt or c["num"] == tgt)]
+            if matches:
+                # 여러 개면 conf 최고 선택
+                selected = max(matches, key=lambda c: c["conf"])
+            else:
+                # 타겟이 있지만 해당 라벨이 안 보임 -> None 발행
+                msg = DetectYolo()
+                msg.class_name = "None"
+                msg.center_x = 0.0
+                msg.center_y = 0.0
+                msg.width = 0.0
+                msg.height = 0.0
+                self.delivery_sign_publisher.publish(msg)
+                return
+        else:
+            # 타겟이 없으면 기존 정책 유지: 화면 맨 위(y1 최소) 1개 선택
+            selected = min(candidates, key=lambda c: c["y1"])
+
+        # 선택된 박스를 메시지로 변환해 publish
+        x1, y1, x2, y2, conf, cls_id = selected["row"]
+        cx = (x1 + x2) / 2.0
+        cy = (y1 + y2) / 2.0
+        w  = (x2 - x1)
+        h  = (y2 - y1)
+
         msg = DetectYolo()
-        msg.class_name = self.sign_mapping.get(detected_class_label, "None")
-        msg.center_x = float(center_x)
-        msg.center_y = float(center_y)
-        msg.width = float(width)
-        msg.height = float(height)
-
-        # 최종 메시지 발행
+        # class_name은 downstream(Fusion/Planner)에서 숫자 비교하기 쉽게 "1"/"2"/"3"으로 유지
+        msg.class_name = selected["num"]
+        msg.center_x = float(cx)
+        msg.center_y = float(cy)
+        msg.width    = float(w)
+        msg.height   = float(h)
         self.delivery_sign_publisher.publish(msg)
         # =========================================
 

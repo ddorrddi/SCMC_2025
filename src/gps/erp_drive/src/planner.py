@@ -18,6 +18,7 @@ from constant import const, Lane
 from global_path_planner import GlobalPathPlanner
 from obstacle_avoidance_planner import ObstacleAvoidancePlanner
 from delivery_planner import DeliveryPlanner # fusion용 추가
+from parking_planner import ParkingPlanner # 주차 플래너 추가
 from std_msgs.msg import String, Int16
 
 import numpy as np
@@ -37,6 +38,7 @@ class Planner(object):
 
         self.obstacle_avoidance_planner = ObstacleAvoidancePlanner(self.g_path_planner.g_path, self.g_path_planner.rviz_offset_x, self.g_path_planner.rviz_offset_y)
         self.delivery_planner = DeliveryPlanner(self.g_path_planner.g_path[Lane.ONE], self.g_path_planner.rviz_offset_x, self.g_path_planner.rviz_offset_y)
+        self.parking_planner = ParkingPlanner(self.g_path_planner.rviz_offset_x, self.g_path_planner.rviz_offset_y)
 
         self.rviz_curr_pose = PoseStamped()
         self.rviz_curr_pose.header.frame_id = 'map'
@@ -83,7 +85,8 @@ if __name__ == '__main__':
         if planner.obstacle_avoidance_planner.is_local_waypoint_set:
              planner.obstacle_avoidance_planner.publish_avoidance_path()
              
-        planner.delivery_planner.publish_delivery_path()
+        planner.delivery_planner.publish_marker()
+        planner.delivery_planner.delivery_done_confirm()
             
         log = [
             {

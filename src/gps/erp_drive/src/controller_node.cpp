@@ -117,46 +117,49 @@ int main(int argc, char** argv) {
             control.publishControlMsg();
         }
 
-        else if(control.is_delivery_path_set){
-            if(control.is_delivery_done){
-                if(!delivery_stop_once_flag){
-                    ROS_INFO("delivery_stop : init");
-                    delivery_B_Stop_Time = ros::Time::now();    // 정지 명령 시간 기록
-                    delivery_B_Original_Velocity = control.velocity;
-                    delivery_stop_once_flag = true;
-                }
-                
-                ros::Duration elapsed = ros::Time::now() - delivery_B_Stop_Time;    // 경과 시간 계산
-
-                if(elapsed < ros::Duration(0.5)){
-                    ROS_INFO("delivery_stop : decel");
-                    double ratio = 1.0 - (elapsed.toSec() / 0.5);
-                    control.velocity = delivery_B_Original_Velocity * ratio;
-                    control.brake = 0.0;
-                    control.publishControlMsg();
-                }else if(elapsed < ros::Duration(5.5)){
-                    ROS_INFO("delivery_stop : stop");
-                    control.velocity = 0.0;
-                    control.brake = 1.0;
-                    control.publishControlMsg();
-                }else{
-                    ROS_INFO("delivery_stop : go");
-                    control.brake = 0.0;
-                    control.publishControlMsg();
-                    control.is_delivery_done = false;
-                }
-
+        else if(control.is_delivery_done){
+            if(!delivery_stop_once_flag){
+                ROS_INFO("delivery_stop : init");
+                delivery_B_Stop_Time = ros::Time::now();    // 정지 명령 시간 기록
+                delivery_B_Original_Velocity = control.velocity;
+                delivery_stop_once_flag = true;
             }
-            else{
-                control.lookahead_distance = control.local_lookahead_distance;
-                control.velocity = control.local_velocity;
-                control.calcSteering(control.curr_pose);
+            
+            ros::Duration elapsed = ros::Time::now() - delivery_B_Stop_Time;    // 경과 시간 계산
+
+            if(elapsed < ros::Duration(0.5)){
+                ROS_INFO("delivery_stop : decel");
+                double ratio = 1.0 - (elapsed.toSec() / 0.5);
+                control.velocity = delivery_B_Original_Velocity * ratio;
+                control.brake = 0.0;
                 control.publishControlMsg();
+            }else if(elapsed < ros::Duration(3.5)){
+                ROS_INFO("delivery_stop : stop");
+                control.velocity = 0.0;
+                control.brake = 1.0;
+                control.publishControlMsg();
+            }else{
+                ROS_INFO("delivery_stop : go");
+                control.brake = 0.0;
+                control.publishControlMsg();
+                control.is_delivery_done = false;
             }
+        }
+
+        else if(control.is_parking_stop_done){
+            //여기 뭐 하드코딩해서 들어가도록 할까 어때??
+            //아니면 parking_planner에서 로컬패스 만들어서 들어가는거는?
         }
 
         else if(!control.is_finish && control.is_path_set && control.is_pose_set){
             control.lookahead_distance = control.global_lookahead_distance;
+
+            // if (control.g_curr_idx < 300) {
+            //     control.velocity = 5.0; // 저속 설정
+            // } else {
+            //     control.velocity = control.optimal_throttle.calcTanhVelocity(control.curr_pose);
+            // } delivery 구간에 맞게 수정
+
             control.velocity = control.optimal_throttle.calcTanhVelocity(control.curr_pose);
             
             // BIG 장애물 회피 구간 제한 속도 10
@@ -169,7 +172,6 @@ int main(int argc, char** argv) {
                 ROS_INFO("[PARKING MODE] Speed limited to 5.0 (idx: %d)", control.g_curr_idx);
                 control.velocity = std::min(control.velocity, 5.0);
             }
-            
             control.brake = (control.velocity < control.speed_now) ? 0.15 : 0.0;
             // ROS_INFO_STREAM("brake : " << control.brake);
             // ROS_INFO_STREAM("curr_idx : " << control.g_curr_idx);
