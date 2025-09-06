@@ -57,7 +57,7 @@ int main(int argc, char** argv) {
                     // g_idx가 300 전까지 저속 주행
                     if (100 < control.g_curr_idx && control.g_curr_idx < 300) {
                         control.brake = 0.0;
-                        control.velocity = 5.0; // 저속 설정
+                        control.velocity = 22.0; // 저속 설정
                     } else if (1050 < control.g_curr_idx && control.g_curr_idx < 1200) {
                         control.brake = 0.0;
                         control.velocity = 8.0;

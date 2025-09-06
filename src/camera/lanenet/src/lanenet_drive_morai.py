@@ -100,7 +100,9 @@ class LanenetDetection:
         self.volume_change_threshold = 0.1
         
         # 정적 장애물 파라미터
-        self.static_state = 'L'  # 'L': Lane, 'A': Avoid, 'R': Return
+        # self.static_state = 'L'  # 'L': Lane, 'A': Avoid, 'R': Return
+        # 정적 장애물 파라미터
+        self.is_passing_static_zone = False  # [추가] 회피 구간 플래그
         self.real_heading = None
         self.gt_heading = None
         self.avoid_heading = None
@@ -182,47 +184,107 @@ class LanenetDetection:
                     # 동적 장애물 미션 완료 후 정적 시퀀스로 전환
                     if self.dynamic_stop_flag and len(self.obstacle_list_dynamic) == 0:
                         print("동적 회피 완료!")
-                        time.sleep(4)
-                        rospy.loginfo("4초정지!!")
                         self.is_dynamic = False # 시퀀스 전환!
                         motor_msg = 15 # 전환 후 빠르게 출발
                     else:
                         motor_msg = 10
                 
+                # # --- 2. 정적 장애물 회피 시퀀스 ---
+                # if not self.is_dynamic:
+                #     print("정적 시퀀스로 전환합니다.")
+                #     tunnel_static_roi_check_arr = [0, 0, 0]
+                #     # 'L' 상태에서 장애물 감지 및 'A' 상태로 전환
+                #     if self.static_state == 'L':
+                #         print("seq : L")
+                #         for obstacle in self.obstacle_list_static:
+                #             if 0.5 < obstacle.x < 8.5 and -1.5 <= obstacle.y <= 0.0: # 오른쪽 장애물
+                #                 tunnel_static_roi_check_arr[1] = 1
+                #             if 0.5 < obstacle.x < 8.5 and 0.0 <= obstacle.y <= 1.5: # 왼쪽 장애물
+                #                 tunnel_static_roi_check_arr[0] = 1
+
+                #         if tunnel_static_roi_check_arr == [0, 1, 0]: # 오른쪽 장애물 -> 왼쪽 회피
+                #             print("seq : A / R -> L")
+                #             self.static_state = 'A'; motor_msg = 7
+                #             self.gt_heading = self.real_heading; self.avoid_heading = 25; self.return_heading = -13
+                #         elif tunnel_static_roi_check_arr == [1, 0, 0]: # 왼쪽 장애물 -> 오른쪽 회피
+                #             print("seq : A / L -> R")
+                #             self.static_state = 'A'; motor_msg = 7
+                #             self.gt_heading = self.real_heading; self.avoid_heading = -25; self.return_heading = 13
+
+                #     # 'A' 상태에서 IMU 기반 회피 및 'L' 상태 복귀
+                #     if self.static_state == 'A':
+                #         print("seq : A")
+                #         if self.local_heading is not None:
+                #             # 복귀 완료 조건
+                #             if (self.avoid_heading > 0 and self.local_heading < self.return_heading) or \
+                #                (self.avoid_heading < 0 and self.local_heading > self.return_heading):
+                #                 self.static_state = 'L'
+                #                 self.gt_heading, self.avoid_heading, self.return_heading = None, None, None
+                #             else: # 회피/복귀 중
+                #                 angle = 1 * abs(self.local_heading - self.return_heading)
+                #                 motor_msg = 7
                 # --- 2. 정적 장애물 회피 시퀀스 ---
                 if not self.is_dynamic:
-                    print("정적 시퀀스로 전환합니다.")
-                    tunnel_static_roi_check_arr = [0, 0, 0]
-                    # 'L' 상태에서 장애물 감지 및 'A' 상태로 전환
-                    if self.static_state == 'L':
-                        print("seq : L")
+                    # ------------------------------
+                    # 1. 새로운 장애물 구간 탐지 및 회피 시작
+                    # 조건: (아직 회피 중이 아님) + (헤딩 기준값 없음)
+                    # 동작: 전방 0.5~8.5m, 좌우 -1.5~1.5m 안에 장애물이 있으면 회피 시작
+                    # ------------------------------
+                    if not self.is_passing_static_zone and self.gt_heading is None:
+                        is_obstacle_found = False
                         for obstacle in self.obstacle_list_static:
-                            if 0.5 < obstacle.x < 8.5 and -1.5 <= obstacle.y <= 0.0: # 오른쪽 장애물
-                                tunnel_static_roi_check_arr[1] = 1
-                            if 0.5 < obstacle.x < 8.5 and 0.0 <= obstacle.y <= 1.5: # 왼쪽 장애물
-                                tunnel_static_roi_check_arr[0] = 1
+                            print(f"[DEBUG] 정적 후보 장애물: x={obstacle.x:.2f}, y={obstacle.y:.2f}, dist={obstacle.distance():.2f}")
+                            if 0.5 < obstacle.x < 8.5 and -1.5 < obstacle.y < 1.5:
+                                is_obstacle_found = True
+                                print("[DEBUG] → 정적 장애물 조건 충족! 회피 시작 준비")
+                                break
+                        
+                        if is_obstacle_found:
+                            self.is_passing_static_zone = True
+                            motor_msg = 7
+                            self.gt_heading = self.real_heading
+                            self.local_heading = 0.0
+                            self.avoid_heading = 25
+                            self.return_heading = -13
+                            print(f"[DEBUG] 회피 시작: gt_heading={self.gt_heading}, avoid={self.avoid_heading}, return={self.return_heading}")
 
-                        if tunnel_static_roi_check_arr == [0, 1, 0]: # 오른쪽 장애물 -> 왼쪽 회피
-                            print("seq : A / R -> L")
-                            self.static_state = 'A'; motor_msg = 7
-                            self.gt_heading = self.real_heading; self.avoid_heading = 25; self.return_heading = -13
-                        elif tunnel_static_roi_check_arr == [1, 0, 0]: # 왼쪽 장애물 -> 오른쪽 회피
-                            print("seq : A / L -> R")
-                            self.static_state = 'A'; motor_msg = 7
-                            self.gt_heading = self.real_heading; self.avoid_heading = -25; self.return_heading = 13
+                    # ------------------------------
+                    # 2. IMU 회피 기동 실행
+                    # 조건: 회피 동작 중 (gt_heading이 세팅되어 있음)
+                    # 동작: local_heading이 return_heading 조건을 만족하면 회피 종료
+                    # ------------------------------
+                    if self.gt_heading is not None:
+                        if self.local_heading is None:
+                            print("[DEBUG] local_heading 아직 없음 (IMU 미반영)")
+                        else:
+                            angle = 1 * abs(self.local_heading - self.return_heading)
+                            motor_msg = 7
+                            print(f"[DEBUG] 회피 진행 중: local_heading={self.local_heading:.2f}, target={self.return_heading}, angle={angle:.2f}")
 
-                    # 'A' 상태에서 IMU 기반 회피 및 'L' 상태 복귀
-                    if self.static_state == 'A':
-                        print("seq : A")
-                        if self.local_heading is not None:
-                            # 복귀 완료 조건
-                            if (self.avoid_heading > 0 and self.local_heading < self.return_heading) or \
-                               (self.avoid_heading < 0 and self.local_heading > self.return_heading):
-                                self.static_state = 'L'
-                                self.gt_heading, self.avoid_heading, self.return_heading = None, None, None
-                            else: # 회피/복귀 중
-                                angle = 1 * abs(self.local_heading - self.return_heading)
-                                motor_msg = 7
+                        is_turn_complete = (self.avoid_heading > 0 and self.local_heading < self.return_heading) or \
+                                        (self.avoid_heading < 0 and self.local_heading > self.return_heading)
+                        
+                        if is_turn_complete:
+                            print("[DEBUG] 회피 동작 완료 → 헤딩값 초기화")
+                            self.gt_heading, self.avoid_heading, self.return_heading = None, None, None
+
+                    # ------------------------------
+                    # 3. 장애물 구간 완전 통과 확인
+                    # 조건: 회피는 끝났지만, 여전히 구간 플래그가 True일 때
+                    # 동작: 전방에 더 이상 장애물이 없으면 구간 종료
+                    # ------------------------------
+                    if self.is_passing_static_zone and self.gt_heading is None:
+                        is_zone_cleared = True
+                        for obstacle in self.obstacle_list_static:
+                            if obstacle.x > 0.5:  # 아직 앞쪽에 장애물이 남아 있음
+                                is_zone_cleared = False
+                                print(f"[DEBUG] 아직 구간에 장애물 있음: x={obstacle.x:.2f}, y={obstacle.y:.2f}")
+                                break
+                        
+                        if is_zone_cleared:
+                            self.is_passing_static_zone = False
+                            print("[DEBUG] 정적 장애물 구간 완전 통과! 플래그 리셋")
+
 
                 # 최종 제어값 발행
                 servo_msg = -radians(angle)
