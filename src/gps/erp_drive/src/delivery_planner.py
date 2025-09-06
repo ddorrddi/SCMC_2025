@@ -150,6 +150,8 @@ class DeliveryPlanner:
 
         # 표지판 좌표 생성
         self.sign_coords = (final_pt[0], final_pt[1], final_pt[2])
+        rospy.loginfo(f"표지판 좌표 생성 : {self.sign_coords}")
+        self.publish_marker()
         self.delivery_in_progress = True
         self.get_stop_coords()
 
@@ -182,10 +184,10 @@ class DeliveryPlanner:
         print(self.delivery_target_num)
         print(self.sign_queue)
         # 유효성 검사 및 타겟이 정해지지 않았을때 1회만 작동
-        # if self.curr_idx is None or self.delivery_done or self.delivery_target_num is not None:
-        #     return
-        # if (self.STOP_IDX <= self.curr_idx <= self.STOP_IDX + self.segment_len): # 배달 B구간일때는 작동안함
-        #     return
+        if self.curr_idx is None or self.delivery_done or self.delivery_target_num is not None:
+            return
+        if (self.STOP_IDX <= self.curr_idx <= self.STOP_IDX + self.segment_len): # 배달 B구간일때는 작동안함
+            return
         # 큐에 샘플 데이터 수집 이후 충분히 수집하면 target 설정하고 publish
         if msg.class_name != "None":
             self.sign_queue.append(int(msg.class_name))
