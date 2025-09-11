@@ -62,6 +62,7 @@ class ParkingPlanner:
         self.parking_in_progress = False
         self.parking_path_is_pub = False
         self.parking_path = PathReference()
+        self.return_path = PathReference()
 
         # === 주차 상태 플래그 ===
         self.parking_stop_done = False     # 정지 완료 플래그
@@ -75,6 +76,7 @@ class ParkingPlanner:
         # === ROS Pub/Sub ===
         self.parking_stop_done_pub = rospy.Publisher("/parking_stop_done", Int16, queue_size=1)
         self.parking_path_pub      = rospy.Publisher("/parking_path",      PathReference, queue_size=1)
+        self.return_path_pub       = rospy.Publisher("/return_path",       PathReference, queue_size=1)
         self.parking_done_pub      = rospy.Publisher("/parking_done",      Int16, queue_size=1)
         self.parking_end_pub       = rospy.Publisher("/parking_end",       Int16, queue_size=1)
 
@@ -367,9 +369,9 @@ class ParkingPlanner:
             elem.pose.pose.orientation.w = qw
             new_elems.append(elem)
 
-        self.parking_path.path = new_elems
-        self.parking_path.header.stamp = rospy.Time.now()
-        self.parking_path_pub.publish(self.parking_path)
+        self.return_path.path = new_elems
+        self.return_path.header.stamp = rospy.Time.now()
+        self.return_path_pub.publish(self.return_path)
 
     # -------------------- raw path 생성 --------------------
     def make_raw_path(self, start_xy, goal_xy, n=800, flip=False):
@@ -546,7 +548,7 @@ class ParkingPlanner:
             m.lifetime = rospy.Duration()
             self.marker_pub.publish(m)
 
-        def _publish_path_line(id_):
+        def publish_path_line(id_):
             # PathReference → LINE_STRIP (RViz에서 바로 보이게)
             if not hasattr(self, "parking_path") or not getattr(self.parking_path, "path", None):
                 return
@@ -594,4 +596,4 @@ class ParkingPlanner:
         _publish_cylinder(11, success_center, self.Parking_Success_Radius, (0.2, 1.0, 0.3, 0.35)) # 노랑
 
         # ----------------- 3) 경로 라인 -----------------
-        _publish_path_line(20)
+        publish_path_line(20)
