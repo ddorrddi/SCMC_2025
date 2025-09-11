@@ -82,7 +82,7 @@ class ParkingPlanner:
         rospy.Subscriber("/current_pose",  Pose,       self.curr_pose_CB,     queue_size=1)
 
         self.marker_pub = rospy.Publisher("/parking_debug_marker", Marker, queue_size=10)
-        rospy.Subscriber('/test_delivery', Bool, self.test_CB) # 테스트 서브스크라이버
+        rospy.Subscriber('/test_parking', Bool, self.test_CB) # 테스트 서브스크라이버
 
         self.curr_pose = None
 
@@ -93,6 +93,9 @@ class ParkingPlanner:
         
         self.sorted_pts = np.array([[1.0, 2.0], [9.0, 2.2]], dtype=float)
         self.generate_parking_coords()
+
+        if self.parking_coords is not None:
+            self.make_parking_path()
 
     # -------------------- 콜백 --------------------
 
@@ -236,12 +239,12 @@ class ParkingPlanner:
                 self.axis_ready = True
 
         # --- 정렬 ---
-        bc = np.asarray(self.benchmark_coords, dtype=float)
-
-        if mode == "rail" and pts.shape[0] >= 2 and self.axis_ready:
+        if pts.shape[0] >= 2 and self.axis_ready:
             s  = (pts - self.axis_o) @ self.axis_u
-            order = np.argsort(s)
+            s0 = (np.asarray(self.benchmark_coords) - self.axis_o) @ self.axis_u
+            order = np.argsort(np.abs(s - s0))
         else:
+            bc = np.asarray(self.benchmark_coords, dtype=float)
             d2 = np.sum((pts - bc[None, :])**2, axis=1)
             order = np.argsort(d2)
 
@@ -335,6 +338,40 @@ class ParkingPlanner:
             rospy.loginfo(f"Parking path published!!!!!!")
             self.publish_markers()
 
+    # -------------------- rev 경로 생성 --------------------
+    def generate_return_path(self):
+        path = self.parking_path.path
+        if len(path) < 2:
+            return
+        pts = [(e.pose.pose.position.x, e.pose.pose.position.y) for e in path][::-1]
+
+        new_elems = []
+        now = rospy.Time.now()
+        last_yaw = 0.0
+        for i, (x, y) in enumerate(pts):
+            if i < len(pts) - 1:
+                nx, ny = pts[i+1]
+                yaw = math.atan2(ny - y, nx - x)
+                last_yaw = yaw
+            else:
+                yaw = last_yaw
+            qx, qy, qz, qw = quaternion_from_euler(0.0, 0.0, yaw)
+            elem = PathReferenceElement()
+            elem.pose.header.frame_id = self.frame_id
+            elem.pose.header.stamp = now
+            elem.pose.pose.position.x = float(x)
+            elem.pose.pose.position.y = float(y)
+            elem.pose.pose.orientation.x = qx
+            elem.pose.pose.orientation.y = qy
+            elem.pose.pose.orientation.z = qz
+            elem.pose.pose.orientation.w = qw
+            new_elems.append(elem)
+
+        self.parking_path.path = new_elems
+        self.parking_path.header.stamp = rospy.Time.now()
+        self.parking_path_pub.publish(self.parking_path)
+
+    # -------------------- raw path 생성 --------------------
     def make_raw_path(self, start_xy, goal_xy, n=800, flip=False):
         start_xy = np.asarray(start_xy, dtype=float)
         goal_xy  = np.asarray(goal_xy,  dtype=float)
@@ -361,6 +398,7 @@ class ParkingPlanner:
 
         return (s * (R @ P.T)).T + t
     
+    # -------------------- 등간격 보간 --------------------
     def spacing_parking_path(self, pts, spacing):
         pts = np.asarray(pts, dtype=float)
         if len(pts) < 2:
@@ -395,11 +433,8 @@ class ParkingPlanner:
             return
 
         if self.return_phase == 1:
-            path_list = self.parking_path.path
-            if self.parking_done and len(path_list) >= 2:
-                path_list.reverse()
-                self.parking_path.header.stamp = rospy.Time.now()
-                self.parking_path_pub.publish(self.parking_path)
+            if self.parking_done and len(self.parking_path.path) >= 2:
+                self.generate_return_path()
                 self.return_phase = 2
             return
 
@@ -423,9 +458,9 @@ class ParkingPlanner:
             if dist_to_target < self.Parking_Stop_Radius and self.parking_in_progress:
                 self.parking_stop_done = True
                 self.parking_done_once = True
+                rospy.loginfo(f"Parking Stop Done!!!!!!!!!")
 
         self.parking_stop_done_pub.publish(1 if self.parking_stop_done else 0)
-        rospy.loginfo(f"Parking Stop Done!!!!!!!!!")
 
     def parking_done_confirm(self):
         path_list = self.parking_path.path
