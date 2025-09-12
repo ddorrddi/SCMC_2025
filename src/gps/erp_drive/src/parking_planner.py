@@ -3,12 +3,11 @@ import math
 import numpy as np
 import rospy
 
-from geometry_msgs.msg import Pose
+from geometry_msgs.msg import Pose, PoseStamped
 from lidar_object_detection.msg import ObjectInfo
 from std_msgs.msg import Int16, Bool
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
-
-from erp_drive.msg import PathReference, PathReferenceElement
+from nav_msgs.msg import Path
 
 from visualization_msgs.msg import Marker
 from geometry_msgs.msg import Point
@@ -61,8 +60,8 @@ class ParkingPlanner:
         self.flip_arccos = False   # arccos 함수 상하 반전 여부
         self.parking_in_progress = False
         self.parking_path_is_pub = False
-        self.parking_path = PathReference()
-        self.return_path = PathReference()
+        self.parking_path = Path()
+        self.return_path = Path()
 
         # === 주차 상태 플래그 ===
         self.parking_stop_done = False     # 정지 완료 플래그
@@ -75,8 +74,8 @@ class ParkingPlanner:
 
         # === ROS Pub/Sub ===
         self.parking_stop_done_pub = rospy.Publisher("/parking_stop_done", Int16, queue_size=1)
-        self.parking_path_pub      = rospy.Publisher("/parking_path",      PathReference, queue_size=1)
-        self.return_path_pub       = rospy.Publisher("/return_path",       PathReference, queue_size=1)
+        self.parking_path_pub      = rospy.Publisher("/parking_path",      Path, queue_size=1)
+        self.return_path_pub       = rospy.Publisher("/return_path",       Path, queue_size=1)
         self.parking_done_pub      = rospy.Publisher("/parking_done",      Int16, queue_size=1)
         self.parking_end_pub       = rospy.Publisher("/parking_end",       Int16, queue_size=1)
 
@@ -302,43 +301,47 @@ class ParkingPlanner:
         start_xy = np.array([self.curr_pose.position.x, self.curr_pose.position.y], dtype=float)
         goal_xy  = self.parking_coords.astype(float)
 
+        # raw path 생성
         raw = self.make_raw_path(start_xy, goal_xy, n=800, flip=self.flip_arccos)
         pts = self.spacing_parking_path(raw, self.resolution)
 
+        # Path 메시지 초기화
+        self.parking_path = Path()
         self.parking_path.header.frame_id = self.frame_id
         self.parking_path.header.stamp = rospy.Time.now()
-        self.parking_path.path.clear()
+        self.parking_path.poses.clear()
 
-        append = self.parking_path.path.append
+        append = self.parking_path.poses.append
 
         now = rospy.Time.now()
         last_yaw = 0.0
         for i, (x, y) in enumerate(pts):
-            if i < len(pts)-1:
+            if i < len(pts) - 1:
                 nx, ny = pts[i+1]
                 yaw = math.atan2(ny - y, nx - x)
                 last_yaw = yaw
             else:
                 yaw = last_yaw
-        
+
             qx, qy, qz, qw = quaternion_from_euler(0.0, 0.0, yaw)
 
-            elem = PathReferenceElement()
-            elem.pose.header.frame_id = self.frame_id
-            elem.pose.header.stamp = now
-            elem.pose.pose.position.x = float(x)
-            elem.pose.pose.position.y = float(y)
-            elem.pose.pose.orientation.x = qx
-            elem.pose.pose.orientation.y = qy
-            elem.pose.pose.orientation.z = qz
-            elem.pose.pose.orientation.w = qw
-            append(elem)
+            pose = PoseStamped()
+            pose.header.frame_id = self.frame_id
+            pose.header.stamp = now
+            pose.pose.position.x = float(x)
+            pose.pose.position.y = float(y)
+            pose.pose.orientation.x = qx
+            pose.pose.orientation.y = qy
+            pose.pose.orientation.z = qz
+            pose.pose.orientation.w = qw
+            append(pose)
 
-        if self.parking_in_progress and not self.parking_path_is_pub:
-            self.parking_path_pub.publish(self.parking_path)
-            self.parking_path_is_pub = True
-            rospy.loginfo(f"Parking path published!!!!!!")
-            self.publish_markers()
+    # 퍼블리시 조건
+    if self.parking_in_progress and not self.parking_path_is_pub:
+        self.parking_path_pub.publish(self.parking_path)
+        self.parking_path_is_pub = True
+        rospy.loginfo("Parking path published!!!!!!")
+        self.publish_markers()
 
     # -------------------- rev 경로 생성 --------------------
     def generate_return_path(self):
