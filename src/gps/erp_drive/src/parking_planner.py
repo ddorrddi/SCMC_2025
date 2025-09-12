@@ -502,105 +502,134 @@ class ParkingPlanner:
 
 
     # -------------------- 마커 발행 ---------------------
+# -------------------- 마커 발행 ---------------------
     def publish_markers(self):
         """
-        RViz 시각화(인자 없이 내부 상태를 그대로 사용):
+        RViz 시각화 함수 (delivery_planner 스타일로 안정성 및 가독성 개선)
         - SPHERE: reference_coords(파랑), parking_stop_coords(빨강), parking_coords(초록)
         - CYLINDER: Parking_Stop_Radius(노랑), Parking_Success_Radius(보라)
-        - LINE_STRIP: parking_path
-        DeliveryPlanner 스타일처럼 Marker를 여러 번 publish한다.
+        - LINE_STRIP: parking_path(흰색)
         """
         stamp = rospy.Time.now()
         frame = self.frame_id
 
-        def _publish_sphere(id_, xy, rgba, scale=0.35):
-            if xy is None:
-                return
-            m = Marker()
-            m.header.frame_id = frame
-            m.header.stamp    = stamp
-            m.ns   = "parking_debug"
-            m.id   = id_
-            m.type = Marker.SPHERE
-            m.action = Marker.ADD
-            # RViz 오프셋 적용 (DeliveryPlanner와 동일한 방식)
-            m.pose.position.x = float(xy[0]) - float(self.rviz_offset_x)
-            m.pose.position.y = float(xy[1]) - float(self.rviz_offset_y)
-            m.pose.position.z = 0.0
-            m.pose.orientation.w = 1.0
-            m.scale.x = m.scale.y = m.scale.z = float(scale)
-            m.color.r, m.color.g, m.color.b, m.color.a = map(float, rgba)
-            m.lifetime = rospy.Duration()  # 영구
-            self.marker_pub.publish(m)
+        # --- Marker 1: reference_coords (파란색 구) ---
+        m1 = Marker()
+        m1.header.frame_id = frame
+        m1.header.stamp = stamp
+        m1.ns = "parking_points"
+        m1.id = 0
+        m1.type = Marker.SPHERE
+        m1.action = Marker.ADD
+        if self.reference_coords is not None:
+            m1.pose.position.x = self.reference_coords[0] - self.rviz_offset_x
+            m1.pose.position.y = self.reference_coords[1] - self.rviz_offset_y
+            m1.pose.orientation.w = 1.0
+            m1.scale.x = m1.scale.y = m1.scale.z = 0.4
+            m1.color.r, m1.color.g, m1.color.b, m1.color.a = (0.2, 0.4, 1.0, 0.9) # 파란색
+        else:
+            m1.action = Marker.DELETE # 데이터가 없으면 마커 삭제
+        self.marker_pub.publish(m1)
 
-        def _publish_cylinder(id_, center_xy, radius, rgba, height=0.08):
-            if center_xy is None or radius is None:
-                return
-            m = Marker()
-            m.header.frame_id = frame
-            m.header.stamp    = stamp
-            m.ns   = "parking_debug"
-            m.id   = id_
-            m.type = Marker.CYLINDER
-            m.action = Marker.ADD
-            m.pose.position.x = float(center_xy[0]) - float(self.rviz_offset_x)
-            m.pose.position.y = float(center_xy[1]) - float(self.rviz_offset_y)
-            m.pose.position.z = 0.0
-            m.pose.orientation.w = 1.0
-            # 지름 = 2 * radius
-            m.scale.x = float(radius) * 2.0
-            m.scale.y = float(radius) * 2.0
-            m.scale.z = float(height)
-            m.color.r, m.color.g, m.color.b, m.color.a = map(float, rgba)
-            m.lifetime = rospy.Duration()
-            self.marker_pub.publish(m)
+        # --- Marker 2: parking_stop_coords (빨간색 구) ---
+        m2 = Marker()
+        m2.header.frame_id = frame
+        m2.header.stamp = stamp
+        m2.ns = "parking_points"
+        m2.id = 1
+        m2.type = Marker.SPHERE
+        m2.action = Marker.ADD
+        if self.parking_stop_coords is not None:
+            m2.pose.position.x = self.parking_stop_coords[0] - self.rviz_offset_x
+            m2.pose.position.y = self.parking_stop_coords[1] - self.rviz_offset_y
+            m2.pose.orientation.w = 1.0
+            m2.scale.x = m2.scale.y = m2.scale.z = 0.4
+            m2.color.r, m2.color.g, m2.color.b, m2.color.a = (1.0, 0.2, 0.2, 0.9) # 빨간색
+        else:
+            m2.action = Marker.DELETE
+        self.marker_pub.publish(m2)
 
-        def publish_path_line(id_):
-            # PathReference → LINE_STRIP (RViz에서 바로 보이게)
-            if not hasattr(self, "parking_path") or not getattr(self.parking_path, "path", None):
-                return
-            if len(self.parking_path.poses) < 2:
-                return
+        # --- Marker 3: parking_coords (초록색 구) ---
+        m3 = Marker()
+        m3.header.frame_id = frame
+        m3.header.stamp = stamp
+        m3.ns = "parking_points"
+        m3.id = 2
+        m3.type = Marker.SPHERE
+        m3.action = Marker.ADD
+        if self.parking_coords is not None:
+            m3.pose.position.x = self.parking_coords[0] - self.rviz_offset_x
+            m3.pose.position.y = self.parking_coords[1] - self.rviz_offset_y
+            m3.pose.orientation.w = 1.0
+            m3.scale.x = m3.scale.y = m3.scale.z = 0.4
+            m3.color.r, m3.color.g, m3.color.b, m3.color.a = (0.2, 1.0, 0.3, 0.9) # 초록색
+        else:
+            m3.action = Marker.DELETE
+        self.marker_pub.publish(m3)
 
-            m = Marker()
-            m.header.frame_id = frame
-            m.header.stamp    = stamp
-            m.ns   = "parking_debug"
-            m.id   = id_
-            m.type = Marker.LINE_STRIP
-            m.action = Marker.ADD
-            m.scale.x = 0.35
-            m.color.r = 1.0
-            m.color.g = 1.0
-            m.color.b = 1.0
-            m.color.a = 0.9
-            m.lifetime = rospy.Duration()
+        # --- Marker 4: Parking_Stop_Radius (노란색 원) ---
+        m4 = Marker()
+        m4.header.frame_id = frame
+        m4.header.stamp = stamp
+        m4.ns = "parking_radii"
+        m4.id = 10
+        m4.type = Marker.CYLINDER
+        m4.action = Marker.ADD
+        if self.parking_stop_coords is not None:
+            m4.pose.position.x = self.parking_stop_coords[0] - self.rviz_offset_x
+            m4.pose.position.y = self.parking_stop_coords[1] - self.rviz_offset_y
+            m4.pose.orientation.w = 1.0
+            m4.scale.x = m4.scale.y = self.Parking_Stop_Radius * 2.0
+            m4.scale.z = 0.1
+            m4.color.r, m4.color.g, m4.color.b, m4.color.a = (1.0, 1.0, 0.0, 0.35) # 노란색 (반투명)
+        else:
+            m4.action = Marker.DELETE
+        self.marker_pub.publish(m4)
 
-            for elem in self.parking_path.poses:
-                px = float(elem.pose.position.x) - float(self.rviz_offset_x)
-                py = float(elem.pose.position.y) - float(self.rviz_offset_y)
-                m.points.append(Point(x=px, y=py, z=0.0))
-
-            self.marker_pub.publish(m)
-
-        # ----------------- 1) 세 점 -----------------
-        _publish_sphere(0, self.reference_coords,    (1.0, 0.2, 0.2, 0.95)) # 빨강
-        _publish_sphere(1, self.parking_stop_coords, (1.0, 0.2, 0.2, 0.95)) # 빨강
-        _publish_sphere(2, self.parking_coords,      (1.0, 0.2, 0.2, 0.95)) # 빨강
-
-        # ----------------- 2) 반경(원통) -----------------
-        # Stop 반경: 중심 = parking_stop_coords, 반경 = Parking_Stop_Radius
-        _publish_cylinder(10, self.parking_stop_coords, self.Parking_Stop_Radius, (0.2, 1.0, 0.3, 0.35)) # 초록
-
-        # Success 반경: 중심 = parking_path의 마지막 점(없으면 parking_coords), 반경 = Parking_Success_Radius
+        # --- Marker 5: Parking_Success_Radius (보라색 원) ---
+        m5 = Marker()
+        m5.header.frame_id = frame
+        m5.header.stamp = stamp
+        m5.ns = "parking_radii"
+        m5.id = 11
+        m5.type = Marker.CYLINDER
+        m5.action = Marker.ADD
+        
         success_center = None
-        if hasattr(self, "parking_path") and getattr(self.parking_path, "poses", None) and len(self.parking_path.poses) > 0:
-            last = self.parking_path.poses[-1].pose.position
-            success_center = (float(last.x), float(last.y))
+        if hasattr(self, "parking_path") and self.parking_path.poses:
+            last_pose = self.parking_path.poses[-1].pose.position
+            success_center = (last_pose.x, last_pose.y)
         elif self.parking_coords is not None:
-            success_center = (float(self.parking_coords[0]), float(self.parking_coords[1]))
+            success_center = self.parking_coords
+            
+        if success_center is not None:
+            m5.pose.position.x = success_center[0] - self.rviz_offset_x
+            m5.pose.position.y = success_center[1] - self.rviz_offset_y
+            m5.pose.orientation.w = 1.0
+            m5.scale.x = m5.scale.y = self.Parking_Success_Radius * 2.0
+            m5.scale.z = 0.1
+            m5.color.r, m5.color.g, m5.color.b, m5.color.a = (0.6, 0.2, 0.8, 0.35) # 보라색 (반투명)
+        else:
+            m5.action = Marker.DELETE
+        self.marker_pub.publish(m5)
 
-        _publish_cylinder(11, success_center, self.Parking_Success_Radius, (0.2, 1.0, 0.3, 0.35)) # 노랑
-
-        # ----------------- 3) 경로 라인 -----------------
-        publish_path_line(20)
+        # --- Marker 6: Parking Path (흰색 선) ---
+        m6 = Marker()
+        m6.header.frame_id = frame
+        m6.header.stamp = stamp
+        m6.ns = "parking_path_line"
+        m6.id = 20
+        m6.type = Marker.LINE_STRIP
+        m6.action = Marker.ADD
+        if hasattr(self, "parking_path") and len(self.parking_path.poses) >= 2:
+            m6.scale.x = 0.1 # 선의 두께
+            m6.color.r, m6.color.g, m6.color.b, m6.color.a = (1.0, 1.0, 1.0, 1.0) # 흰색
+            
+            for pose_stamped in self.parking_path.poses:
+                pt = Point()
+                pt.x = pose_stamped.pose.position.x - self.rviz_offset_x
+                pt.y = pose_stamped.pose.position.y - self.rviz_offset_y
+                m6.points.append(pt)
+        else:
+            m6.action = Marker.DELETE
+        self.marker_pub.publish(m6)
