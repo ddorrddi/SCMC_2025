@@ -9,6 +9,7 @@ from std_msgs.msg import Int16, Bool
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 from nav_msgs.msg import Path
 
+
 from visualization_msgs.msg import Marker
 from geometry_msgs.msg import Point
 
@@ -109,6 +110,8 @@ class ParkingPlanner:
 
         if not self.parking_end and self.parking_path_is_pub:
             self.return_to_gpath()
+
+        self.publish_markers()
 
     def obstacle_info_CB(self, msg: ObjectInfo):
         if self.curr_pose is None:
@@ -301,22 +304,17 @@ class ParkingPlanner:
         start_xy = np.array([self.curr_pose.position.x, self.curr_pose.position.y], dtype=float)
         goal_xy  = self.parking_coords.astype(float)
 
-        # raw path 생성
         raw = self.make_raw_path(start_xy, goal_xy, n=800, flip=self.flip_arccos)
         pts = self.spacing_parking_path(raw, self.resolution)
 
-        # Path 메시지 초기화
-        self.parking_path = Path()
         self.parking_path.header.frame_id = self.frame_id
         self.parking_path.header.stamp = rospy.Time.now()
         self.parking_path.poses.clear()
 
-        append = self.parking_path.poses.append
-
         now = rospy.Time.now()
         last_yaw = 0.0
         for i, (x, y) in enumerate(pts):
-            if i < len(pts) - 1:
+            if i < len(pts)-1:
                 nx, ny = pts[i+1]
                 yaw = math.atan2(ny - y, nx - x)
                 last_yaw = yaw
@@ -325,32 +323,34 @@ class ParkingPlanner:
 
             qx, qy, qz, qw = quaternion_from_euler(0.0, 0.0, yaw)
 
-            pose = PoseStamped()
-            pose.header.frame_id = self.frame_id
-            pose.header.stamp = now
-            pose.pose.position.x = float(x)
-            pose.pose.position.y = float(y)
-            pose.pose.orientation.x = qx
-            pose.pose.orientation.y = qy
-            pose.pose.orientation.z = qz
-            pose.pose.orientation.w = qw
-            append(pose)
+            pose_stamped = PoseStamped()
+            pose_stamped.header.frame_id = self.frame_id
+            pose_stamped.header.stamp = now
+            pose_stamped.pose.position.x = float(x)
+            pose_stamped.pose.position.y = float(y)
+            pose_stamped.pose.position.z = 0.0
+            pose_stamped.pose.orientation.x = qx
+            pose_stamped.pose.orientation.y = qy
+            pose_stamped.pose.orientation.z = qz
+            pose_stamped.pose.orientation.w = qw
 
-    # 퍼블리시 조건
-    if self.parking_in_progress and not self.parking_path_is_pub:
-        self.parking_path_pub.publish(self.parking_path)
-        self.parking_path_is_pub = True
-        rospy.loginfo("Parking path published!!!!!!")
-        self.publish_markers()
+            self.parking_path.poses.append(pose_stamped)
+
+
+        if self.parking_in_progress and not self.parking_path_is_pub:
+            self.parking_path_pub.publish(self.parking_path)
+            self.parking_path_is_pub = True
+            rospy.loginfo(f"Parking path published!!!!!!")
+            self.publish_markers()
 
     # -------------------- rev 경로 생성 --------------------
     def generate_return_path(self):
-        path = self.parking_path.path
+        path = self.parking_path.poses
         if len(path) < 2:
             return
-        pts = [(e.pose.pose.position.x, e.pose.pose.position.y) for e in path][::-1]
+        pts = [(e.pose.position.x, e.pose.position.y) for e in path][::-1]
 
-        new_elems = []
+        new_poses = []
         now = rospy.Time.now()
         last_yaw = 0.0
         for i, (x, y) in enumerate(pts):
@@ -361,20 +361,24 @@ class ParkingPlanner:
             else:
                 yaw = last_yaw
             qx, qy, qz, qw = quaternion_from_euler(0.0, 0.0, yaw)
-            elem = PathReferenceElement()
-            elem.pose.header.frame_id = self.frame_id
-            elem.pose.header.stamp = now
-            elem.pose.pose.position.x = float(x)
-            elem.pose.pose.position.y = float(y)
-            elem.pose.pose.orientation.x = qx
-            elem.pose.pose.orientation.y = qy
-            elem.pose.pose.orientation.z = qz
-            elem.pose.pose.orientation.w = qw
-            new_elems.append(elem)
+            
+            pose_stamped = PoseStamped()
+            pose_stamped.header.frame_id = self.frame_id
+            pose_stamped.header.stamp = now
+            pose_stamped.pose.position.x = float(x)
+            pose_stamped.pose.position.y = float(y)
+            pose_stamped.pose.position.z = 0.0
+            pose_stamped.pose.orientation.x = qx
+            pose_stamped.pose.orientation.y = qy
+            pose_stamped.pose.orientation.z = qz
+            pose_stamped.pose.orientation.w = qw
+            new_poses.append(pose_stamped)
 
-        self.return_path.path = new_elems
+        self.return_path.poses = new_poses
         self.return_path.header.stamp = rospy.Time.now()
         self.return_path_pub.publish(self.return_path)
+
+
 
     # -------------------- raw path 생성 --------------------
     def make_raw_path(self, start_xy, goal_xy, n=800, flip=False):
@@ -438,7 +442,7 @@ class ParkingPlanner:
             return
 
         if self.return_phase == 1:
-            if self.parking_done and len(self.parking_path.path) >= 2:
+            if self.parking_done and len(self.parking_path.poses) >= 2:
                 self.generate_return_path()
                 self.return_phase = 2
             return
@@ -468,11 +472,11 @@ class ParkingPlanner:
         self.parking_stop_done_pub.publish(1 if self.parking_stop_done else 0)
 
     def parking_done_confirm(self):
-        path_list = self.parking_path.path
+        path_list = self.parking_path.poses
         if self.curr_pose is None or not path_list:
             return
 
-        last_ps = path_list[-1].pose
+        last_ps = path_list[-1]
         end_x = float(last_ps.pose.position.x)
         end_y = float(last_ps.pose.position.y)
         px, py = float(self.curr_pose.position.x), float(self.curr_pose.position.y)
@@ -481,7 +485,7 @@ class ParkingPlanner:
         self.parking_done_pub.publish(1 if self.parking_done else 0)
 
     def return_done_confirm(self):
-        path_list = self.parking_path.path
+        path_list = self.parking_path.poses
         if self.curr_pose is None or not path_list:
             return
 
@@ -555,7 +559,7 @@ class ParkingPlanner:
             # PathReference → LINE_STRIP (RViz에서 바로 보이게)
             if not hasattr(self, "parking_path") or not getattr(self.parking_path, "path", None):
                 return
-            if len(self.parking_path.path) < 2:
+            if len(self.parking_path.poses) < 2:
                 return
 
             m = Marker()
@@ -572,9 +576,9 @@ class ParkingPlanner:
             m.color.a = 0.9
             m.lifetime = rospy.Duration()
 
-            for elem in self.parking_path.path:
-                px = float(elem.pose.pose.position.x) - float(self.rviz_offset_x)
-                py = float(elem.pose.pose.position.y) - float(self.rviz_offset_y)
+            for elem in self.parking_path.poses:
+                px = float(elem.pose.position.x) - float(self.rviz_offset_x)
+                py = float(elem.pose.position.y) - float(self.rviz_offset_y)
                 m.points.append(Point(x=px, y=py, z=0.0))
 
             self.marker_pub.publish(m)
@@ -590,8 +594,8 @@ class ParkingPlanner:
 
         # Success 반경: 중심 = parking_path의 마지막 점(없으면 parking_coords), 반경 = Parking_Success_Radius
         success_center = None
-        if hasattr(self, "parking_path") and getattr(self.parking_path, "path", None) and len(self.parking_path.path) > 0:
-            last = self.parking_path.path[-1].pose.pose.position
+        if hasattr(self, "parking_path") and getattr(self.parking_path, "poses", None) and len(self.parking_path.poses) > 0:
+            last = self.parking_path.poses[-1].pose.position
             success_center = (float(last.x), float(last.y))
         elif self.parking_coords is not None:
             success_center = (float(self.parking_coords[0]), float(self.parking_coords[1]))

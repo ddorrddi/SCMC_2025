@@ -6,7 +6,7 @@
   <include file="$(find ublox_gps)/launch/ublox_zed-f9p_base.launch"/>
   <node pkg="race" type="serial_control_node" name="serial_control_node" /> -->
   
-  <include file="$(find lidar_object_detection)/launch/object_detection.launch" />
+  <!-- <include file="$(find lidar_object_detection)/launch/object_detection.launch" /> -->
 
   <node pkg="erp_drive" type="wgs84_to_utmk.py" name="wgs84_to_utmk" output="screen" args="$(arg target)"/>
   
