@@ -93,7 +93,7 @@ class ParkingPlanner:
         if self.curr_pose is None:
             return
         
-        self.sorted_pts = np.array([[1.0, 2.0], [9.0, 2.2]], dtype=float)
+        self.sorted_pts = np.array([[935569.271, 1915907.887], [935574.389, 1915916.977]], dtype=float)
         self.generate_parking_coords()
 
         if self.parking_coords is not None:
