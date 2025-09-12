@@ -4,9 +4,12 @@ Controller::Controller(char control_target):
 
     optimal_throttle(), timer(0), is_finish(false), is_delivery_path_set(false), 
     is_path_set(false), is_pose_set(false), is_local_path_set(false), g_curr_idx(0), l_curr_idx(0), delivery_curr_idx(0),
-    velocity(0.), global_velocity(0.), local_velocity(0.), is_moving_front(false){
+    velocity(0.), global_velocity(0.), local_velocity(0.), is_moving_front(false),
+    is_parking_done(false), is_parking_end(false){
         this->delivery_stop_once = true;
         this->parking_stop_once = true;
+        this->parking_done_once = true;
+        this->parking_end_once = true;
 
         this->is_erp = control_target == 'e'; // e => erp (true), m => morai (false)
        
@@ -25,6 +28,8 @@ Controller::Controller(char control_target):
 
         this->delivery_done_sub = nh.subscribe("/delivery_done", 1, &Controller::deliveryDoneCallback, this);
         this->parking_stop_done_sub = nh.subscribe("/parking_stop_done", 1, &Controller::parkingStopDoneCallback, this);
+        this->parking_done_sub = nh.subscribe("/parking_done", 1, &Controller::parkingDoneCallback, this);
+        this->parking_end_sub = nh.subscribe("/parking_end", 1, &Controller::parkingEndCallback, this);
         
         this->curr_pose_sub = nh.subscribe("/current_pose", 1, &Controller::currentPoseCallback, this);
     
@@ -79,6 +84,30 @@ void Controller::parkingStopDoneCallback(const std_msgs::Int16& signal){
             this->parking_stop_once = false;
         }
         else{this->is_parking_stop_done = false;}
+    }
+}
+
+void Controller::parkingDoneCallback(const std_msgs::Int16& signal){
+    if(this->parking_done_once){
+        if(signal.data == 1){
+            ROS_INFO_STREAM("[Controller] Parking Done signal received.");
+            this->is_parking_done = true;
+            this->parking_done_once = false;
+        }
+        else{
+            this->is_parking_done = false;
+        }
+    }
+}
+
+void Controller::parkingEndCallback(const std_msgs::Int16& signal){
+    if(this->parking_end_once){
+        if(signal.data == 1){
+            ROS_INFO("[Controller] Parking End signal received. Returning to global path driving.");
+            this->is_parking_end = true;
+            this->parking_end_once = false;
+            this->is_local_path_set = false;
+        }
     }
 }
 
