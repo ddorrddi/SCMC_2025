@@ -54,7 +54,7 @@ class ParkingPlanner:
         self.reference_coords = None
         self.parking_coords = None
         self.parking_radius = 1.5  # 주차 좌표 생성 반경 (m) -> 실험적으로 찾아야함
-        self.parking_theta = 30.0 * math.pi / 180.0  # 주차 좌표 생성 각도 (rad) -> 실험적으로 찾아야함
+        self.parking_theta = 30.0 * math.pi / 180.0 # 주차 좌표 생성 각도 (rad) -> 실험적으로 찾아야함
 
         # === 주차 경로 생성 파라미터 ===
         self.resolution = 0.3      # 경로 해상도 (m)
@@ -75,13 +75,13 @@ class ParkingPlanner:
 
         # === ROS Pub/Sub ===
         self.parking_stop_done_pub = rospy.Publisher("/parking_stop_done", Int16, queue_size=1)
-        self.parking_path_pub      = rospy.Publisher("/parking_path",      Path, queue_size=1)
-        self.return_path_pub       = rospy.Publisher("/return_path",       Path, queue_size=1)
+        self.parking_path_pub      = rospy.Publisher("/parking_path",      Path,  queue_size=1)
+        self.return_path_pub       = rospy.Publisher("/return_path",       Path,  queue_size=1)
         self.parking_done_pub      = rospy.Publisher("/parking_done",      Int16, queue_size=1)
         self.parking_end_pub       = rospy.Publisher("/parking_end",       Int16, queue_size=1)
 
-        rospy.Subscriber("/obstacle_info", ObjectInfo, self.obstacle_info_CB, queue_size=1)
-        rospy.Subscriber("/current_pose",  Pose,       self.curr_pose_CB,     queue_size=1)
+        rospy.Subscriber("/obstacle_info", ObjectInfo,  self.obstacle_info_CB, queue_size=1)
+        rospy.Subscriber("/current_pose",  Pose, self.curr_pose_CB,     queue_size=1)
 
         self.marker_pub = rospy.Publisher("/parking_debug_marker", Marker, queue_size=10)
         rospy.Subscriber('/test_parking', Bool, self.test_CB) # 테스트 서브스크라이버
@@ -277,23 +277,21 @@ class ParkingPlanner:
             ref  = self.sorted_pts[gap_idx]
             stop = self.sorted_pts[gap_idx + 1]
 
-            # 차량 진행방향(헤딩)과 차량 우측 벡터
-            q = self.curr_pose.orientation
-            _, _, yaw = euler_from_quaternion([q.x, q.y, q.z, q.w])
-            fwd   = np.array([math.cos(yaw),  math.sin(yaw)], dtype=float)   # 진행방향
-            right = np.array([ math.sin(yaw), -math.cos(yaw)], dtype=float)  # 진행방향의 오른쪽
+            # ref -> stop 방향의 벡터
+            direction_vector = stop - ref
+            # 우측 직각 벡터 계산
+            right_vector = np.array([direction_vector[1], -direction_vector[0]], dtype=float)
+            # 우측 벡터 정규화
+            norm_right_vector = right_vector / (np.linalg.norm(right_vector) + 1e-12)
+            # 주차 좌표 계산
+            self.parking_coords = ref + self.parking_radius * norm_right_vector
 
-            # 진행방향을 기준으로 오른쪽으로 θ만큼 기울인 단위 벡터
-            v_dir = math.cos(self.parking_theta) * fwd + math.sin(self.parking_theta) * right
-            v_dir /= (np.linalg.norm(v_dir) + 1e-12)
-
-            self.reference_coords    = ref
+            self.reference_coords = ref
             self.parking_stop_coords = stop
-            self.parking_coords      = ref + self.parking_radius * v_dir
 
             self.parking_slot_found  = True
             self.parking_in_progress = True
-        else:
+        else:   
             self.parking_slot_found = False
 
     # -------------------- 주차 경로 생성 --------------------
@@ -476,9 +474,9 @@ class ParkingPlanner:
         if self.curr_pose is None or not path_list:
             return
 
-        last_ps = path_list[-1]
-        end_x = float(last_ps.pose.position.x)
-        end_y = float(last_ps.pose.position.y)
+        last_ps = path_list[-1].pose
+        end_x = float(last_ps.position.x)
+        end_y = float(last_ps.position.y)
         px, py = float(self.curr_pose.position.x), float(self.curr_pose.position.y)
 
         self.parking_done = (math.hypot(px - end_x, py - end_y) <= self.Parking_Success_Radius)
@@ -490,8 +488,8 @@ class ParkingPlanner:
             return
 
         last_ps = path_list[-1].pose
-        end_x = float(last_ps.pose.position.x)
-        end_y = float(last_ps.pose.position.y)
+        end_x = float(last_ps.position.x)
+        end_y = float(last_ps.position.y)
         px, py = float(self.curr_pose.position.x), float(self.curr_pose.position.y)
 
         if math.hypot(px - end_x, py - end_y) <= self.Parking_Success_Radius:
@@ -502,7 +500,7 @@ class ParkingPlanner:
 
 
     # -------------------- 마커 발행 ---------------------
-# -------------------- 마커 발행 ---------------------
+    
     def publish_markers(self):
         """
         RViz 시각화 함수 (delivery_planner 스타일로 안정성 및 가독성 개선)
