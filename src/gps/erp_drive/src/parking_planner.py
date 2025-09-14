@@ -566,7 +566,7 @@ class ParkingPlanner:
         m2.action = Marker.ADD
         if self.parking_stop_coords is not None:
             m2.pose.position.x = self.parking_stop_coords[0] - self.rviz_offset_x
-            m2.pose.position.y = self.parking_stopgenerate_return_path_coords[1] - self.rviz_offset_y
+            m2.pose.position.y = self.parking_stop_coords[1] - self.rviz_offset_y
             m2.pose.orientation.w = 1.0
             m2.scale.x = m2.scale.y = m2.scale.z = 0.4
             m2.color.r, m2.color.g, m2.color.b, m2.color.a = (1.0, 0.2, 0.2, 0.9) # 빨간색
