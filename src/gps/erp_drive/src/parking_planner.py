@@ -73,10 +73,9 @@ class ParkingPlanner:
 
         # === ROS Pub/Sub ===
         self.parking_stop_done_pub = rospy.Publisher("/parking_stop_done", Int16, queue_size=1)
-        self.parking_path_pub      = rospy.Publisher("/local_path",        PathReference,  queue_size=1)
-        self.return_path_pub       = rospy.Publisher("/local_path",        PathReference,  queue_size=1)
         self.parking_done_pub      = rospy.Publisher("/parking_done",      Int16, queue_size=1)
         self.parking_end_pub       = rospy.Publisher("/parking_end",       Int16, queue_size=1)
+        self.local_path_pub        = rospy.Publisher("/local_path",        PathReference,  queue_size=1)
 
         rospy.Subscriber("/obstacle_info", ObjectInfo,  self.obstacle_info_CB, queue_size=1)
         rospy.Subscriber("/current_pose",  Pose, self.curr_pose_CB,     queue_size=1)
@@ -303,7 +302,7 @@ class ParkingPlanner:
 
     # -------------------- 주차 경로 생성 --------------------
     def make_parking_path(self):
-        if self.parking_coords is None or self.curr_pose is None or self.parking_slot_found is False:
+        if self.parking_coords is None or self.curr_pose is None or not self.parking_slot_found:
             return
 
         start_xy = np.array([self.curr_pose.position.x, self.curr_pose.position.y], dtype=float)
@@ -312,76 +311,65 @@ class ParkingPlanner:
         raw = self.make_raw_path(start_xy, goal_xy, n=800, flip=self.flip_arccos)
         pts = self.spacing_parking_path(raw, self.resolution)
 
-        self.parking_path.header.frame_id = self.frame_id
-        self.parking_path.header.stamp = rospy.Time.now()
+        # 내부용/RViz용 Path 메시지 채우기 (헤더 설정 제거)
         self.parking_path.poses.clear()
 
         now = rospy.Time.now()
         last_yaw = 0.0
         for i, (x, y) in enumerate(pts):
             if i < len(pts)-1:
-                nx, ny = pts[i+1]
-                yaw = math.atan2(ny - y, nx - x)
+                yaw = math.atan2(pts[i+1][1] - y, pts[i+1][0] - x)
                 last_yaw = yaw
             else:
                 yaw = last_yaw
-
+            
             qx, qy, qz, qw = quaternion_from_euler(0.0, 0.0, yaw)
-
             pose_stamped = PoseStamped()
-            pose_stamped.header.frame_id = self.frame_id
+            pose_stamped.header.frame_id = self.frame_id # PoseStamped의 헤더는 RViz 마커 위해 유지
             pose_stamped.header.stamp = now
-            pose_stamped.pose.position.x = float(x)
-            pose_stamped.pose.position.y = float(y)
-            pose_stamped.pose.position.z = 0.0
-            pose_stamped.pose.orientation.x = qx
-            pose_stamped.pose.orientation.y = qy
-            pose_stamped.pose.orientation.z = qz
-            pose_stamped.pose.orientation.w = qw
-
+            pose_stamped.pose.position = Point(float(x), float(y), 0.0)
+            pose_stamped.pose.orientation.x, pose_stamped.pose.orientation.y, pose_stamped.pose.orientation.z, pose_stamped.pose.orientation.w = qx, qy, qz, qw
             self.parking_path.poses.append(pose_stamped)
 
         if self.parking_in_progress and not self.parking_path_is_pub:
             self.local_parking_path = self.convert_to_path_reference(self.parking_path)
-            self.parking_path_pub.publish(self.local_parking_path)
+            self.local_path_pub.publish(self.local_parking_path)
+            
             self.parking_path_is_pub = True
-            rospy.loginfo(f"Parking path published!!!!!!")
+            rospy.loginfo(f"Local Parking path published!!!!!!")
             self.publish_markers()
 
     # -------------------- rev 경로 생성 --------------------
     def generate_return_path(self):
-        path = self.parking_path.poses
-        if len(path) < 2:
+        path_poses = self.parking_path.poses
+        if len(path_poses) < 2:
             return
-        pts = [(e.pose.position.x, e.pose.position.y) for e in path][::-1]
+        
+        pts = [(e.pose.position.x, e.pose.position.y) for e in path_poses][::-1]
 
-        new_poses = []
+        # 내부용/RViz용 Path 메시지 채우기 (헤더 설정 제거)
+        self.return_path.poses.clear()
+        
         now = rospy.Time.now()
         last_yaw = 0.0
         for i, (x, y) in enumerate(pts):
             if i < len(pts) - 1:
-                nx, ny = pts[i+1]
-                yaw = math.atan2(ny - y, nx - x)
+                yaw = math.atan2(pts[i+1][1] - y, pts[i+1][0] - x)
                 last_yaw = yaw
             else:
                 yaw = last_yaw
+
             qx, qy, qz, qw = quaternion_from_euler(0.0, 0.0, yaw)
-            
             pose_stamped = PoseStamped()
             pose_stamped.header.frame_id = self.frame_id
             pose_stamped.header.stamp = now
-            pose_stamped.pose.position.x = float(x)
-            pose_stamped.pose.position.y = float(y)
-            pose_stamped.pose.position.z = 0.0
-            pose_stamped.pose.orientation.x = qx
-            pose_stamped.pose.orientation.y = qy
-            pose_stamped.pose.orientation.z = qz
-            pose_stamped.pose.orientation.w = qw
-            new_poses.append(pose_stamped)
-
+            pose_stamped.pose.position = Point(float(x), float(y), 0.0)
+            pose_stamped.pose.orientation.x, pose_stamped.pose.orientation.y, pose_stamped.pose.orientation.z, pose_stamped.pose.orientation.w = qx, qy, qz, qw
+            self.return_path.poses.append(pose_stamped)
+        
         self.local_return_path = self.convert_to_path_reference(self.return_path)
-        self.return_path_pub.publish(self.local_return_path)
-        rospy.loginfo(f"Return path published!!!!!!")
+        self.local_path_pub.publish(self.local_return_path)
+        rospy.loginfo(f"Local Return path published!!!!!!")
 
     # -------------------- raw path 생성 --------------------
     def make_raw_path(self, start_xy, goal_xy, n=800, flip=False):
@@ -511,7 +499,6 @@ class ParkingPlanner:
 
     def convert_to_path_reference(self, path: Path) -> PathReference:
         path_ref = PathReference()
-        path_ref.header = path.header
         
         for pose_stamped in path.poses:
             path_element = PathReferenceElement()
