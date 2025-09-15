@@ -10,13 +10,11 @@ import cv2
 
 from cv_bridge import CvBridge
 import sensor_msgs.point_cloud2 as pc2
-from sensor_msgs.msg import Image, CameraInfo, PointCloud2
+from sensor_msgs.msg import Image, PointCloud2
 from geometry_msgs.msg import PointStamped
 
 from fusion_module import Fusion
-from lidar_object_detection.msg import PointInfo
 from delivery.msg import DetectYolo
-from erp_drive.msg import IoUFusionMsg
 
 from dynamic_reconfigure.server import Server
 from erp_drive.cfg import FusionExtrinsicsConfig
@@ -44,15 +42,59 @@ class FusionNode:
         # Fusion 객체
         self.fusion = Fusion(Fx, Fy, Cx, Cy, self.R, self.T, self.img_width, self.img_height)
 
-        # IoU관련 파라미터
-        self.iou_thresh = 0.50
-        self.size_tolerance_pct = 0.40 # 허용 오차: YOLO 면적 대비 ±n% (기본 40%)
-
-        # 이미지와 bbox, 포인트 초기화
+        # 이미지와 포인트 초기화
         self.cv_image = None
-        self.yolo_bbox = None
-        self.lidar_bboxes = []
         self.lidar_pts2d = None
+
+        # === New: YOLO bbox & Cloud 상태 ===
+        self.yolo_bbox = None             # (4,1,2) poly for drawing
+        self.yolo_xyxy = None             # (x1,y1,x2,y2) for masking
+        self.cloud_uv  = None             # (K,2) float32
+        self.cloud_xyz = None             # (K,3) float32
+
+        # === New: 정제 파이프라인 파라미터 ===
+        self.r_cut = 0.8
+        # [0.6~0.95] YOLO bbox 중심에서의 정규 반경 컷(r <= r_cut).
+        # ↓(0.6~0.75): 박스 가장자리 노이즈/칼리브 불안정 → 더 중심부만 사용
+        # ↑(0.85~0.95): 박스가 타이트하거나 칼리브 정확 → 더 많은 포인트 허용
+
+        self.sigma2d = 0.5
+        # [0.3~0.8] bbox 중심 가중치의 분산(가우시안 너비).
+        # ↓(0.3~0.45): 중심부에 더 강하게 가중(외곽 영향 줄이기)
+        # ↑(0.6~0.8): 중심-외곽 가중 차이를 완화(포인트 적을 때 유리)
+
+        self.k_mad = 2.5
+        # [2.0~3.5] 거리(범위) 분포의 MAD 기반 이상치 컷 강도.
+        # ↓(~2.0): 먼 배경/엉뚱한 포인트가 섞일 때 더 빡세게 제거
+        # ↑(~3.0+): 포인트가 적거나 분포가 넓어 과컷되는 경우 완화
+
+        self.neigh_radius_base = 0.25
+        # [0.2~0.4] 근접도(반경-이웃) 코어 선택의 최소 반경 [m].
+        # ↓: 근거리에서 서로 다른 물체가 섞일 때 군집을 더 작게
+        # ↑: 라이다가 듬성듬성 찍히거나 장거리에서 밀도가 낮을 때 완화
+
+        self.neigh_radius_scale = 0.02
+        # [0.01~0.04] 거리 비례 반경 스케일(대략 반경 ≈ base 또는 0.02*중앙거리).
+        # ↓: 장거리에서도 군집 반경을 보수적으로(혼입 줄이기)
+        # ↑: 장거리에서 포인트가 매우 희박해 군집이 잘 안 잡힐 때
+
+        self.neigh_min_samples = 3
+        # [2~5] 코어로 인정할 최소 이웃 수.
+        # ↓: 라이다 리턴이 희박(비/안개/장거리)해도 통과가 쉬움
+        # ↑: 오검출/잡음이 많을 때 합의 강도를 높여 안정화
+
+        self.prev_center = None
+        # 이전 프레임의 추정 3D 중심. None이면 시간 게이팅 비활성.
+        # (칼만/EMA 없이도 간단히 프레임 간 일관성 확보용으로 사용)
+
+        self.prev_gate = 1.5
+        # [0.8~3.0] 시간 게이팅 반경 [m].
+        # ↓(~1.0): 표지판처럼 정적 타깃에서 점프/스위칭 방지(더 엄격)
+        # ↑(~2.0+): 고속 주행/프레임 드랍/칼리브 덜맞음으로 중심 이동이 큰 환경
+
+        # 신뢰도 민감도
+        self.tau_z2 = 0.36   # (0.6m)^2
+        self.tau_2d = 0.25
 
         # 포인트클라우드 시각화 파라미터
         self.cloud_stride = 1
@@ -60,14 +102,12 @@ class FusionNode:
 
         # 이미지 퍼블리셔 (RViz에서 시각화할 토픽)
         self.image_pub = rospy.Publisher('/fusion/image', Image, queue_size=1)
-        self.fusion_pub = rospy.Publisher('/fusion/result', IoUFusionMsg, queue_size=1)
 
         # 목적지 좌표 퍼블리셔
         self.center_pub = rospy.Publisher('/fusion/matched_center', PointStamped, queue_size=1)
 
         # 서브스크라이버
         self.yolo_sub = rospy.Subscriber('/delivery_sign_info', DetectYolo, self.yolo_bbox_callback, queue_size=1) # 욜로 bbox : class_name, center_x, center_y, width, height
-        self.lidar_sub = rospy.Subscriber('/bbox_point_info_delivery', PointInfo, self.lidar_bbox_callback, queue_size=1) # 클러스터 박스들 (bboxCounts, xMini[], yMini[], zMini[], xMaxi[], yMaxi[], zMaxi[])
         self.img_sub = rospy.Subscriber('/usb_cam/image_raw', Image, self.img_callback, queue_size=1)
         self.cloud_sub = rospy.Subscriber('/velodyne_points', PointCloud2, self.cloud_callback, queue_size=1)
 
@@ -84,66 +124,31 @@ class FusionNode:
         self.yaw = config.yaw_deg * np.pi / 180.0
         self.cloud_stride = config.cloud_stride
         self.max_projected_points = config.max_projected_points
-
+        self.r_cut = config.r_cut
+        self.k_mad = config.k_mad
+        self.prev_gate = config.prev_gate
+        
         # Extrinsics 업데이트
         self.R, self.T = Fusion.make_extrinsics(self.x, self.y, self.z, self.roll, self.pitch, self.yaw)
         self.fusion.update_extrinsics(self.R, self.T)
 
         return config
 
-    def _bbox_area_xyminmax(self, poly):
-        """ poly: (4,1,2) or (4,2) 형태의 사각형 꼭짓점들 """
-        pts = poly.reshape(-1, 2).astype(np.float32)
-        x_min, y_min = np.min(pts[:, 0]), np.min(pts[:, 1])
-        x_max, y_max = np.max(pts[:, 0]), np.max(pts[:, 1])
-        w = max(0.0, x_max - x_min)
-        h = max(0.0, y_max - y_min)
-        return w * h
-
     def yolo_bbox_callback(self, yolo_msg):
-        # YOLO bbox 저장
-        x_half = yolo_msg.width // 2
-        y_half = yolo_msg.height // 2
-        points = [(yolo_msg.center_x + x_half, yolo_msg.center_y + y_half), 
-                  (yolo_msg.center_x - x_half, yolo_msg.center_y + y_half), 
-                  (yolo_msg.center_x - x_half, yolo_msg.center_y - y_half), 
-                  (yolo_msg.center_x + x_half, yolo_msg.center_y - y_half)]
-        yolo_pts = np.array([[p[0], p[1]] for p in points])
+        # 정밀 중심/폭/높이
+        cx = float(yolo_msg.center_x)
+        cy = float(yolo_msg.center_y)
+        hw = float(yolo_msg.width)  * 0.5
+        hh = float(yolo_msg.height) * 0.5
+
+        x1, y1 = cx - hw, cy - hh
+        x2, y2 = cx + hw, cy + hh
+        self.yolo_xyxy = (x1, y1, x2, y2)
+
+        # 그리기용 폴리곤
+        yolo_pts = np.array([[x1, y1],[x2, y1],[x2, y2],[x1, y2]], dtype=np.float32)
         yolo_bbox = self.fusion.points2bbox(yolo_pts)
-        self.yolo_bbox = yolo_bbox.reshape((-1,1,2)).astype(np.int32) # cv2 기능 쓰기위해서 (N, 1, 2)형태로 변환
-
-
-    def lidar_bbox_callback(self, lidar_msg):
-        # 라이다 bbox 리스트 저장
-        self.lidar_bboxes = []
-        for i in range(lidar_msg.bboxCounts):
-            x_min, y_min, z_min = lidar_msg.xMini[i], lidar_msg.yMini[i], lidar_msg.zMini[i]
-            x_max, y_max, z_max = lidar_msg.xMaxi[i], lidar_msg.yMaxi[i], lidar_msg.zMaxi[i]
-
-            corners_3d = [
-                (x_min, y_min, z_min),
-                (x_min, y_min, z_max),
-                (x_min, y_max, z_min),
-                (x_min, y_max, z_max),
-                (x_max, y_min, z_min),
-                (x_max, y_min, z_max),
-                (x_max, y_max, z_min),
-                (x_max, y_max, z_max),
-            ]
-
-            lidar_pts = np.array(corners_3d, dtype=np.float32)
-            lidar_pts2d = self.fusion.rid2img(lidar_pts)
-            if lidar_pts2d is None or len(lidar_pts2d) == 0:continue
-
-            lidar_bbox = self.fusion.points2bbox(lidar_pts2d).reshape((-1,1,2)).astype(np.int32) # OpenCV용 형태
-
-            center3d = (
-                0.5 * (x_min + x_max),
-                0.5 * (y_min + y_max),
-                0.5 * (z_min + z_max),
-            )
-            self.lidar_bboxes.append((lidar_bbox, center3d))
-
+        self.yolo_bbox = yolo_bbox.reshape((-1,1,2)).astype(np.int32)
 
     def cloud_callback(self, cloud_msg: PointCloud2):
         try:
@@ -192,10 +197,15 @@ class FusionNode:
                 sel = np.random.choice(pts2d.shape[0], self.max_projected_points, replace=False)
                 pts2d = pts2d[sel]
                 dist  = dist[sel]
+                lidar_pts = lidar_pts[sel]
 
             # (u,v,d) 저장 (그리기는 img_callback에서)
-            uv = pts2d.astype(np.int32)
-            self.lidar_pts2d = np.column_stack([uv, dist])
+            uv_i32 = pts2d.astype(np.int32)
+            self.lidar_pts2d = np.column_stack([uv_i32, dist])
+
+            # === New: 평균 산출용 원본(동일 인덱스) 보관 ===
+            self.cloud_uv  = pts2d.astype(np.float32)   # [K,2]
+            self.cloud_xyz = lidar_pts.astype(np.float32)  # [K,3]
 
         except Exception as e:
             rospy.logwarn(f"[cloud_callback] error: {e}")
@@ -210,10 +220,6 @@ class FusionNode:
         except Exception as e:
             rospy.logwarn(f"CV bridge error: {e}")
             return
-        
-        # BBOX 그리기
-        yolo_poly_for_match = None
-        yolo_area = None
 
         # YOLO 박스 (빨강)
         if self.yolo_bbox is not None:
@@ -222,28 +228,7 @@ class FusionNode:
             for (u, v) in pts:
                 cv2.circle(self.cv_image, (int(u), int(v)), 4, (0, 0, 255), -1)  # 빨강 점
             cv2.polylines(self.cv_image, [self.yolo_bbox], isClosed=True, color=(0, 0, 255), thickness=2) # 빨간색 박스
-            
-            # 이후 라이다 유효성 판단을 위해 면적 계산
-            yolo_area = self._bbox_area_xyminmax(self.yolo_bbox)
-            yolo_poly_for_match = pts
 
-        # 라이다 박스: 유효/무효 나누기
-        lidar_candidates = []  # IoU 후보: (lidar_poly, center3d)
-        if self.lidar_bboxes and yolo_poly_for_match is not None and yolo_area is not None:
-            tol = float(self.size_tolerance_pct)  # 예: 0.40 -> ±40%
-            min_area = yolo_area * (1.0 - tol)
-            max_area = yolo_area * (1.0 + tol)
-            for lidar_poly, center3d in self.lidar_bboxes:
-                lidar_area = self._bbox_area_xyminmax(lidar_poly)
-                if min_area <= lidar_area <= max_area:
-                    pts = lidar_poly.reshape(-1, 2)
-                    for (u, v) in pts:
-                        cv2.circle(self.cv_image, (int(u), int(v)), 4, (0, 255, 255), -1)  # 노랑 점
-                    cv2.polylines(self.cv_image, [lidar_poly], isClosed=True, color=(0, 255, 255), thickness=2) # 노란색 박스
-                    lidar_candidates.append((lidar_poly, center3d))
-                else:
-                    cv2.polylines(self.cv_image, [lidar_poly], isClosed=True, color=(180, 180, 180), thickness=1)
-        
         # LiDAR 포인트 그리기 (거리 기반 색상)
         if self.lidar_pts2d is not None and self.lidar_pts2d.size > 0:
             for (u, v, d) in self.lidar_pts2d:
@@ -260,42 +245,38 @@ class FusionNode:
 
                 cv2.circle(self.cv_image, (int(u), int(v)), 2, color, -1)
 
-        # ===== IoU 매칭 & 퍼블리시 =====
-        try:
-            # YOLO나 LiDAR가 아직 없으면 스킵
-            if yolo_poly_for_match is not None and lidar_candidates:
+        if self.yolo_xyxy is not None and self.cloud_uv is not None and self.cloud_xyz is not None:
+            p3d, conf, inlier_mask = self.fusion.compute_target_from_bbox(
+                self.cloud_uv, self.cloud_xyz, self.yolo_xyxy,
+                r_cut=self.r_cut, sigma2d=self.sigma2d, k_mad=self.k_mad,
+                neigh_radius_base=self.neigh_radius_base,
+                neigh_radius_scale=self.neigh_radius_scale,
+                neigh_min_samples=self.neigh_min_samples,
+                prev_center=self.prev_center, prev_gate=self.prev_gate,
+                tau_z2=self.tau_z2, tau_2d=self.tau_2d,
+            )
+            if p3d is not None:
+                # 퍼블리시
+                pt = PointStamped()
+                pt.header = img_msg.header
+                pt.header.frame_id = "velodyne"
+                pt.point.x, pt.point.y, pt.point.z = float(p3d[0]), float(p3d[1]), float(p3d[2])
+                self.center_pub.publish(pt)
+                self.prev_center = p3d.copy()
 
-                # (4,1,2) -> (4,2)
-                yolo_poly = yolo_poly_for_match
+                # 시각화
+                uv_c = self.fusion.rid2img(np.array([p3d], dtype=np.float32))
+                if uv_c is not None and len(uv_c) == 1:
+                    u, v = int(uv_c[0, 0]), int(uv_c[0, 1])
+                    cv2.circle(self.cv_image, (u, v), 6, (0, 255, 0), -1)
+                    cv2.putText(self.cv_image, f"conf={conf:.2f}", (u+8, v-8),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
 
-                best_iou = -1.0
-                best_center = None
-                best_poly = None
-
-                for lidar_poly, center3d in lidar_candidates:  # 유효한 애들만
-                    lidar_poly_2d = lidar_poly.reshape(-1, 2)
-                    iou = self.fusion.bbox_iou(yolo_poly, lidar_poly_2d)
-
-                    if iou > best_iou:
-                        best_iou = iou
-                        best_center = center3d
-                        best_poly = lidar_poly
-
-                # 임계값 체크
-                if best_iou >= self.iou_thresh and best_center is not None:
-                    # 퍼블리시: 3D 중심을 PointStamped로 내보냄 (라이다 좌표계라고 명시)
-                    pt = PointStamped()
-                    pt.header = img_msg.header
-                    pt.header.frame_id = "velodyne"  # 사용중인 LiDAR frame으로 맞춰주세요
-                    pt.point.x, pt.point.y, pt.point.z = best_center
-                    self.center_pub.publish(pt)
-
-                    if best_poly is not None:
-                        cv2.polylines(self.cv_image, [best_poly], True, (0, 255, 0), 3)  # 초록 두껍게
-
-        # 임계값 미만이면 아무것도 안 함(스킵)
-        except Exception as e:
-            rospy.logwarn(f"[img_callback][IoU match] error: {e}")
+                # 인라이어 포인트 강조
+                if inlier_mask is not None and self.lidar_pts2d is not None and len(self.lidar_pts2d) == len(inlier_mask):
+                    for (u, v, _), keep in zip(self.lidar_pts2d, inlier_mask):
+                        if keep:
+                            cv2.circle(self.cv_image, (int(u), int(v)), 2, (0, 255, 0), -1)
 
         # 퍼블리시할 메시지로 변환
         fusion_msg = self.bridge.cv2_to_imgmsg(self.cv_image, encoding='bgr8')
