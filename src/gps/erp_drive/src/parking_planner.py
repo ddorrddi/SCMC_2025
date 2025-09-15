@@ -3,14 +3,16 @@ import math
 import numpy as np
 import rospy
 
-from geometry_msgs.msg import Pose, PoseStamped, Point
+from geometry_msgs.msg import Pose, PoseStamped
 from lidar_object_detection.msg import ObjectInfo
 from std_msgs.msg import Int16, Bool
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 from nav_msgs.msg import Path
 
+
 from visualization_msgs.msg import Marker
-from erp_drive.msg import PathReference, PathReferenceElement
+from geometry_msgs.msg import Point
+
 
 class ParkingPlanner:
     def __init__(self, rviz_offset_x: float, rviz_offset_y: float):
@@ -33,6 +35,8 @@ class ParkingPlanner:
 
         # === 내부 상태 ===
         self.tracks = []
+
+        # 안정 좌표(매 프레임 재구성): np.ndarray (M,2)
         self.stable_pts = np.empty((0, 2), dtype=float)
 
         # PCA 축 (안정 좌표 존재할 때 갱신)
@@ -47,20 +51,18 @@ class ParkingPlanner:
 
         # 주차 좌표 생성
         self.parking_stop_coords = None  # 정지 좌표 (x,y)
-        self.reference_coords = None  # parking_coords 생성 기준 좌표 (x,y)
-        self.parking_coords = None  # 주차 좌표 (x,y)
+        self.reference_coords = None
+        self.parking_coords = None
         self.parking_radius = 1.5  # 주차 좌표 생성 반경 (m) -> 실험적으로 찾아야함
-        self.parking_theta = 60.0 * math.pi / 180.0 # 주차 좌표 생성 각도 (rad) -> 실험적으로 찾아야함
+        self.parking_theta = 30.0 * math.pi / 180.0 # 주차 좌표 생성 각도 (rad) -> 실험적으로 찾아야함
 
         # === 주차 경로 생성 파라미터 ===
         self.resolution = 0.3      # 경로 해상도 (m)
         self.flip_arccos = False   # arccos 함수 상하 반전 여부
         self.parking_in_progress = False
         self.parking_path_is_pub = False
-        self.parking_path = Path()      # Rviz 시각화용
-        self.return_path = Path()       # Rviz 시각화용
-        self.local_parking_path = PathReference()   # /local_path 퍼블리시용
-        self.local_return_path = PathReference()    # /local_path 퍼블리시용
+        self.parking_path = Path()
+        self.return_path = Path()
 
         # === 주차 상태 플래그 ===
         self.parking_stop_done = False     # 정지 완료 플래그
@@ -73,15 +75,16 @@ class ParkingPlanner:
 
         # === ROS Pub/Sub ===
         self.parking_stop_done_pub = rospy.Publisher("/parking_stop_done", Int16, queue_size=1)
+        self.parking_path_pub      = rospy.Publisher("/parking_path",      Path,  queue_size=1)
+        self.return_path_pub       = rospy.Publisher("/return_path",       Path,  queue_size=1)
         self.parking_done_pub      = rospy.Publisher("/parking_done",      Int16, queue_size=1)
         self.parking_end_pub       = rospy.Publisher("/parking_end",       Int16, queue_size=1)
-        self.local_path_pub        = rospy.Publisher("/local_path",        PathReference,  queue_size=1)
 
         rospy.Subscriber("/obstacle_info", ObjectInfo,  self.obstacle_info_CB, queue_size=1)
         rospy.Subscriber("/current_pose",  Pose, self.curr_pose_CB,     queue_size=1)
 
         self.marker_pub = rospy.Publisher("/parking_debug_marker", Marker, queue_size=10)
-        rospy.Subscriber('/test_parking', Bool, self.test_CB)
+        rospy.Subscriber('/test_parking', Bool, self.test_CB) # 테스트 서브스크라이버
 
         self.curr_pose = None
 
@@ -274,35 +277,28 @@ class ParkingPlanner:
             ref  = self.sorted_pts[gap_idx]
             stop = self.sorted_pts[gap_idx + 1]
 
-            # ref -> stop 방향의 벡터
-            direction_vector = stop - ref
-            norm_direction_vector = direction_vector / (np.linalg.norm(direction_vector) + 1e-12)
+            # 차량 진행방향(헤딩)과 차량 우측 벡터
+            q = self.curr_pose.orientation
+            _, _, yaw = euler_from_quaternion([q.x, q.y, q.z, q.w])
+            fwd   = np.array([math.cos(yaw),  math.sin(yaw)], dtype=float)   # 진행방향
+            right = np.array([ math.sin(yaw), -math.cos(yaw)], dtype=float)  # 진행방향의 오른쪽
 
-            # 우측 90도 벡터 생성
-            base_right_vector = np.array([norm_direction_vector[1], -norm_direction_vector[0]])
+            # 진행방향을 기준으로 오른쪽으로 θ만큼 기울인 단위 벡터
+            v_dir = math.cos(self.parking_theta) * fwd + math.sin(self.parking_theta) * right
+            v_dir /= (np.linalg.norm(v_dir) + 1e-12)
 
-            # 3. self.parking_theta를 이용해 2D 회전 행렬 생성
-            th = self.parking_theta # 사용자가 정의한 각도 (rad 단위)
-            c, s = math.cos(th), math.sin(th)
-            rotation_matrix = np.array([[c, -s], [s, c]])
-
-            # 4. 기본 직각 벡터를 theta만큼 회전시켜 최종 방향 벡터 결정
-            final_vector = rotation_matrix @ base_right_vector
-            
-            # 5. 회전된 최종 방향으로 주차 좌표 계산
-            self.parking_coords = ref + self.parking_radius * final_vector
-
-            self.reference_coords = ref
+            self.reference_coords    = ref
             self.parking_stop_coords = stop
+            self.parking_coords      = ref + self.parking_radius * v_dir
 
             self.parking_slot_found  = True
             self.parking_in_progress = True
-        else:   
+        else:
             self.parking_slot_found = False
 
     # -------------------- 주차 경로 생성 --------------------
     def make_parking_path(self):
-        if self.parking_coords is None or self.curr_pose is None or not self.parking_slot_found:
+        if self.parking_coords is None or self.curr_pose is None or self.parking_slot_found is False:
             return
 
         start_xy = np.array([self.curr_pose.position.x, self.curr_pose.position.y], dtype=float)
@@ -311,65 +307,76 @@ class ParkingPlanner:
         raw = self.make_raw_path(start_xy, goal_xy, n=800, flip=self.flip_arccos)
         pts = self.spacing_parking_path(raw, self.resolution)
 
-        # 내부용/RViz용 Path 메시지 채우기 (헤더 설정 제거)
+        self.parking_path.header.frame_id = self.frame_id
+        self.parking_path.header.stamp = rospy.Time.now()
         self.parking_path.poses.clear()
 
         now = rospy.Time.now()
         last_yaw = 0.0
         for i, (x, y) in enumerate(pts):
             if i < len(pts)-1:
-                yaw = math.atan2(pts[i+1][1] - y, pts[i+1][0] - x)
+                nx, ny = pts[i+1]
+                yaw = math.atan2(ny - y, nx - x)
                 last_yaw = yaw
             else:
                 yaw = last_yaw
-            
+
             qx, qy, qz, qw = quaternion_from_euler(0.0, 0.0, yaw)
+
             pose_stamped = PoseStamped()
-            pose_stamped.header.frame_id = self.frame_id # PoseStamped의 헤더는 RViz 마커 위해 유지
+            pose_stamped.header.frame_id = self.frame_id
             pose_stamped.header.stamp = now
-            pose_stamped.pose.position = Point(float(x), float(y), 0.0)
-            pose_stamped.pose.orientation.x, pose_stamped.pose.orientation.y, pose_stamped.pose.orientation.z, pose_stamped.pose.orientation.w = qx, qy, qz, qw
+            pose_stamped.pose.position.x = float(x)
+            pose_stamped.pose.position.y = float(y)
+            pose_stamped.pose.position.z = 0.0
+            pose_stamped.pose.orientation.x = qx
+            pose_stamped.pose.orientation.y = qy
+            pose_stamped.pose.orientation.z = qz
+            pose_stamped.pose.orientation.w = qw
+
             self.parking_path.poses.append(pose_stamped)
 
+
         if self.parking_in_progress and not self.parking_path_is_pub:
-            self.local_parking_path = self.convert_to_path_reference(self.parking_path)
-            self.local_path_pub.publish(self.local_parking_path)
-            
+            self.parking_path_pub.publish(self.parking_path)
             self.parking_path_is_pub = True
-            rospy.loginfo(f"Local Parking path published!!!!!!")
+            rospy.loginfo(f"Parking path published!!!!!!")
             self.publish_markers()
 
     # -------------------- rev 경로 생성 --------------------
     def generate_return_path(self):
-        path_poses = self.parking_path.poses
-        if len(path_poses) < 2:
+        path = self.parking_path.poses
+        if len(path) < 2:
             return
-        
-        pts = [(e.pose.position.x, e.pose.position.y) for e in path_poses][::-1]
+        pts = [(e.pose.position.x, e.pose.position.y) for e in path][::-1]
 
-        # 내부용/RViz용 Path 메시지 채우기 (헤더 설정 제거)
-        self.return_path.poses.clear()
-        
+        new_poses = []
         now = rospy.Time.now()
         last_yaw = 0.0
         for i, (x, y) in enumerate(pts):
             if i < len(pts) - 1:
-                yaw = math.atan2(pts[i+1][1] - y, pts[i+1][0] - x)
+                nx, ny = pts[i+1]
+                yaw = math.atan2(ny - y, nx - x)
                 last_yaw = yaw
             else:
                 yaw = last_yaw
-
             qx, qy, qz, qw = quaternion_from_euler(0.0, 0.0, yaw)
+            
             pose_stamped = PoseStamped()
             pose_stamped.header.frame_id = self.frame_id
             pose_stamped.header.stamp = now
-            pose_stamped.pose.position = Point(float(x), float(y), 0.0)
-            pose_stamped.pose.orientation.x, pose_stamped.pose.orientation.y, pose_stamped.pose.orientation.z, pose_stamped.pose.orientation.w = qx, qy, qz, qw
-            self.return_path.poses.append(pose_stamped)
-        
-        self.local_return_path = self.convert_to_path_reference(self.return_path)
-        self.local_path_pub.publish(self.local_return_path)
-        rospy.loginfo(f"Local Return path published!!!!!!")
+            pose_stamped.pose.position.x = float(x)
+            pose_stamped.pose.position.y = float(y)
+            pose_stamped.pose.position.z = 0.0
+            pose_stamped.pose.orientation.x = qx
+            pose_stamped.pose.orientation.y = qy
+            pose_stamped.pose.orientation.z = qz
+            pose_stamped.pose.orientation.w = qw
+            new_poses.append(pose_stamped)
+
+        self.return_path.poses = new_poses
+        self.return_path.header.stamp = rospy.Time.now()
+        self.return_path_pub.publish(self.return_path)
 
     # -------------------- raw path 생성 --------------------
     def make_raw_path(self, start_xy, goal_xy, n=800, flip=False):
@@ -495,23 +502,6 @@ class ParkingPlanner:
             self.parking_in_progress = False
             self.return_phase = 3
 
-    # -------------------- 메시지 타입 수정 ---------------------
-
-    def convert_to_path_reference(self, path: Path) -> PathReference:
-        path_ref = PathReference()
-        
-        for pose_stamped in path.poses:
-            path_element = PathReferenceElement()
-            path_element.x = pose_stamped.pose.position.x
-            path_element.y = pose_stamped.pose.position.y
-            
-            q = pose_stamped.pose.orientation
-            _, _, yaw = euler_from_quaternion((q.x, q.y, q.z, q.w))
-            path_element.heading = yaw
-            
-            path_ref.path.append(path_element)
-            
-        return path_ref
 
     # -------------------- 마커 발행 ---------------------
     
