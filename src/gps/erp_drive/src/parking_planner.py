@@ -3,15 +3,14 @@ import math
 import numpy as np
 import rospy
 
-from geometry_msgs.msg import Pose, PoseStamped
+from geometry_msgs.msg import Pose, PoseStamped, Point
 from lidar_object_detection.msg import ObjectInfo
 from std_msgs.msg import Int16, Bool
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 from nav_msgs.msg import Path
 
-
 from visualization_msgs.msg import Marker
-from geometry_msgs.msg import Point
+from erp_drive import PathReference, PathReferenceElement
 
 
 class ParkingPlanner:
@@ -63,6 +62,8 @@ class ParkingPlanner:
         self.parking_path_is_pub = False
         self.parking_path = Path()
         self.return_path = Path()
+        self.local_parking_path = PathReference()
+        self.local_return_path  = PathReference()
 
         # === 주차 상태 플래그 ===
         self.parking_stop_done = False     # 정지 완료 플래그
@@ -74,11 +75,10 @@ class ParkingPlanner:
         self.Parking_Success_Radius = 0.5  # 주차 성공 반경 (m)
 
         # === ROS Pub/Sub ===
-        self.parking_stop_done_pub = rospy.Publisher("/parking_stop_done", Int16, queue_size=1)
-        self.parking_path_pub      = rospy.Publisher("/parking_path",      Path,  queue_size=1)
-        self.return_path_pub       = rospy.Publisher("/return_path",       Path,  queue_size=1)
-        self.parking_done_pub      = rospy.Publisher("/parking_done",      Int16, queue_size=1)
-        self.parking_end_pub       = rospy.Publisher("/parking_end",       Int16, queue_size=1)
+        self.parking_stop_done_pub = rospy.Publisher("/parking_stop_done", Int16,         queue_size=1)
+        self.parking_done_pub      = rospy.Publisher("/parking_done",      Int16,         queue_size=1)
+        self.parking_end_pub       = rospy.Publisher("/parking_end",       Int16,         queue_size=1)
+        self.local_path_pub        = rospy.Publisher("/local_path",        PathReference, queue_size=1)
 
         rospy.Subscriber("/obstacle_info", ObjectInfo,  self.obstacle_info_CB, queue_size=1)
         rospy.Subscriber("/current_pose",  Pose, self.curr_pose_CB,     queue_size=1)
@@ -336,9 +336,10 @@ class ParkingPlanner:
 
             self.parking_path.poses.append(pose_stamped)
 
+        self.local_parking_path = self.convert_to_path_reference(self.parking_path, 2)    # 모드 지정은 따로 나중에 확인
 
         if self.parking_in_progress and not self.parking_path_is_pub:
-            self.parking_path_pub.publish(self.parking_path)
+            self.local_path_pub.publish(self.local_parking_path)
             self.parking_path_is_pub = True
             rospy.loginfo(f"Parking path published!!!!!!")
             self.publish_markers()
@@ -376,7 +377,9 @@ class ParkingPlanner:
 
         self.return_path.poses = new_poses
         self.return_path.header.stamp = rospy.Time.now()
-        self.return_path_pub.publish(self.return_path)
+
+        self.local_return_path = self.convert_to_path_reference(self.return_path, 1)   # 모드 지정은 따로 나중에 확인
+        self.local_path_pub.publish(self.local_return_path)
 
     # -------------------- raw path 생성 --------------------
     def make_raw_path(self, start_xy, goal_xy, n=800, flip=False):
@@ -501,6 +504,43 @@ class ParkingPlanner:
                 rospy.loginfo(f"Return to g_path Done!!!!!!!!!")
             self.parking_in_progress = False
             self.return_phase = 3
+
+    # -------------------- 메시지 타입 변환 --------------------
+
+    def convert_to_path_reference(self, nav_path, mode):
+        path_ref = PathReference()
+        path_ref.path.clear()
+
+        last_yaw = 0.0
+        for i, pose_stamped in enumerate(nav_path.poses):
+            x = pose_stamped.pose.position.x
+            y = pose_stamped.pose.position.y
+            
+            # 다음 점의 위치를 이용해 yaw 계산
+            if i < len(nav_path.poses) - 1:
+                next_pose = nav_path.poses[i+1]
+                nx = next_pose.pose.position.x
+                ny = next_pose.pose.position.y
+                yaw = math.atan2(ny - y, nx - x)
+                last_yaw = yaw
+            else:
+                yaw = last_yaw
+                
+            qx, qy, qz, qw = quaternion_from_euler(0.0, 0.0, yaw)
+            
+            element = PathReferenceElement()
+            element.pose.position.x = float(x)
+            element.pose.position.y = float(y)
+            element.pose.position.z = 0.
+            element.pose.orientation.x = qx
+            element.pose.orientation.y = qy
+            element.pose.orientation.z = qz
+            element.pose.orientation.w = qw
+            element.mode = mode
+            
+            path_ref.path.append(element)
+            
+        return path_ref
 
 
     # -------------------- 마커 발행 ---------------------
