@@ -318,6 +318,7 @@ class ParkingPlanner:
             self.rviz_parking_path.poses.append(rviz_parking_pose)
 
         self.rviz_parking_path.header.stamp = rospy.Time.now()
+        self.rviz_parking_path.header.frame_id = "map"
 
         if self.parking_in_progress and not self.parking_path_is_pub:
             self.local_path_pub.publish(self.parking_path)
@@ -327,6 +328,7 @@ class ParkingPlanner:
 
     # -------------------- rev 경로 생성 --------------------
     def generate_return_path(self):
+        rospy.loginfo(f"Start generating return path!!!!!!")
         path = self.parking_path.path
         if len(path) < 2:
             return
@@ -361,8 +363,11 @@ class ParkingPlanner:
             self.rviz_return_path.poses.append(rviz_return_pose)
 
         self.rviz_return_path.header.stamp = rospy.Time.now()
+        self.rviz_return_path.header.frame_id = "map"
+
         self.local_path_pub.publish(self.return_path)
         self.rviz_return_path_pub.publish(self.rviz_return_path)
+        rospy.loginfo(f"Return path published!!!!!!")
 
     # -------------------- raw path 생성 --------------------
     def make_raw_path(self, start_xy, goal_xy, n=800, flip=False):
@@ -420,18 +425,21 @@ class ParkingPlanner:
 
     def return_to_gpath(self):
         if self.return_phase == 0:
+            rospy.loginfo(f"Return Phase 0")
             self.parking_done_confirm()
             if self.parking_done:
                 self.return_phase = 1
             return
 
         if self.return_phase == 1:
+            rospy.loginfo(f"Return Phase 1")
             if self.parking_done and len(self.parking_path.path) >= 2:
                 self.generate_return_path()
                 self.return_phase = 2
             return
 
         if self.return_phase == 2:
+            rospy.loginfo(f"Return Phase 2")
             self.return_done_confirm()
             return
         
