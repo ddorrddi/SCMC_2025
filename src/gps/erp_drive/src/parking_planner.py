@@ -3,11 +3,12 @@ import math
 import numpy as np
 import rospy
 
-from geometry_msgs.msg import Pose, PoseStamped
+from geometry_msgs.msg import Pose, PoseStamped, Point
 from lidar_object_detection.msg import ObjectInfo
 from std_msgs.msg import Int16, Bool
 from tf.transformations import euler_from_quaternion
 from nav_msgs.msg import Path
+from visualization_msgs.msg import Marker
 
 from erp_drive.msg import PathReference, PathReferenceElement
 
@@ -72,10 +73,11 @@ class ParkingPlanner:
         self.local_path_pub        = rospy.Publisher("/local_path",        PathReference, queue_size=1)
         self.rviz_parking_path_pub = rospy.Publisher("/rviz_parking_path", Path,          queue_size=1)
         self.rviz_return_path_pub  = rospy.Publisher("/rviz_return_path",  Path,          queue_size=1)
+        self.sorted_pts_marker_pub = rospy.Publisher("/sorted_pts_marker", Marker,        queue_size=1)
 
         rospy.Subscriber("/obstacle_info", ObjectInfo,  self.obstacle_info_CB, queue_size=1)
         rospy.Subscriber("/current_pose",  Pose,        self.curr_pose_CB,     queue_size=1)
-        rospy.Subscriber('/test_parking',  Bool, self.test_CB)
+        rospy.Subscriber('/test_parking',  Bool,        self.test_CB)
 
         self.curr_pose = None
 
@@ -425,21 +427,18 @@ class ParkingPlanner:
 
     def return_to_gpath(self):
         if self.return_phase == 0:
-            rospy.loginfo(f"Return Phase 0")
             self.parking_done_confirm()
             if self.parking_done:
                 self.return_phase = 1
             return
 
         if self.return_phase == 1:
-            rospy.loginfo(f"Return Phase 1")
             if self.parking_done and len(self.parking_path.path) >= 2:
                 self.generate_return_path()
                 self.return_phase = 2
             return
 
         if self.return_phase == 2:
-            rospy.loginfo(f"Return Phase 2")
             self.return_done_confirm()
             return
         
@@ -492,3 +491,133 @@ class ParkingPlanner:
                 rospy.loginfo(f"Return to g_path Done!!!!!!!!!")
             self.parking_in_progress = False
             self.return_phase = 3
+
+    def publish_sorted_pts_marker(self):
+        if self.sorted_pts is None or self.sorted_pts.shape[0] == 0:
+            return
+
+        now = rospy.Time.now()
+        frame_id = "map"
+
+        # 오프셋 적용 유틸
+        def P(x, y, z=0.0):
+            return Point(x=float(x) - self.rviz_offset_x, y=float(y) - self.rviz_offset_y, z=float(z))
+
+        # ===== 1) 정렬 점들(파랑) & 라인(노랑) =====
+        pts = [P(x, y) for x, y in self.sorted_pts]
+
+        m_pts = Marker()
+        m_pts.header.frame_id = frame_id
+        m_pts.header.stamp = now
+        m_pts.ns = "sorted_pts"
+        m_pts.id = 0
+        m_pts.type = Marker.SPHERE_LIST
+        m_pts.action = Marker.ADD
+        m_pts.scale.x = 0.22
+        m_pts.scale.y = 0.22
+        m_pts.scale.z = 0.22
+        m_pts.color.r = 0.10
+        m_pts.color.g = 0.60
+        m_pts.color.b = 1.00
+        m_pts.color.a = 0.95
+        m_pts.points = pts
+
+        m_line = Marker()
+        m_line.header.frame_id = frame_id
+        m_line.header.stamp = now
+        m_line.ns = "sorted_pts"
+        m_line.id = 1
+        m_line.type = Marker.LINE_STRIP
+        m_line.action = Marker.ADD
+        m_line.scale.x = 0.05
+        m_line.color.r = 1.00
+        m_line.color.g = 0.80
+        m_line.color.b = 0.10
+        m_line.color.a = 0.95
+        m_line.points = pts
+
+        self.sorted_pts_marker_pub.publish(m_pts)
+        self.sorted_pts_marker_pub.publish(m_line)
+
+        # ===== 2) gap, gap+1 강조 (빨강/초록) =====
+        gap_idx = self.find_parking_slot(self.sorted_pts) if self.sorted_pts.shape[0] >= 2 else None
+        if gap_idx is not None and gap_idx + 1 < self.sorted_pts.shape[0]:
+            gx, gy = self.sorted_pts[gap_idx]
+            hx, hy = self.sorted_pts[gap_idx + 1]
+
+            gap_marker = Marker()
+            gap_marker.header.frame_id = frame_id
+            gap_marker.header.stamp = now
+            gap_marker.ns = "sorted_pts_gap"
+            gap_marker.id = 2
+            gap_marker.type = Marker.SPHERE
+            gap_marker.action = Marker.ADD
+            gap_marker.pose.position = P(gx, gy)
+            gap_marker.scale.x = 0.34
+            gap_marker.scale.y = 0.34
+            gap_marker.scale.z = 0.34
+            gap_marker.color.r = 1.00  # 빨강
+            gap_marker.color.g = 0.20
+            gap_marker.color.b = 0.20
+            gap_marker.color.a = 1.00
+
+            gap_next_marker = Marker()
+            gap_next_marker.header.frame_id = frame_id
+            gap_next_marker.header.stamp = now
+            gap_next_marker.ns = "sorted_pts_gap"
+            gap_next_marker.id = 3
+            gap_next_marker.type = Marker.SPHERE
+            gap_next_marker.action = Marker.ADD
+            gap_next_marker.pose.position = P(hx, hy)
+            gap_next_marker.scale.x = 0.34
+            gap_next_marker.scale.y = 0.34
+            gap_next_marker.scale.z = 0.34
+            gap_next_marker.color.r = 0.20
+            gap_next_marker.color.g = 1.00  # 초록
+            gap_next_marker.color.b = 0.30
+            gap_next_marker.color.a = 1.00
+
+            self.sorted_pts_marker_pub.publish(gap_marker)
+            self.sorted_pts_marker_pub.publish(gap_next_marker)
+
+        # ===== 3) 원 그리기 유틸 =====
+        def circle_marker(center_xy, radius, mid, r, g, b, ns):
+            if center_xy is None or radius is None or radius <= 0:
+                return None
+            # 원을 LINE_STRIP으로 근사
+            seg = 72
+            circle = Marker()
+            circle.header.frame_id = frame_id
+            circle.header.stamp = now
+            circle.ns = ns
+            circle.id = mid
+            circle.type = Marker.LINE_STRIP
+            circle.action = Marker.ADD
+            circle.scale.x = 0.06
+            circle.color.r = r
+            circle.color.g = g
+            circle.color.b = b
+            circle.color.a = 0.95
+            cx, cy = float(center_xy[0]), float(center_xy[1])
+            pts_circ = []
+            for i in range(seg + 1):  # 닫히도록 +1
+                th = 2.0 * math.pi * i / seg
+                x = cx + radius * math.cos(th)
+                y = cy + radius * math.sin(th)
+                pts_circ.append(P(x, y))
+            circle.points = pts_circ
+            return circle
+
+        # ===== 4) Parking_Stop_Radius (보라), 중심 = parking_stop_coords =====
+        stop_circle = circle_marker(self.parking_stop_coords,
+                                    getattr(self, "Parking_Stop_Radius", 0.0),
+                                    mid=10, r=0.7, g=0.2, b=0.9, ns="parking_radii")
+        if stop_circle is not None:
+            self.sorted_pts_marker_pub.publish(stop_circle)
+
+        # ===== 5) Parking_Success_Radius (하늘), 중심 = parking_coords =====
+        success_circle = circle_marker(self.parking_coords,
+                                    getattr(self, "Parking_Success_Radius", 0.0),
+                                    mid=11, r=0.2, g=0.8, b=1.0, ns="parking_radii")
+        if success_circle is not None:
+            self.sorted_pts_marker_pub.publish(success_circle)
