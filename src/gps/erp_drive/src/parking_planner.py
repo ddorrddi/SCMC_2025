@@ -499,13 +499,12 @@ class ParkingPlanner:
         now = rospy.Time.now()
         frame_id = "map"
 
-        # 오프셋 적용 유틸
         def P(x, y, z=0.0):
             return Point(x=float(x) - self.rviz_offset_x, y=float(y) - self.rviz_offset_y, z=float(z))
 
-        # ===== 1) 정렬 점들(파랑) & 라인(노랑) =====
         pts = [P(x, y) for x, y in self.sorted_pts]
 
+        # --- 정렬 점들 (흰색) ---
         m_pts = Marker()
         m_pts.header.frame_id = frame_id
         m_pts.header.stamp = now
@@ -516,12 +515,13 @@ class ParkingPlanner:
         m_pts.scale.x = 0.22
         m_pts.scale.y = 0.22
         m_pts.scale.z = 0.22
-        m_pts.color.r = 0.10
-        m_pts.color.g = 0.60
+        m_pts.color.r = 1.00
+        m_pts.color.g = 1.00
         m_pts.color.b = 1.00
         m_pts.color.a = 0.95
         m_pts.points = pts
 
+        # --- 정렬 라인 (회색) ---
         m_line = Marker()
         m_line.header.frame_id = frame_id
         m_line.header.stamp = now
@@ -530,16 +530,16 @@ class ParkingPlanner:
         m_line.type = Marker.LINE_STRIP
         m_line.action = Marker.ADD
         m_line.scale.x = 0.05
-        m_line.color.r = 1.00
-        m_line.color.g = 0.80
-        m_line.color.b = 0.10
+        m_line.color.r = 0.5
+        m_line.color.g = 0.5
+        m_line.color.b = 0.5
         m_line.color.a = 0.95
         m_line.points = pts
 
         self.sorted_pts_marker_pub.publish(m_pts)
         self.sorted_pts_marker_pub.publish(m_line)
 
-        # ===== 2) gap, gap+1 강조 (빨강/초록) =====
+        # --- gap, gap+1 강조 (빨강 / 파랑) ---
         gap_idx = self.find_parking_slot(self.sorted_pts) if self.sorted_pts.shape[0] >= 2 else None
         if gap_idx is not None and gap_idx + 1 < self.sorted_pts.shape[0]:
             gx, gy = self.sorted_pts[gap_idx]
@@ -557,8 +557,8 @@ class ParkingPlanner:
             gap_marker.scale.y = 0.34
             gap_marker.scale.z = 0.34
             gap_marker.color.r = 1.00  # 빨강
-            gap_marker.color.g = 0.20
-            gap_marker.color.b = 0.20
+            gap_marker.color.g = 0.00
+            gap_marker.color.b = 0.00
             gap_marker.color.a = 1.00
 
             gap_next_marker = Marker()
@@ -572,19 +572,18 @@ class ParkingPlanner:
             gap_next_marker.scale.x = 0.34
             gap_next_marker.scale.y = 0.34
             gap_next_marker.scale.z = 0.34
-            gap_next_marker.color.r = 0.20
-            gap_next_marker.color.g = 1.00  # 초록
-            gap_next_marker.color.b = 0.30
+            gap_next_marker.color.r = 0.00
+            gap_next_marker.color.g = 0.00
+            gap_next_marker.color.b = 1.00  # 파랑
             gap_next_marker.color.a = 1.00
 
             self.sorted_pts_marker_pub.publish(gap_marker)
             self.sorted_pts_marker_pub.publish(gap_next_marker)
 
-        # ===== 3) 원 그리기 유틸 =====
+        # --- 원 그리기 유틸 ---
         def circle_marker(center_xy, radius, mid, r, g, b, ns):
             if center_xy is None or radius is None or radius <= 0:
                 return None
-            # 원을 LINE_STRIP으로 근사
             seg = 72
             circle = Marker()
             circle.header.frame_id = frame_id
@@ -600,7 +599,7 @@ class ParkingPlanner:
             circle.color.a = 0.95
             cx, cy = float(center_xy[0]), float(center_xy[1])
             pts_circ = []
-            for i in range(seg + 1):  # 닫히도록 +1
+            for i in range(seg + 1):
                 th = 2.0 * math.pi * i / seg
                 x = cx + radius * math.cos(th)
                 y = cy + radius * math.sin(th)
@@ -608,16 +607,13 @@ class ParkingPlanner:
             circle.points = pts_circ
             return circle
 
-        # ===== 4) Parking_Stop_Radius (보라), 중심 = parking_stop_coords =====
-        stop_circle = circle_marker(self.parking_stop_coords,
-                                    getattr(self, "Parking_Stop_Radius", 0.0),
-                                    mid=10, r=0.7, g=0.2, b=0.9, ns="parking_radii")
+        # --- Parking_Stop_Radius (하늘) ---
+        stop_circle = circle_marker(self.parking_stop_coords, getattr(self, "Parking_Stop_Radius", 0.0), mid=10, r=0.2, g=0.8, b=1.0, ns="parking_radii")
         if stop_circle is not None:
             self.sorted_pts_marker_pub.publish(stop_circle)
 
-        # ===== 5) Parking_Success_Radius (하늘), 중심 = parking_coords =====
-        success_circle = circle_marker(self.parking_coords,
-                                    getattr(self, "Parking_Success_Radius", 0.0),
-                                    mid=11, r=0.2, g=0.8, b=1.0, ns="parking_radii")
+        # --- Parking_Success_Radius (주황) ---
+        success_circle = circle_marker(self.parking_coords, getattr(self, "Parking_Success_Radius", 0.0), mid=11, r=1.0, g=0.5, b=0.0, ns="parking_radii")
+        
         if success_circle is not None:
             self.sorted_pts_marker_pub.publish(success_circle)
