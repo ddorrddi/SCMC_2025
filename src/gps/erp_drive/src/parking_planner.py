@@ -3,15 +3,13 @@ import math
 import numpy as np
 import rospy
 
-from geometry_msgs.msg import Pose, PoseStamped, Point
+from geometry_msgs.msg import Pose, PoseStamped
 from lidar_object_detection.msg import ObjectInfo
 from std_msgs.msg import Int16, Bool
-from tf.transformations import euler_from_quaternion, quaternion_from_euler
+from tf.transformations import euler_from_quaternion
 from nav_msgs.msg import Path
 
-from visualization_msgs.msg import Marker
-from erp_drive import PathReference, PathReferenceElement
-
+from erp_drive.msg import PathReference, PathReferenceElement
 
 class ParkingPlanner:
     def __init__(self, rviz_offset_x: float, rviz_offset_y: float):
@@ -19,58 +17,51 @@ class ParkingPlanner:
         self.rviz_offset_x = float(rviz_offset_x)
         self.rviz_offset_y = float(rviz_offset_y)
 
-        # === 기본 파라미터 ===
-        self.frame_id = "map"
-        self.ROI_radius = 1.5  # 차량 기준 ROI (m) -> 실험적으로 찾아야함
-
         # === 트래킹/안정화 파라미터 ===
+        self.ROI_radius = 1.5      # 차량 기준 ROI (m) -> 실험적으로 찾아야함
         self.match_gate = 0.30     # 트랙 매칭 허용 거리 (m)
         self.stable_k   = 10       # count 임계값 (>= 이면 안정 좌표 편입)
         self.decay_miss = 10       # 미관측 허용 프레임(지나면 트랙 삭제)
 
         # === 빈 공간 판정 파라미터 ===
-        self.benchmark_coords     = np.array([0.0, 0.0], dtype=float)  # 앵커 좌표(기본 0,0)
+        self.benchmark_coords = np.array([0.0, 0.0], dtype=float)  # 앵커 좌표(기본 0,0)
         self.empty_gap = 3.0       # 인접 점 사이 3m 이상 → 빈 공간
 
-        # === 내부 상태 ===
+        # === 장애물 인지 및 트래킹 ===
         self.tracks = []
-
-        # 안정 좌표(매 프레임 재구성): np.ndarray (M,2)
         self.stable_pts = np.empty((0, 2), dtype=float)
+        self.sorted_pts = np.empty((0, 2), dtype=float)
 
-        # PCA 축 (안정 좌표 존재할 때 갱신)
+        # PCA 축
         self.axis_ready = False
         self.axis_u = np.array([1.0, 0.0], dtype=float)   # 단위 방향(가로)
         self.axis_o = np.array([0.0, 0.0], dtype=float)   # 기준점(평균)
         self.axis_ema_alpha = 0.35
-
-        # 정렬/빈공간 결과
-        self.sorted_pts = np.empty((0, 2), dtype=float)
-        self.parking_slot_found = False
 
         # 주차 좌표 생성
         self.parking_stop_coords = None  # 정지 좌표 (x,y)
         self.reference_coords = None
         self.parking_coords = None
         self.parking_radius = 1.5  # 주차 좌표 생성 반경 (m) -> 실험적으로 찾아야함
-        self.parking_theta = 30.0 * math.pi / 180.0 # 주차 좌표 생성 각도 (rad) -> 실험적으로 찾아야함
+        self.parking_theta = 60.0 * math.pi / 180.0 # 주차 좌표 생성 각도 (rad) -> 실험적으로 찾아야함
 
         # === 주차 경로 생성 파라미터 ===
         self.resolution = 0.3      # 경로 해상도 (m)
         self.flip_arccos = False   # arccos 함수 상하 반전 여부
-        self.parking_in_progress = False
-        self.parking_path_is_pub = False
-        self.parking_path = Path()
-        self.return_path = Path()
-        self.local_parking_path = PathReference()
-        self.local_return_path  = PathReference()
+        self.parking_path = PathReference()
+        self.return_path = PathReference()
+        self.rviz_parking_path = Path()
+        self.rviz_return_path = Path()
 
         # === 주차 상태 플래그 ===
+        self.parking_slot_found = False
+        self.parking_in_progress = False
         self.parking_stop_done = False     # 정지 완료 플래그
+        self.parking_path_is_pub = False   # 주차 경로 발행 플래그
         self.parking_done = False          # 주차 완료 플래그
+        self.parking_done_once = False     # 주차 완료 1회 체크용 플래그
         self.parking_end = False           # 주차 종료 플래그
         self.return_phase = 0              # g_path 복귀 단계 플래그 (0: 대기, 1: 경로 발행, 2: 복귀 완료 대기)
-        self.parking_done_once = False     # 주차 완료 1회 체크용 플래그
         self.Parking_Stop_Radius = 2.0     # 정지 반경 (m)
         self.Parking_Success_Radius = 0.5  # 주차 성공 반경 (m)
 
@@ -79,12 +70,12 @@ class ParkingPlanner:
         self.parking_done_pub      = rospy.Publisher("/parking_done",      Int16,         queue_size=1)
         self.parking_end_pub       = rospy.Publisher("/parking_end",       Int16,         queue_size=1)
         self.local_path_pub        = rospy.Publisher("/local_path",        PathReference, queue_size=1)
+        self.rviz_parking_path_pub = rospy.Publisher("/rviz_parking_path", Path,          queue_size=1)
+        self.rviz_return_path_pub  = rospy.Publisher("/rviz_return_path",  Path,          queue_size=1)
 
         rospy.Subscriber("/obstacle_info", ObjectInfo,  self.obstacle_info_CB, queue_size=1)
-        rospy.Subscriber("/current_pose",  Pose, self.curr_pose_CB,     queue_size=1)
-
-        self.marker_pub = rospy.Publisher("/parking_debug_marker", Marker, queue_size=10)
-        rospy.Subscriber('/test_parking', Bool, self.test_CB) # 테스트 서브스크라이버
+        rospy.Subscriber("/current_pose",  Pose,        self.curr_pose_CB,     queue_size=1)
+        rospy.Subscriber('/test_parking',  Bool, self.test_CB)
 
         self.curr_pose = None
 
@@ -111,14 +102,11 @@ class ParkingPlanner:
         if not self.parking_end and self.parking_path_is_pub:
             self.return_to_gpath()
 
-        self.publish_markers()
-
     def obstacle_info_CB(self, msg: ObjectInfo):
         if self.curr_pose is None:
             return
 
         if not self.parking_slot_found:
-            # 1) 유효 관측 추출 (차량 좌표 → ROI 필터)
             N = int(msg.objectCounts)
             if N <= 0:
                 return
@@ -129,32 +117,31 @@ class ParkingPlanner:
             valid = np.isfinite(cx) & np.isfinite(cy)
             if not valid.any():
                 return
+            
             cx, cy = cx[valid], cy[valid]
-
             d2_local = cx * cx + cy * cy
             roi_mask = d2_local <= (self.ROI_radius ** 2)
             if not roi_mask.any():
                 return
             cx, cy = cx[roi_mask], cy[roi_mask]
 
-            # 차량좌표 → 맵좌표
+            # 좌표계 변환
             obs_pts = self.local_to_global(cx, cy)
 
-            # 2) 트랙 매칭 & count 누적
+            # 2) 매칭 및 count 누적
             self.update_cone_state(obs_pts)
 
-            # 3) 안정 좌표(= count >= stable_k) 배열 구성
+            # 3) 안정 좌표 리스트 삽입
             self.update_stable_state()
 
             if self.stable_pts.shape[0] < 2:
-                # 빈공간 판정까지는 최소 2점 필요
                 self.parking_slot_found = False
                 return
 
-            # 4) 축 추정 후, 앵커 좌표(self.benchmark_coords)로부터 가까운 순 정렬
+            # 4) 축 추정 및 정렬
             self.update_cone_array(self.stable_pts)
 
-            # 5) 빈 공간 판정 후 좌표 생성 (진행방향의 오른쪽만 사용)
+            # 5) 빈 공간 판정 후 좌표 생성
             self.generate_parking_coords()
 
     # -------------------- 좌표계/트래킹 --------------------
@@ -175,9 +162,7 @@ class ParkingPlanner:
 
         for point in obs_pts:
             j = self.find_nearest_coords(point)
-            if j is not None \
-            and not used[j] \
-            and np.linalg.norm(self.tracks[j]['xy'] - point) <= self.match_gate:    # 매칭 성공 → 좌표 EMA + count++
+            if j is not None and not used[j] and np.linalg.norm(self.tracks[j]['xy'] - point) <= self.match_gate:    # 매칭 성공 → 좌표 EMA + count++
                 self.tracks[j]['xy'] = 0.6 * self.tracks[j]['xy'] + 0.4 * point
                 self.tracks[j]['count'] += 1
                 self.tracks[j]['miss'] = 0
@@ -209,18 +194,18 @@ class ParkingPlanner:
         else:
             self.stable_pts = np.empty((0, 2), dtype=float)
 
+    # -------------------- 4) 축 추정 --------------------
+
     def normalize(self, v: np.ndarray) -> np.ndarray:
         n = np.linalg.norm(v)
         return v / n if n > 1e-9 else v
-
-    # -------------------- 4) 축 추정 --------------------
-
-    def update_cone_array(self, pts: np.ndarray, mode: str = "rail"):
+    
+    def update_cone_array(self, pts: np.ndarray):
         if pts.shape[0] == 0:
             self.sorted_pts = np.empty((0, 2), dtype=float)
             return
 
-        # --- 공통: PCA로 레일 축 추정 & EMA로 안정화 ---
+        # PCA로 축 추정 및 EMA로 안정화
         if pts.shape[0] >= 2:
             mu = pts.mean(axis=0)
             X  = pts - mu
@@ -229,7 +214,6 @@ class ParkingPlanner:
             u = eigvecs[:, np.argmax(eigvals)]
             u = u / (np.linalg.norm(u) + 1e-12)
 
-            # 축 부호 일관성
             if np.dot(self.axis_u, u) < 0:
                 u = -u
 
@@ -242,7 +226,6 @@ class ParkingPlanner:
                 self.axis_o = mu
                 self.axis_ready = True
 
-        # --- 정렬 ---
         if pts.shape[0] >= 2 and self.axis_ready:
             s  = (pts - self.axis_o) @ self.axis_u
             s0 = (np.asarray(self.benchmark_coords) - self.axis_o) @ self.axis_u
@@ -280,8 +263,8 @@ class ParkingPlanner:
             # 차량 진행방향(헤딩)과 차량 우측 벡터
             q = self.curr_pose.orientation
             _, _, yaw = euler_from_quaternion([q.x, q.y, q.z, q.w])
-            fwd   = np.array([math.cos(yaw),  math.sin(yaw)], dtype=float)   # 진행방향
-            right = np.array([ math.sin(yaw), -math.cos(yaw)], dtype=float)  # 진행방향의 오른쪽
+            fwd   = np.array([math.cos(yaw),  math.sin(yaw)], dtype=float)
+            right = np.array([ math.sin(yaw), -math.cos(yaw)], dtype=float)
 
             # 진행방향을 기준으로 오른쪽으로 θ만큼 기울인 단위 벡터
             v_dir = math.cos(self.parking_theta) * fwd + math.sin(self.parking_theta) * right
@@ -307,79 +290,79 @@ class ParkingPlanner:
         raw = self.make_raw_path(start_xy, goal_xy, n=800, flip=self.flip_arccos)
         pts = self.spacing_parking_path(raw, self.resolution)
 
-        self.parking_path.header.frame_id = self.frame_id
-        self.parking_path.header.stamp = rospy.Time.now()
-        self.parking_path.poses.clear()
+        self.parking_path.path.clear()
+        self.rviz_parking_path.poses.clear()
 
-        now = rospy.Time.now()
-        last_yaw = 0.0
-        for i, (x, y) in enumerate(pts):
-            if i < len(pts)-1:
-                nx, ny = pts[i+1]
-                yaw = math.atan2(ny - y, nx - x)
-                last_yaw = yaw
-            else:
-                yaw = last_yaw
+        for x, y in pts:
+            parking_path_element = PathReferenceElement()
+            parking_path_element.pose.position.x = x
+            parking_path_element.pose.position.y = y
+            parking_path_element.pose.position.z = 0.
+            parking_path_element.pose.orientation.x = 0.
+            parking_path_element.pose.orientation.y = 0.
+            parking_path_element.pose.orientation.z = 0.
+            parking_path_element.pose.orientation.w = 1.
+            parking_path_element.mode = 11
+            self.parking_path.path.append(parking_path_element)
 
-            qx, qy, qz, qw = quaternion_from_euler(0.0, 0.0, yaw)
+            rviz_parking_pose = PoseStamped()
+            rviz_parking_pose.header.frame_id = "map"
+            rviz_parking_pose.header.stamp = rospy.Time.now()
+            rviz_parking_pose.pose.position.x = parking_path_element.pose.position.x - self.rviz_offset_x
+            rviz_parking_pose.pose.position.y = parking_path_element.pose.position.y - self.rviz_offset_y
+            rviz_parking_pose.pose.position.z = 0.
+            rviz_parking_pose.pose.orientation.x = 0.
+            rviz_parking_pose.pose.orientation.y = 0.
+            rviz_parking_pose.pose.orientation.z = 0.
+            rviz_parking_pose.pose.orientation.w = 1.
+            self.rviz_parking_path.poses.append(rviz_parking_pose)
 
-            pose_stamped = PoseStamped()
-            pose_stamped.header.frame_id = self.frame_id
-            pose_stamped.header.stamp = now
-            pose_stamped.pose.position.x = float(x)
-            pose_stamped.pose.position.y = float(y)
-            pose_stamped.pose.position.z = 0.0
-            pose_stamped.pose.orientation.x = qx
-            pose_stamped.pose.orientation.y = qy
-            pose_stamped.pose.orientation.z = qz
-            pose_stamped.pose.orientation.w = qw
-
-            self.parking_path.poses.append(pose_stamped)
-
-        self.local_parking_path = self.convert_to_path_reference(self.parking_path, 2)    # 모드 지정은 따로 나중에 확인
+        self.rviz_parking_path.header.stamp = rospy.Time.now()
 
         if self.parking_in_progress and not self.parking_path_is_pub:
-            self.local_path_pub.publish(self.local_parking_path)
+            self.local_path_pub.publish(self.parking_path)
+            self.rviz_parking_path_pub.publish(self.rviz_parking_path)
             self.parking_path_is_pub = True
             rospy.loginfo(f"Parking path published!!!!!!")
-            self.publish_markers()
 
     # -------------------- rev 경로 생성 --------------------
     def generate_return_path(self):
-        path = self.parking_path.poses
+        path = self.parking_path.path
         if len(path) < 2:
             return
+        
+        self.return_path.path.clear()
+        self.rviz_return_path.poses.clear()
+
         pts = [(e.pose.position.x, e.pose.position.y) for e in path][::-1]
 
-        new_poses = []
-        now = rospy.Time.now()
-        last_yaw = 0.0
-        for i, (x, y) in enumerate(pts):
-            if i < len(pts) - 1:
-                nx, ny = pts[i+1]
-                yaw = math.atan2(ny - y, nx - x)
-                last_yaw = yaw
-            else:
-                yaw = last_yaw
-            qx, qy, qz, qw = quaternion_from_euler(0.0, 0.0, yaw)
-            
-            pose_stamped = PoseStamped()
-            pose_stamped.header.frame_id = self.frame_id
-            pose_stamped.header.stamp = now
-            pose_stamped.pose.position.x = float(x)
-            pose_stamped.pose.position.y = float(y)
-            pose_stamped.pose.position.z = 0.0
-            pose_stamped.pose.orientation.x = qx
-            pose_stamped.pose.orientation.y = qy
-            pose_stamped.pose.orientation.z = qz
-            pose_stamped.pose.orientation.w = qw
-            new_poses.append(pose_stamped)
+        for x, y in pts:
+            return_path_element = PathReferenceElement()
+            return_path_element.pose.position.x = x
+            return_path_element.pose.position.y = y
+            return_path_element.pose.position.z = 0.
+            return_path_element.pose.orientation.x = 0.
+            return_path_element.pose.orientation.y = 0.
+            return_path_element.pose.orientation.z = 0.
+            return_path_element.pose.orientation.w = 1.
+            return_path_element.mode = 11
+            self.return_path.path.append(return_path_element)
 
-        self.return_path.poses = new_poses
-        self.return_path.header.stamp = rospy.Time.now()
+            rviz_return_pose = PoseStamped()
+            rviz_return_pose.header.frame_id = "map"
+            rviz_return_pose.header.stamp = rospy.Time.now()
+            rviz_return_pose.pose.position.x = return_path_element.pose.position.x - self.rviz_offset_x
+            rviz_return_pose.pose.position.y = return_path_element.pose.position.y - self.rviz_offset_y
+            rviz_return_pose.pose.position.z = 0.
+            rviz_return_pose.pose.orientation.x = 0.
+            rviz_return_pose.pose.orientation.y = 0.
+            rviz_return_pose.pose.orientation.z = 0.
+            rviz_return_pose.pose.orientation.w = 1.
+            self.rviz_return_path.poses.append(rviz_return_pose)
 
-        self.local_return_path = self.convert_to_path_reference(self.return_path, 1)   # 모드 지정은 따로 나중에 확인
-        self.local_path_pub.publish(self.local_return_path)
+        self.rviz_return_path.header.stamp = rospy.Time.now()
+        self.local_path_pub.publish(self.return_path)
+        self.rviz_return_path_pub.publish(self.rviz_return_path)
 
     # -------------------- raw path 생성 --------------------
     def make_raw_path(self, start_xy, goal_xy, n=800, flip=False):
@@ -443,7 +426,7 @@ class ParkingPlanner:
             return
 
         if self.return_phase == 1:
-            if self.parking_done and len(self.parking_path.poses) >= 2:
+            if self.parking_done and len(self.parking_path.path) >= 2:
                 self.generate_return_path()
                 self.return_phase = 2
             return
@@ -461,8 +444,7 @@ class ParkingPlanner:
         
         parking_stop_x, parking_stop_y = self.parking_stop_coords
 
-        dist_to_target = np.hypot(self.curr_pose.position.x - parking_stop_x,\
-                                   self.curr_pose.position.y - parking_stop_y)
+        dist_to_target = np.hypot(self.curr_pose.position.x - parking_stop_x, self.curr_pose.position.y - parking_stop_y)
         
         if not self.parking_done_once:
             if dist_to_target < self.Parking_Stop_Radius and self.parking_in_progress:
@@ -473,28 +455,26 @@ class ParkingPlanner:
         self.parking_stop_done_pub.publish(1 if self.parking_stop_done else 0)
 
     def parking_done_confirm(self):
-        path_list = self.parking_path.poses
+        path_list = self.parking_path.path
         if self.curr_pose is None or not path_list:
             return
-
-        last_ps = path_list[-1].pose
-        end_x = float(last_ps.position.x)
-        end_y = float(last_ps.position.y)
+        
+        last_element = path_list[-1]
+        end_x, end_y = float(last_element.pose.position.x), float(last_element.pose.position.y)
         px, py = float(self.curr_pose.position.x), float(self.curr_pose.position.y)
-
+        
         self.parking_done = (math.hypot(px - end_x, py - end_y) <= self.Parking_Success_Radius)
         self.parking_done_pub.publish(1 if self.parking_done else 0)
         if self.parking_done:
             rospy.loginfo(f"Parking Done!!!!!!!!!")
 
     def return_done_confirm(self):
-        path_list = self.return_path.poses
+        path_list = self.return_path.path
         if self.curr_pose is None or not path_list:
             return
 
-        last_ps = path_list[-1].pose
-        end_x = float(last_ps.position.x)
-        end_y = float(last_ps.position.y)
+        last_element = path_list[-1]
+        end_x, end_y = float(last_element.pose.position.x), float(last_element.pose.position.y)
         px, py = float(self.curr_pose.position.x), float(self.curr_pose.position.y)
 
         if math.hypot(px - end_x, py - end_y) <= self.Parking_Success_Radius:
@@ -504,174 +484,3 @@ class ParkingPlanner:
                 rospy.loginfo(f"Return to g_path Done!!!!!!!!!")
             self.parking_in_progress = False
             self.return_phase = 3
-
-    # -------------------- 메시지 타입 변환 --------------------
-
-    def convert_to_path_reference(self, nav_path, mode):
-        path_ref = PathReference()
-        path_ref.path.clear()
-
-        last_yaw = 0.0
-        for i, pose_stamped in enumerate(nav_path.poses):
-            x = pose_stamped.pose.position.x
-            y = pose_stamped.pose.position.y
-            
-            # 다음 점의 위치를 이용해 yaw 계산
-            if i < len(nav_path.poses) - 1:
-                next_pose = nav_path.poses[i+1]
-                nx = next_pose.pose.position.x
-                ny = next_pose.pose.position.y
-                yaw = math.atan2(ny - y, nx - x)
-                last_yaw = yaw
-            else:
-                yaw = last_yaw
-                
-            qx, qy, qz, qw = quaternion_from_euler(0.0, 0.0, yaw)
-            
-            element = PathReferenceElement()
-            element.pose.position.x = float(x)
-            element.pose.position.y = float(y)
-            element.pose.position.z = 0.
-            element.pose.orientation.x = qx
-            element.pose.orientation.y = qy
-            element.pose.orientation.z = qz
-            element.pose.orientation.w = qw
-            element.mode = mode
-            
-            path_ref.path.append(element)
-            
-        return path_ref
-
-
-    # -------------------- 마커 발행 ---------------------
-    
-    def publish_markers(self):
-        """
-        RViz 시각화 함수 (delivery_planner 스타일로 안정성 및 가독성 개선)
-        - SPHERE: reference_coords(파랑), parking_stop_coords(빨강), parking_coords(초록)
-        - CYLINDER: Parking_Stop_Radius(노랑), Parking_Success_Radius(보라)
-        - LINE_STRIP: parking_path(흰색)
-        """
-        stamp = rospy.Time.now()
-        frame = self.frame_id
-
-        # --- Marker 1: reference_coords (파란색 구) ---
-        m1 = Marker()
-        m1.header.frame_id = frame
-        m1.header.stamp = stamp
-        m1.ns = "parking_points"
-        m1.id = 0
-        m1.type = Marker.SPHERE
-        m1.action = Marker.ADD
-        if self.reference_coords is not None:
-            m1.pose.position.x = self.reference_coords[0] - self.rviz_offset_x
-            m1.pose.position.y = self.reference_coords[1] - self.rviz_offset_y
-            m1.pose.orientation.w = 1.0
-            m1.scale.x = m1.scale.y = m1.scale.z = 0.4
-            m1.color.r, m1.color.g, m1.color.b, m1.color.a = (0.2, 0.4, 1.0, 0.9) # 파란색
-        else:
-            m1.action = Marker.DELETE # 데이터가 없으면 마커 삭제
-        self.marker_pub.publish(m1)
-
-        # --- Marker 2: parking_stop_coords (빨간색 구) ---
-        m2 = Marker()
-        m2.header.frame_id = frame
-        m2.header.stamp = stamp
-        m2.ns = "parking_points"
-        m2.id = 1
-        m2.type = Marker.SPHERE
-        m2.action = Marker.ADD
-        if self.parking_stop_coords is not None:
-            m2.pose.position.x = self.parking_stop_coords[0] - self.rviz_offset_x
-            m2.pose.position.y = self.parking_stop_coords[1] - self.rviz_offset_y
-            m2.pose.orientation.w = 1.0
-            m2.scale.x = m2.scale.y = m2.scale.z = 0.4
-            m2.color.r, m2.color.g, m2.color.b, m2.color.a = (1.0, 0.2, 0.2, 0.9) # 빨간색
-        else:
-            m2.action = Marker.DELETE
-        self.marker_pub.publish(m2)
-
-        # --- Marker 3: parking_coords (초록색 구) ---
-        m3 = Marker()
-        m3.header.frame_id = frame
-        m3.header.stamp = stamp
-        m3.ns = "parking_points"
-        m3.id = 2
-        m3.type = Marker.SPHERE
-        m3.action = Marker.ADD
-        if self.parking_coords is not None:
-            m3.pose.position.x = self.parking_coords[0] - self.rviz_offset_x
-            m3.pose.position.y = self.parking_coords[1] - self.rviz_offset_y
-            m3.pose.orientation.w = 1.0
-            m3.scale.x = m3.scale.y = m3.scale.z = 0.4
-            m3.color.r, m3.color.g, m3.color.b, m3.color.a = (0.2, 1.0, 0.3, 0.9) # 초록색
-        else:
-            m3.action = Marker.DELETE
-        self.marker_pub.publish(m3)
-
-        # --- Marker 4: Parking_Stop_Radius (노란색 원) ---
-        m4 = Marker()
-        m4.header.frame_id = frame
-        m4.header.stamp = stamp
-        m4.ns = "parking_radii"
-        m4.id = 10
-        m4.type = Marker.CYLINDER
-        m4.action = Marker.ADD
-        if self.parking_stop_coords is not None:
-            m4.pose.position.x = self.parking_stop_coords[0] - self.rviz_offset_x
-            m4.pose.position.y = self.parking_stop_coords[1] - self.rviz_offset_y
-            m4.pose.orientation.w = 1.0
-            m4.scale.x = m4.scale.y = self.Parking_Stop_Radius * 2.0
-            m4.scale.z = 0.1
-            m4.color.r, m4.color.g, m4.color.b, m4.color.a = (1.0, 1.0, 0.0, 0.35) # 노란색 (반투명)
-        else:
-            m4.action = Marker.DELETE
-        self.marker_pub.publish(m4)
-
-        # --- Marker 5: Parking_Success_Radius (보라색 원) ---
-        m5 = Marker()
-        m5.header.frame_id = frame
-        m5.header.stamp = stamp
-        m5.ns = "parking_radii"
-        m5.id = 11
-        m5.type = Marker.CYLINDER
-        m5.action = Marker.ADD
-        
-        success_center = None
-        if hasattr(self, "parking_path") and self.parking_path.poses:
-            last_pose = self.parking_path.poses[-1].pose.position
-            success_center = (last_pose.x, last_pose.y)
-        elif self.parking_coords is not None:
-            success_center = self.parking_coords
-            
-        if success_center is not None:
-            m5.pose.position.x = success_center[0] - self.rviz_offset_x
-            m5.pose.position.y = success_center[1] - self.rviz_offset_y
-            m5.pose.orientation.w = 1.0
-            m5.scale.x = m5.scale.y = self.Parking_Success_Radius * 2.0
-            m5.scale.z = 0.1
-            m5.color.r, m5.color.g, m5.color.b, m5.color.a = (0.6, 0.2, 0.8, 0.35) # 보라색 (반투명)
-        else:
-            m5.action = Marker.DELETE
-        self.marker_pub.publish(m5)
-
-        # --- Marker 6: Parking Path (흰색 선) ---
-        m6 = Marker()
-        m6.header.frame_id = frame
-        m6.header.stamp = stamp
-        m6.ns = "parking_path_line"
-        m6.id = 20
-        m6.type = Marker.LINE_STRIP
-        m6.action = Marker.ADD
-        if hasattr(self, "parking_path") and len(self.parking_path.poses) >= 2:
-            m6.scale.x = 0.1 # 선의 두께
-            m6.color.r, m6.color.g, m6.color.b, m6.color.a = (1.0, 1.0, 1.0, 1.0) # 흰색
-            
-            for pose_stamped in self.parking_path.poses:
-                pt = Point()
-                pt.x = pose_stamped.pose.position.x - self.rviz_offset_x
-                pt.y = pose_stamped.pose.position.y - self.rviz_offset_y
-                m6.points.append(pt)
-        else:
-            m6.action = Marker.DELETE
-        self.marker_pub.publish(m6)
