@@ -39,7 +39,7 @@ generate_messages(
 
 
 generate_dynamic_reconfigure_options(
-  cfg/config_tunnel_dynamic_morai.cfg
+  cfg/config_tunnel_labacon.cfg
   cfg/config_tunnel_dynamic.cfg
   cfg/config_tunnel_static.cfg
   cfg/config_delivery_info.cfg
@@ -60,9 +60,9 @@ include_directories(
 # include
   ${catkin_INCLUDE_DIRS}
 )
-add_executable(object_detection_tunnel_dynamic_morai src/object_detection_tunnel_dynamic_morai.cpp)
-target_link_libraries(object_detection_tunnel_dynamic_morai ${catkin_LIBRARIES})
-add_dependencies(object_detection_tunnel_dynamic_morai ${PROJECT_NAME}_gencfg)
+add_executable(object_detection_tunnel_labacon src/object_detection_tunnel_labacon.cpp)
+target_link_libraries(object_detection_tunnel_labacon ${catkin_LIBRARIES})
+add_dependencies(object_detection_tunnel_labacon ${PROJECT_NAME}_gencfg)
 
 add_executable(object_detection_delivery src/object_detection_delivery.cpp)
 target_link_libraries(object_detection_delivery ${catkin_LIBRARIES})

@@ -232,15 +232,15 @@ class FusionNode:
         # LiDAR 포인트 그리기 (거리 기반 색상)
         if self.lidar_pts2d is not None and self.lidar_pts2d.size > 0:
             for (u, v, d) in self.lidar_pts2d:
-                if d > 5:         # 5m 이상 → 회색
+                if d > 10:         # 10m 이상 → 회색
                     color = (128, 128, 128)
                 elif d < 1:        # 1m 이내 → 빨강
                     color = (0, 0, 255)
-                elif d < 3:       # 1~3m → 빨강→노랑 보간
-                    ratio = (d - 1) / 2
+                elif d < 5:       # 1~5m → 빨강→노랑 보간
+                    ratio = (d - 1) / 4
                     color = (0, int(255 * ratio), 255)  # BGR
-                else:              # 3~5m → 노랑→초록 보간
-                    ratio = (d - 3) / 2.0
+                else:              # 5~10m → 노랑→초록 보간
+                    ratio = (d - 5) / 5.0
                     color = (0, 255, int(255 * (1 - ratio)))
 
                 cv2.circle(self.cv_image, (int(u), int(v)), 2, color, -1)

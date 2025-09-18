@@ -19,13 +19,13 @@ class ParkingPlanner:
         self.rviz_offset_y = float(rviz_offset_y)
 
         # === 트래킹/안정화 파라미터 ===
-        self.ROI_radius = 1.5      # 차량 기준 ROI (m) -> 실험적으로 찾아야함
+        self.ROI_radius = 5.0      # 차량 기준 ROI (m) -> 실험적으로 찾아야함
         self.match_gate = 0.30     # 트랙 매칭 허용 거리 (m)
-        self.stable_k   = 10       # count 임계값 (>= 이면 안정 좌표 편입)
+        self.stable_k   = 1       # count 임계값 (>= 이면 안정 좌표 편입)
         self.decay_miss = 10       # 미관측 허용 프레임(지나면 트랙 삭제)
 
         # === 빈 공간 판정 파라미터 ===
-        self.benchmark_coords = np.array([0.0, 0.0], dtype=float)  # 앵커 좌표(기본 0,0)
+        self.benchmark_coords = np.array([935537.090, 1915866.639], dtype=float)  # 앵커 좌표(기본 0,0)
         self.empty_gap = 3.0       # 인접 점 사이 3m 이상 → 빈 공간
 
         # === 장애물 인지 및 트래킹 ===
@@ -64,7 +64,10 @@ class ParkingPlanner:
         self.parking_end = False           # 주차 종료 플래그
         self.return_phase = 0              # g_path 복귀 단계 플래그 (0: 대기, 1: 경로 발행, 2: 복귀 완료 대기)
         self.Parking_Stop_Radius = 2.0     # 정지 반경 (m)
-        self.Parking_Success_Radius = 0.5  # 주차 성공 반경 (m)
+        self.Parking_Success_Radius = 2.0  # 주차 성공 반경 (m)
+
+        self.curr_pose = None
+        self.parking_path_set = False
 
         # === ROS Pub/Sub ===
         self.parking_stop_done_pub = rospy.Publisher("/parking_stop_done", Int16,         queue_size=1)
@@ -75,28 +78,15 @@ class ParkingPlanner:
         self.rviz_return_path_pub  = rospy.Publisher("/rviz_return_path",  Path,          queue_size=1)
         self.sorted_pts_marker_pub = rospy.Publisher("/sorted_pts_marker", Marker,        queue_size=1)
 
-        rospy.Subscriber("/obstacle_info", ObjectInfo,  self.obstacle_info_CB, queue_size=1)
+        rospy.Subscriber("/object_info_labacon", ObjectInfo,  self.obstacle_info_CB, queue_size=1)
         rospy.Subscriber("/current_pose",  Pose,        self.curr_pose_CB,     queue_size=1)
-        rospy.Subscriber('/test_parking',  Bool,        self.test_CB)
-
-        self.curr_pose = None
-
-    # -------------------- 테스트 코드 ---------------------
-    def test_CB(self, msg: Bool):
-        if self.curr_pose is None:
-            return
-        
-        self.sorted_pts = np.array([[935567.999, 1915908.976], [935568.845, 1915910.528], [935572.839, 1915917.994]], dtype=float)
-        self.generate_parking_coords()
-
-        if self.parking_coords is not None:
-            self.make_parking_path()
 
     # -------------------- 콜백 --------------------
 
     def curr_pose_CB(self, msg: Pose):
         self.curr_pose = msg
         self.parking_stop_confirm()
+        self.publish_sorted_pts_marker()
 
         if self.parking_stop_done and not self.parking_path_is_pub:
             self.make_parking_path()
@@ -119,7 +109,7 @@ class ParkingPlanner:
             valid = np.isfinite(cx) & np.isfinite(cy)
             if not valid.any():
                 return
-            
+
             cx, cy = cx[valid], cy[valid]
             d2_local = cx * cx + cy * cy
             roi_mask = d2_local <= (self.ROI_radius ** 2)
@@ -251,7 +241,6 @@ class ParkingPlanner:
             return
 
         k = cand[np.argmax(seg[cand])]
-        rospy.loginfo(f"Parking slot found!!!!!!")
         return int(k)
 
     # -------------------- 6) 좌표 생성 --------------------

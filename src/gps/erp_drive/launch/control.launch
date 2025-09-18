@@ -8,8 +8,9 @@
   <!-- <include file="$(find traffic_light)/launch/yolo_traffic_light_morai.launch" /> -
 
   
-  <!-- 어떤 라이다 인지코드를 쓸지 선택-->
+  <!- 어떤 라이다 인지코드를 쓸지 선택 -->
   <include file="$(find lidar_object_detection)/launch/object_detection.launch" />
+  <include file="$(find delivery)/launch/delivery.launch" />
   
   <node pkg="erp_drive" type="wgs84_to_utmk.py" name="wgs84_to_utmk" output = "screen" args="$(arg target)"/>
   <node pkg="erp_drive" type="planner.py" name="planner" output="screen" args="$(arg path)"/>

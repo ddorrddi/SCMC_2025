@@ -116,12 +116,12 @@ class DeliveryPlanner:
 
     def center_point_CB(self, pt_msg: PointStamped):
         # 유효성 체크
-        if self.delivery_in_progress:
-            return
-        if self.curr_idx is None or self.curr_pose is None: # 현재 idx와 Pose가 세팅돼있어야 유효
-            return
-        if not (self.STOP_IDX <= self.curr_idx <= self.STOP_IDX + self.segment_len): # 배달 B구간일때만 유효
-            return
+        # if self.delivery_in_progress:
+        #     return
+        # if self.curr_idx is None or self.curr_pose is None: # 현재 idx와 Pose가 세팅돼있어야 유효
+        #     return
+        # if not (self.STOP_IDX <= self.curr_idx <= self.STOP_IDX + self.segment_len): # 배달 B구간일때만 유효
+        #     return
 
         # 메시지로 넘어온 목적지 좌표(라이다 좌표계)를 글로벌좌표계로 고치기
         ori = [self.curr_pose.orientation.x, self.curr_pose.orientation.y,
@@ -184,10 +184,12 @@ class DeliveryPlanner:
         print(self.delivery_target_num)
         print(self.sign_queue)
         # 유효성 검사 및 타겟이 정해지지 않았을때 1회만 작동
-        if self.curr_idx is None or self.delivery_done or self.delivery_target_num is not None:
+        if self.delivery_target_num is not None:
             return
-        if (self.STOP_IDX <= self.curr_idx <= self.STOP_IDX + self.segment_len): # 배달 B구간일때는 작동안함
-            return
+        # if self.curr_idx is None or self.delivery_done or self.delivery_target_num is not None:
+        #     return
+        # if (self.STOP_IDX <= self.curr_idx <= self.STOP_IDX + self.segment_len): # 배달 B구간일때는 작동안함
+        #     return
         # 큐에 샘플 데이터 수집 이후 충분히 수집하면 target 설정하고 publish
         if msg.class_name != "None":
             self.sign_queue.append(int(msg.class_name))

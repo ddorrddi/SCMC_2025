@@ -93,6 +93,7 @@ void Controller::parkingDoneCallback(const std_msgs::Int16& signal){
             ROS_INFO_STREAM("[Controller] Parking Done signal received.");
             this->is_parking_done = true;
             this->parking_done_once = false;
+            this->l_curr_idx = 0;
         }
         else{
             this->is_parking_done = false;

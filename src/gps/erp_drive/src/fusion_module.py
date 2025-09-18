@@ -1,4 +1,5 @@
 import numpy as np
+from typing import Optional
 
 
 class Fusion:
@@ -95,8 +96,8 @@ class Fusion:
         neigh_radius_base: float = 0.25,    # 근접도(반경-이웃) 기준
         neigh_radius_scale: float = 0.02,   # 거리 비례 반경 스케일
         neigh_min_samples: int = 3,         # 최소 이웃 수
-        prev_center: np.ndarray | None = None,  # (3,) 이전 프레임 중심 (옵션)
-        prev_gate: float | None = 1.5,          # 시간 게이팅 반경 (옵션)
+        prev_center: Optional[np.ndarray] = None,  # (3,) 이전 프레임 중심 (옵션)
+        prev_gate: Optional[float] = 1.5,          # 시간 게이팅 반경 (옵션)
         tau_z2: float = 0.36,    # 신뢰도 계산용 깊이 분산 스케일 (0.6m)^2
         tau_2d: float = 0.25,    # 신뢰도 계산용 중심성 스케일
         max_points: int = 512,   # 부하 제한 (너무 많으면 다운샘플)
