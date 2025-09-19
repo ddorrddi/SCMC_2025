@@ -21,8 +21,8 @@ class ParkingPlanner:
         # === 트래킹/안정화 파라미터 ===
         self.ROI_radius = 5.0      # 차량 기준 ROI (m) -> 실험적으로 찾아야함
         self.match_gate = 0.30     # 트랙 매칭 허용 거리 (m)
-        self.stable_k   = 1       # count 임계값 (>= 이면 안정 좌표 편입)
-        self.decay_miss = 10       # 미관측 허용 프레임(지나면 트랙 삭제)
+        self.stable_k   = 1        # count 임계값 (>= 이면 안정 좌표 편입)   ->   근데 이건 나중에 실제 라이다 돌리면서 기준 잡아야함
+        self.decay_miss = 10       # 미관측 허용 프레임(지나면 트랙 삭제)   ->  이거도 나중에 실제 라이다 돌리면서 기준 잡아야함
 
         # === 빈 공간 판정 파라미터 ===
         self.benchmark_coords = np.array([935537.090, 1915866.639], dtype=float)  # 앵커 좌표(기본 0,0)
@@ -43,7 +43,7 @@ class ParkingPlanner:
         self.parking_stop_coords = None  # 정지 좌표 (x,y)
         self.reference_coords = None
         self.parking_coords = None
-        self.parking_radius = 1.5  # 주차 좌표 생성 반경 (m) -> 실험적으로 찾아야함
+        self.parking_radius = 1.5  # 주차 좌표 생성 반지름 (m) -> 실험적으로 찾아야함
         self.parking_theta = 60.0 * math.pi / 180.0 # 주차 좌표 생성 각도 (rad) -> 실험적으로 찾아야함
 
         # === 주차 경로 생성 파라미터 ===
@@ -64,7 +64,7 @@ class ParkingPlanner:
         self.parking_end = False           # 주차 종료 플래그
         self.return_phase = 0              # g_path 복귀 단계 플래그 (0: 대기, 1: 경로 발행, 2: 복귀 완료 대기)
         self.Parking_Stop_Radius = 2.0     # 정지 반경 (m)
-        self.Parking_Success_Radius = 2.0  # 주차 성공 반경 (m)
+        self.Parking_Success_Radius = 1.0  # 주차 성공 반경 (m)
 
         self.curr_pose = None
         self.parking_path_set = False
@@ -121,7 +121,7 @@ class ParkingPlanner:
             obs_pts = self.local_to_global(cx, cy)
 
             # 2) 매칭 및 count 누적
-            self.update_cone_state(obs_pts)
+            self.update_labacon_state(obs_pts)
 
             # 3) 안정 좌표 리스트 삽입
             self.update_stable_state()
@@ -131,7 +131,7 @@ class ParkingPlanner:
                 return
 
             # 4) 축 추정 및 정렬
-            self.update_cone_array(self.stable_pts)
+            self.update_labacon_array(self.stable_pts)
 
             # 5) 빈 공간 판정 후 좌표 생성
             self.generate_parking_coords()
@@ -149,7 +149,7 @@ class ParkingPlanner:
         y_g = py + (cx * s + cy * c)
         return np.column_stack((x_g, y_g))
 
-    def update_cone_state(self, obs_pts: np.ndarray):
+    def update_labacon_state(self, obs_pts: np.ndarray):
         used = np.zeros(len(self.tracks), dtype=bool)
 
         for point in obs_pts:
@@ -192,7 +192,7 @@ class ParkingPlanner:
         n = np.linalg.norm(v)
         return v / n if n > 1e-9 else v
     
-    def update_cone_array(self, pts: np.ndarray):
+    def update_labacon_array(self, pts: np.ndarray):
         if pts.shape[0] == 0:
             self.sorted_pts = np.empty((0, 2), dtype=float)
             return
