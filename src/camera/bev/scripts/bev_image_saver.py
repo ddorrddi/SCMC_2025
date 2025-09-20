@@ -16,7 +16,7 @@ class BEVImageSaver:
         self.bridge = CvBridge()
         
         # 이미지 저장 폴더 설정
-        self.save_folder = rospy.get_param('~save_folder', '/home/foscar/bev_captured_images2')
+        self.save_folder = rospy.get_param('~save_folder', '/home/foscar/SCMC_2025/src/Bev_capture_image')
         self.create_save_folder()
         
         # 캡쳐 간격 설정 (기본 0.5초)
@@ -26,7 +26,7 @@ class BEVImageSaver:
         self.last_capture_time = 0
         
         # Subscriber 설정
-        self.image_sub = rospy.Subscriber('/bev_image', Image, self.image_callback, queue_size=1)
+        self.image_sub = rospy.Subscriber('/bev_parking_image', Image, self.image_callback, queue_size=1)
         
         rospy.loginfo(f"이미지 저장 폴더: {self.save_folder}")
         rospy.loginfo(f"캡쳐 간격: {self.capture_interval}초")

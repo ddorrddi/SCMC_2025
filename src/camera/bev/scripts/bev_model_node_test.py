@@ -27,7 +27,7 @@ class BEVParkingBoxDetector:
         self.METERS_PER_PIXEL = 0.053
 
         # YOLO 모델 로드
-        model_path = os.path.join(os.path.dirname(__file__), '..', 'model', '0831Best.pt')
+        model_path = os.path.join(os.path.dirname(__file__), '..', 'model', '0914.pt')
         try:
             from ultralytics import YOLO
             self.model = YOLO(model_path)
@@ -36,12 +36,12 @@ class BEVParkingBoxDetector:
             return
 
         # Publisher 설정
-        self.image_pub = rospy.Publisher("/bev_parking_image", Image, queue_size=1)
+        self.image_pub = rospy.Publisher("/bev_parking_image2", Image, queue_size=1)
         self.path_meter_pub = rospy.Publisher('/parking_path_meter', Path, queue_size=1)
         
         # Subscriber 설정
         # self.image_sub = rospy.Subscriber("/image_jpeg/compressed", CompressedImage, self.image_callback, queue_size=1)
-        self.image_sub = rospy.Subscriber("/bev_image", Image, self.image_callback, queue_size=1)
+        self.image_sub = rospy.Subscriber("/bev_parking_image", Image, self.image_callback, queue_size=1)
 
 
     def convert_pixel_to_local(self, point_px, image_shape):
@@ -221,7 +221,7 @@ class BEVParkingBoxDetector:
         try:
             ros_bev_image = self.bridge.cv2_to_imgmsg(bev_image, "bgr8")
             self.image_pub.publish(ros_bev_image)
-            cv2.imshow("BEV Parking Box Detection", bev_image)
+            # cv2.imshow("BEV Parking Box Detection", bev_image)
             cv2.waitKey(1)
         except Exception as e:
             rospy.logerr(f"Image publishing or display error: {e}")

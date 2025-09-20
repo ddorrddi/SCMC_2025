@@ -10,7 +10,8 @@ import cv2
 
 from cv_bridge import CvBridge
 import sensor_msgs.point_cloud2 as pc2
-from sensor_msgs.msg import Image, PointCloud2
+from sensor_msgs.msg import Image, CameraInfo, PointCloud2, CompressedImage
+
 from geometry_msgs.msg import PointStamped
 
 from fusion_module import Fusion
@@ -112,6 +113,7 @@ class FusionNode:
         # 서브스크라이버
         self.yolo_sub = rospy.Subscriber('/delivery_sign_info', DetectYolo, self.yolo_bbox_callback, queue_size=1) # 욜로 bbox : class_name, center_x, center_y, width, height
         self.img_sub = rospy.Subscriber('/usb_cam/image_raw', Image, self.img_callback, queue_size=1)
+        # self.img_sub = rospy.Subscriber('/image_jpeg/compressed', CompressedImage, self.img_callback, queue_size=1) # Morai용 토픽
         self.cloud_sub = rospy.Subscriber('/velodyne_points', PointCloud2, self.cloud_callback, queue_size=1)
 
         # Dynamic Reconfigure 서버 시작
@@ -220,6 +222,7 @@ class FusionNode:
         # 카메라 이미지 → OpenCV 형식
         try:
             img = self.bridge.imgmsg_to_cv2(img_msg, desired_encoding='bgr8')
+            # img = self.bridge.compressed_imgmsg_to_cv2(img_msg, desired_encoding='bgr8') # Morai용
             self.cv_image = img
         except Exception as e:
             rospy.logwarn(f"CV bridge error: {e}")

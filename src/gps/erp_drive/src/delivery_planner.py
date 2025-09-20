@@ -57,8 +57,8 @@ class DeliveryPlanner:
         self.radius_marker.header.frame_id = "map"
 
         # 상태변수
-        self.STOP_IDX = 1348 # 배달미션 B지점 시작하는 글로벌패스 인덱스
-        self.segment_len = 120 # 배달미션 B구간 1348 ~ 1348+120
+        self.STOP_IDX = 2453 # 배달미션 B지점 시작하는 글로벌패스 인덱스
+        self.segment_len = 180 # 배달미션 B구간 2453~2628 차이 : 180
         # self.g_path = g_path# 글로벌패스
         self.g_path = [(e.pose.position.x, e.pose.position.y) for e in g_path] # 글로벌패스
         self.curr_idx = None # 현재 글로벌패스 웨이포인트 인덱스
@@ -188,6 +188,7 @@ class DeliveryPlanner:
         if self.delivery_target_num is not None: # 타겟이 정해졌으면 pass
             return
         if self.curr_idx is None or self.delivery_done: # curr_idx가 없거나 배달미션이 끝났다면 pass
+
             return
         if (self.STOP_IDX <= self.curr_idx <= self.STOP_IDX + self.segment_len): # 배달 A구간이 아니면 pass
             return
@@ -207,6 +208,7 @@ class DeliveryPlanner:
         if len(self.sign_queue) >= self.min_queue_size:
             self.delivery_target_num = Counter(self.sign_queue).most_common(1)[0][0]
             self.delivery_target_num_pub.publish(String(str(self.delivery_target_num)))
+            rospy.loginfo(f"배달 타겟 번호 결정: {self.delivery_target_num}")
             self.sign_queue.clear()
 
     # 배달 목적지 좌표에 도착했는가 확인하는 함수

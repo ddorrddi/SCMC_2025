@@ -40,7 +40,9 @@ class BEVParkingBoxDetector:
         self.path_meter_pub = rospy.Publisher('/parking_path_meter', Path, queue_size=1)
         
         # Subscriber 설정
-        self.image_sub = rospy.Subscriber("/image_jpeg/compressed", CompressedImage, self.image_callback, queue_size=1)
+        # self.image_sub = rospy.Subscriber("/image_jpeg/compressed", CompressedImage, self.image_callback, queue_size=1)
+        self.image_sub = rospy.Subscriber("/usb_cam/image_raw/compressed", CompressedImage, self.image_callback, queue_size=1)
+        rospy.loginfo("Waiting for images on topic: /usb_cam/image_raw")
 
 
     def convert_pixel_to_local(self, point_px, image_shape):

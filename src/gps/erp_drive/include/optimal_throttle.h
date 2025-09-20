@@ -107,15 +107,15 @@ private:
 
         // 그냥 정지선 1
         // EventPlaceInfo(935531.6553283043, 1915951.8808367082, EventType::STOP_LINE),
-        EventPlaceInfo(425, EventType::STOP_TRAFFIC),
+        // EventPlaceInfo(425, EventType::STOP_TRAFFIC),
 
         // 그냥 정지선 2
         // EventPlaceInfo(935539.5026992218, 1915963.0705893768, EventType::STOP_LINE),
-        EventPlaceInfo(605, EventType::STOP_TRAFFIC),
+        // EventPlaceInfo(605, EventType::STOP_TRAFFIC),
 
         // traffic 1
         // EventPlaceInfo(935562.5859266134, 1915954.1952024777, EventType::STOP_LINE),
-        EventPlaceInfo(1045, EventType::STOP_TRAFFIC),
+        // EventPlaceInfo(1045, EventType::STOP_TRAFFIC),
 
         // traffic 2
         // EventPlaceInfo(935599.9336382326, 1915972.0595697816, EventType::STOP_LINE),
@@ -133,7 +133,7 @@ private:
         // EventPlaceInfo(1348, EventType::STOP_DELIVERY_B),
 
         // 좌회전 traffic (1)
-        EventPlaceInfo(2650, EventType::STOP_TRAFFIC),
+        // EventPlaceInfo(2650, EventType::STOP_TRAFFIC),
 
         // 좌회전 traffic (2)
         // EventPlaceInfo(1854, EventType::STOP_TRAFFIC),

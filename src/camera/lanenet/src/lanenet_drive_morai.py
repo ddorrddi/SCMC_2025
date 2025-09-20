@@ -84,7 +84,7 @@ class LanenetDetection:
         self.last_x_location = 320
 
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        self.model_path = '/home/foscar/iscc_2024/src/camera/lanenet/src/lanenet_.model'
+        self.model_path = '/home/foscar/SCMC_2025/src/camera/lanenet/src/lanenet_.model'
         self.LaneNet_model = Lanenet(2, 4)
         self.LaneNet_model.load_state_dict(torch.load(self.model_path, map_location=torch.device(self.device)))
         self.LaneNet_model.to(self.device)
@@ -112,7 +112,9 @@ class LanenetDetection:
         self.global_path_finish = False
 
         rospy.Subscriber("/global_path_finish", Bool, self.global_path_finish_CB)
-        rospy.Subscriber("/image_jpeg/compressed", CompressedImage, self.image_callback)
+        # rospy.Subscriber("/image_jpeg/compressed", CompressedImage, self.image_callback)
+        rospy.Subscriber("/usb_cam/image_raw", Image, self.image_callback)
+
         rospy.Subscriber("imu", Imu, self.imuCB)
         rospy.Subscriber("/bounding_box_static", MarkerArray, self.objectCB_static)
         rospy.Subscriber("/bounding_box_dynamic", MarkerArray, self.objectCB_dynamic)
@@ -296,7 +298,8 @@ class LanenetDetection:
             rate.sleep()
 
     def image_callback(self, msg):
-        self.image = self.bridge.compressed_imgmsg_to_cv2(msg)
+        # self.image = self.bridge.compressed_imgmsg_to_cv2(msg)
+        self.image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
 
     def objectCB_static(self, msg):
         self.obstacle_list_static = []

@@ -1,0 +1,3 @@
+<launch>
+    <node pkg = "bev" type="bev_image_saver.py" name="bev_image_saver" ns="bev_converter" output="screen" />
+</launch>
