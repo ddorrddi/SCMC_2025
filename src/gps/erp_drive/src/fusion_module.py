@@ -101,6 +101,7 @@ class Fusion:
         tau_z2: float = 0.36,    # 신뢰도 계산용 깊이 분산 스케일 (0.6m)^2
         tau_2d: float = 0.25,    # 신뢰도 계산용 중심성 스케일
         max_points: int = 512,   # 부하 제한 (너무 많으면 다운샘플)
+        max_range: float = 10.0  # [m], 필요에 따라 파라미터화 가능
     ):
         """
         YOLO bbox(xyxy) 내부의 투영 포인트(cloud_uv)와 그에 대응하는 LiDAR 3D(cloud_xyz)에서
@@ -152,6 +153,12 @@ class Fusion:
         R = np.linalg.norm(P, axis=1)
         med, sigma = self.robust_mad_sigma(R)
         keep = np.abs(R - med) <= (k_mad * sigma)
+        if not np.any(keep):
+            return None, 0.0, np.zeros(len(cloud_uv), dtype=bool)
+        P, R, w2d, r = P[keep], R[keep], w2d[keep], r[keep]
+
+        # === 3.5) 거리 임계값 컷오프 ===
+        keep = R <= max_range
         if not np.any(keep):
             return None, 0.0, np.zeros(len(cloud_uv), dtype=bool)
         P, R, w2d, r = P[keep], R[keep], w2d[keep], r[keep]

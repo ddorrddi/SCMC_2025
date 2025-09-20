@@ -92,6 +92,9 @@ class FusionNode:
         # ↓(~1.0): 표지판처럼 정적 타깃에서 점프/스위칭 방지(더 엄격)
         # ↑(~2.0+): 고속 주행/프레임 드랍/칼리브 덜맞음으로 중심 이동이 큰 환경
 
+        self.max_range = 10.0
+        # [1.0~15.0] 탐지된 포인트 최대 거리 임계값
+
         # 신뢰도 민감도
         self.tau_z2 = 0.36   # (0.6m)^2
         self.tau_2d = 0.25
@@ -127,6 +130,7 @@ class FusionNode:
         self.r_cut = config.r_cut
         self.k_mad = config.k_mad
         self.prev_gate = config.prev_gate
+        self.max_range = config.max_range
         
         # Extrinsics 업데이트
         self.R, self.T = Fusion.make_extrinsics(self.x, self.y, self.z, self.roll, self.pitch, self.yaw)
