@@ -46,7 +46,7 @@ class DeliveryPlanner:
     def __init__(self, g_path: PathReference, rviz_offset_x: float, rviz_offset_y: float):
         # 파라미터 (조절해야됨)
         self.threshold = 0.95 # IOU 신뢰도 임계값
-        self.min_queue_size = 20 # 목적지 좌표 신뢰도를 위한 큐 사이즈 (10Hz기준 20이면 2초간의 정보) !!메시지 드랍시 보완 로직이 없음!!
+        self.min_queue_size = 30 # 목적지 좌표 신뢰도를 위한 큐 사이즈 (10Hz기준 20이면 2초간의 정보) !!메시지 드랍시 보완 로직이 없음!!
         self.end_offset = 40 # 배달미션이 끝났는가 판단하는 최소 waypoint 개수
 
         # 도착지 시각화
@@ -115,12 +115,12 @@ class DeliveryPlanner:
         self.delivery_done_confirm()
 
     def center_point_CB(self, pt_msg: PointStamped):
-        # 유효성 체크
-        if self.delivery_in_progress:
+        # 유효성 체크 (테스트할때 유의할것!)
+        if self.delivery_in_progress: # 배달미션이 진행중이면 pass
             return
-        if self.curr_idx is None or self.curr_pose is None: # 현재 idx와 Pose가 세팅돼있어야 유효
+        if self.curr_idx is None or self.curr_pose is None: # 현재 idx와 Pose가 세팅돼있지 않으면 pass
             return
-        if not (self.STOP_IDX <= self.curr_idx <= self.STOP_IDX + self.segment_len): # 배달 B구간일때만 유효
+        if not (self.STOP_IDX <= self.curr_idx <= self.STOP_IDX + self.segment_len): # 배달 B구간이 아니면 pass
             return
 
         # 메시지로 넘어온 목적지 좌표(라이다 좌표계)를 글로벌좌표계로 고치기
@@ -183,14 +183,27 @@ class DeliveryPlanner:
     def delivery_sign_CB(self, msg:DetectYolo):
         print(self.delivery_target_num)
         print(self.sign_queue)
-        # 유효성 검사 및 타겟이 정해지지 않았을때 1회만 작동
-        if self.curr_idx is None or self.delivery_done or self.delivery_target_num is not None:
+
+        # 유효성 검사
+        if self.delivery_target_num is not None: # 타겟이 정해졌으면 pass
             return
-        if (self.STOP_IDX <= self.curr_idx <= self.STOP_IDX + self.segment_len): # 배달 B구간일때는 작동안함
+        if self.curr_idx is None or self.delivery_done: # curr_idx가 없거나 배달미션이 끝났다면 pass
             return
-        # 큐에 샘플 데이터 수집 이후 충분히 수집하면 target 설정하고 publish
-        if msg.class_name != "None":
-            self.sign_queue.append(int(msg.class_name))
+        if (self.STOP_IDX <= self.curr_idx <= self.STOP_IDX + self.segment_len): # 배달 A구간이 아니면 pass
+            return
+
+        # YOLO 박스 크기 필터: 단순히 width*height 면적 기준
+        min_area = 2500  # 임계값 (상황에 맞게 조정: 정규화라면 0.01~0.05, 픽셀 단위라면 수백~수천)
+        box_area = msg.width * msg.height
+
+        if msg.class_name != "None" and box_area >= min_area:
+            try:
+                cls_id = int(msg.class_name)
+                self.sign_queue.append(cls_id)
+            except ValueError:
+                pass  # 숫자로 변환 안되면 스킵
+
+        # 큐에 충분히 쌓였으면 target 확정
         if len(self.sign_queue) >= self.min_queue_size:
             self.delivery_target_num = Counter(self.sign_queue).most_common(1)[0][0]
             self.delivery_target_num_pub.publish(String(str(self.delivery_target_num)))

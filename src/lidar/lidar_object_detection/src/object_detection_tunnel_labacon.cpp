@@ -35,30 +35,30 @@ lidar_object_detection::ObjectInfo objectInfoMsg;
 lidar_object_detection::PointInfo pointInfoMsg; // 이미지에 옮길 bbox 각 꼭짓점 정보
 
 
-void cfgCallback(lidar_object_detection::objectDetectorTunnelDynamicConfig &config_tunnel_dynamic_morai, int32_t level) {
-    xMinROI = config_tunnel_dynamic_morai.xMinROI;
-    xMaxROI = config_tunnel_dynamic_morai.xMaxROI;
-    yMinROI = config_tunnel_dynamic_morai.yMinROI;
-    yMaxROI = config_tunnel_dynamic_morai.yMaxROI;
-    zMinROI = config_tunnel_dynamic_morai.zMinROI;
-    zMaxROI = config_tunnel_dynamic_morai.zMaxROI;
+void cfgCallback(lidar_object_detection::objectDetectorTunnelLabaconConfig &config_tunnel_labacon, int32_t level) {
+    xMinROI = config_tunnel_labacon.xMinROI;
+    xMaxROI = config_tunnel_labacon.xMaxROI;
+    yMinROI = config_tunnel_labacon.yMinROI;
+    yMaxROI = config_tunnel_labacon.yMaxROI;
+    zMinROI = config_tunnel_labacon.zMinROI;
+    zMaxROI = config_tunnel_labacon.zMaxROI;
 
-    minPoints = config_tunnel_dynamic_morai.minPoints;
-    epsilon = config_tunnel_dynamic_morai.epsilon;
-    minClusterSize = config_tunnel_dynamic_morai.minClusterSize;
-    maxClusterSize = config_tunnel_dynamic_morai.maxClusterSize;
+    minPoints = config_tunnel_labacon.minPoints;
+    epsilon = config_tunnel_labacon.epsilon;
+    minClusterSize = config_tunnel_labacon.minClusterSize;
+    maxClusterSize = config_tunnel_labacon.maxClusterSize;
 
-    xMinBoundingBox = config_tunnel_dynamic_morai.xMinBoundingBox;
-    xMaxBoundingBox = config_tunnel_dynamic_morai.xMaxBoundingBox;
-    yMinBoundingBox = config_tunnel_dynamic_morai.yMinBoundingBox;
-    yMaxBoundingBox = config_tunnel_dynamic_morai.yMaxBoundingBox;
-    zMinBoundingBox = config_tunnel_dynamic_morai.zMinBoundingBox;
-    zMaxBoundingBox = config_tunnel_dynamic_morai.zMaxBoundingBox;
+    xMinBoundingBox = config_tunnel_labacon.xMinBoundingBox;
+    xMaxBoundingBox = config_tunnel_labacon.xMaxBoundingBox;
+    yMinBoundingBox = config_tunnel_labacon.yMinBoundingBox;
+    yMaxBoundingBox = config_tunnel_labacon.yMaxBoundingBox;
+    zMinBoundingBox = config_tunnel_labacon.zMinBoundingBox;
+    zMaxBoundingBox = config_tunnel_labacon.zMaxBoundingBox;
 
-    leafSize  = config_tunnel_dynamic_morai.leafSize;
+    leafSize  = config_tunnel_labacon.leafSize;
 
-    maxIterations = config_tunnel_dynamic_morai.maxIterations;
-    distanceThreshold = config_tunnel_dynamic_morai.distanceThreshold;
+    maxIterations = config_tunnel_labacon.maxIterations;
+    distanceThreshold = config_tunnel_labacon.distanceThreshold;
 }
 
 pcl::PointCloud<PointT>::Ptr ROI (const sensor_msgs::PointCloud2ConstPtr& input) {
@@ -325,11 +325,11 @@ void mainCallback(const sensor_msgs::PointCloud2ConstPtr& input) {
 
 int main (int argc, char** argv) {
     // Initialize ROS
-    ros::init (argc, argv, "lidar_object_detection_tunnel_dynamic");
+    ros::init (argc, argv, "lidar_object_detection_tunnel_labacon");
     ros::NodeHandle nh;
     
-    dynamic_reconfigure::Server<lidar_object_detection::objectDetectorTunnelDynamicConfig> server;
-    dynamic_reconfigure::Server<lidar_object_detection::objectDetectorTunnelDynamicConfig>::CallbackType f;
+    dynamic_reconfigure::Server<lidar_object_detection::objectDetectorTunnelLabaconConfig> server;
+    dynamic_reconfigure::Server<lidar_object_detection::objectDetectorTunnelLabaconConfig>::CallbackType f;
 
     f = boost::bind(&cfgCallback, _1, _2);
     server.setCallback(f);
@@ -337,12 +337,12 @@ int main (int argc, char** argv) {
     ros::Subscriber sub = nh.subscribe ("velodyne_points", 1, mainCallback);
 
     // Create a ROS publisher for the output point cloud
-    pubROI = nh.advertise<sensor_msgs::PointCloud2> ("roi_raw_dynamic", 1);
-    pubCluster = nh.advertise<sensor_msgs::PointCloud2>("cluster_dynamic", 1);
-    pubObjectInfo = nh.advertise<lidar_object_detection::ObjectInfo>("object_info_dynamic", 1);
-    pubPointInfo = nh.advertise<lidar_object_detection::PointInfo>("bbox_point_info_dynamic", 1);
-    pubObjectMarkerArray = nh.advertise<visualization_msgs::MarkerArray>("bounding_box_dynamic", 1);
-    pubPlaneInfo = nh.advertise<sensor_msgs::PointCloud2> ("plane_dynamic", 1);
+    pubROI = nh.advertise<sensor_msgs::PointCloud2> ("roi_raw_labacon", 1);
+    pubCluster = nh.advertise<sensor_msgs::PointCloud2>("cluster_labacon", 1);
+    pubObjectInfo = nh.advertise<lidar_object_detection::ObjectInfo>("object_info_labacon", 1);
+    pubPointInfo = nh.advertise<lidar_object_detection::PointInfo>("bbox_point_info_labacon", 1);
+    pubObjectMarkerArray = nh.advertise<visualization_msgs::MarkerArray>("bounding_box_labacon", 1);
+    pubPlaneInfo = nh.advertise<sensor_msgs::PointCloud2> ("plane_labacon", 1);
     // Spin
     ros::spin();
 }

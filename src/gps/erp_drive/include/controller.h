@@ -108,14 +108,26 @@ public:
     int delivery_path_size, delivery_curr_idx;
     bool is_delivery_done = false;
     bool is_delivery_end = false;
+
+    // 주차 관련 플래그
     bool is_parking_stop_done = false;
+    bool is_parking_done = false;
+    bool is_parking_end = false;
     bool parking_stop_once;
+    bool parking_done_once;
+    bool parking_end_once;
 
     ros::Subscriber delivery_done_sub;
     ros::Subscriber parking_stop_done_sub;
 
+    ros::Subscriber parking_done_sub;
+    ros::Subscriber parking_end_sub;
+
     void deliveryDoneCallback(const std_msgs::Int16& signal);
     void parkingStopDoneCallback(const std_msgs::Int16& signal);
+
+    void parkingDoneCallback(const std_msgs::Int16& signal);
+    void parkingEndCallback(const std_msgs::Int16& signal);
 
     bool is_moving_front;
 

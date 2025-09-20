@@ -84,6 +84,9 @@ if __name__ == '__main__':
 
         if planner.obstacle_avoidance_planner.is_local_waypoint_set:
              planner.obstacle_avoidance_planner.publish_avoidance_path()
+
+        if planner.parking_planner.parking_path_set:
+            planner.parking_planner.make_parking_path()
              
         planner.delivery_planner.publish_marker()
         planner.delivery_planner.delivery_done_confirm()

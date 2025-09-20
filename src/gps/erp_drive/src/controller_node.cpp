@@ -28,6 +28,10 @@ int main(int argc, char** argv) {
     ros::Time delivery_B_Stop_Time; // 배달 목적지에서 정지할때 쓸 타이머
     double delivery_B_Original_Velocity = 0.0; // 배달 목적지에서 천천히 감속하려고 쓰는 변수
 
+    bool parking_stop_initiated = false;        // 주차를 위한 점진적 정차를 한 번만 실행하기 위한 플래그
+    ros::Time parking_stop_start_time;          // 점진적 정차 시작 시간을 기록할 타이머
+    double original_velocity_before_parking = 0.0;      // 정차 직전 속도를 저장하기 위한 변수
+
     ros::Rate loop_rate(control.LOOP_RATE);
 
     ros::Publisher target_waypoint_pub = control.nh.advertise<geometry_msgs::PointStamped>("/target_waypoint", 1);
@@ -147,8 +151,40 @@ int main(int argc, char** argv) {
         }
 
         else if(control.is_parking_stop_done){
-            //여기 뭐 하드코딩해서 들어가도록 할까 어때??
-            //아니면 parking_planner에서 로컬패스 만들어서 들어가는거는?
+            if(!parking_stop_initiated){
+                ROS_INFO("[Parking Logic] Initiating gradual stop for parking.");
+                parking_stop_start_time = ros::Time::now();
+                original_velocity_before_parking = control.velocity;
+                parking_stop_initiated = true;
+            }
+
+            ros::Duration elapsed = ros::Time::now() - parking_stop_start_time;
+
+            if(elapsed < ros::Duration(1.5)){
+                double ratio = 1.0 - (elapsed.toSec() / 1.5);
+                control.velocity = original_velocity_before_parking * ratio;
+                control.brake = 0.2; // 부드러운 제동
+            } else {
+                // 완전히 정지
+                control.velocity = 0.0;
+                control.brake = 1.0;
+                control.is_parking_stop_done = false;
+            }
+            control.publishControlMsg();
+        }
+
+        else if(control.is_parking_done){
+            ROS_INFO("[Parking Logic] Parking complete. Vehicle stopped.");
+            control.velocity = 0.0;
+            control.brake = 1.0;
+            control.publishControlMsg();
+        }
+
+        else if(control.is_parking_end){
+            ROS_INFO("[Parking Logic] Parking end. Vehicle remains stopped.");
+            control.is_parking_done = false;
+            control.is_parking_end = false; // 다음 루프에서 또 실행되지 않도록 자신도 초기화
+            control.calcGlobalCurrWaypoint(control.curr_pose);
         }
 
         else if(!control.is_finish && control.is_path_set && control.is_pose_set){
