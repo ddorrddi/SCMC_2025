@@ -25,8 +25,8 @@ class ParkingPlanner:
         self.decay_miss = 10       # 미관측 허용 프레임(지나면 트랙 삭제)   ->  이거도 나중에 실제 라이다 돌리면서 기준 잡아야함
 
         # === 빈 공간 판정 파라미터 ===
-        self.benchmark_coords = np.array([935537.090, 1915866.639], dtype=float)  # 앵커 좌표 -> 나중에 k-city가서 좌표 따오기
-        self.empty_gap = 3.0       # 인접 점 사이 3m 이상 → 빈 공간
+        self.benchmark_coords = np.array([935537.090, 1915866.639], dtype=float)  # 앵커 좌표(기본 0,0)
+        self.empty_gap = 4.0       # 인접 점 사이 3m 이상 → 빈 공간
 
         # === 장애물 인지 및 트래킹 ===
         self.tracks = []
@@ -42,13 +42,14 @@ class ParkingPlanner:
         # 주차 좌표 생성
         self.parking_stop_coords = None  # 정지 좌표 (x,y)
         self.reference_coords = None
+        self.parking_start_coords = None  # 진입 좌표 (x,y)
         self.parking_coords = None
-        self.parking_radius = 1.5  # 주차 좌표 생성 반지름 (m) -> 실험적으로 찾아야함
-        self.parking_theta = 60.0 * math.pi / 180.0 # 주차 좌표 생성 각도 (rad) -> 실험적으로 찾아야함
+        self.parking_radius = 1.1  # 주차 좌표 생성 반지름 (m) -> 실험적으로 찾아야함
+        self.parking_theta = 90.0 * math.pi / 180.0 # 주차 좌표 생성 각도 (rad) -> 실험적으로 찾아야함
 
         # === 주차 경로 생성 파라미터 ===
         self.resolution = 0.3      # 경로 해상도 (m)
-        self.path_delay_sec = 1.5  # 경로 발행 지연 시간 (s) -> 주차 정지 후 약간의 시간이 지난 후 경로 발행
+        self.path_delay_sec = 3.5 # 경로 발행 지연 시간 (s) -> 주차 정지 후 약간의 시간이 지난 후 경로 발행
         self.path_timer = None
         self.flip_arccos = False   # arccos 함수 상하 반전 여부
         self.parking_path = PathReference()
@@ -66,78 +67,47 @@ class ParkingPlanner:
         self.parking_end = False           # 주차 종료 플래그
         self.return_phase = 0              # g_path 복귀 단계 플래그 (0: 대기, 1: 경로 발행, 2: 복귀 완료 대기)
         self.Parking_Stop_Radius = 2.0     # 정지 반경 (m) -> parking_stop_done는 플래그 세워지고 1.5s 후 정지라 좀 루즈하게 설정
-        self.Parking_Success_Radius = 0.3  # 주차 성공 반경 (m) -> parking_done은 플래그 세워지자마자 정지라 좀 타이트하게 설정
+        self.Parking_Success_Radius = 2.0  # 주차 성공 반경 (m) -> parking_done은 플래그 세워지자마자 정지라 좀 타이트하게 설정
 
         self.curr_pose = None
         self.parking_path_set = False
+        self.g_curr_idx = 0
 
         # === ROS Pub/Sub ===
         self.parking_stop_done_pub = rospy.Publisher("/parking_stop_done", Int16,         queue_size=1)
         self.parking_done_pub      = rospy.Publisher("/parking_done",      Int16,         queue_size=1)
         self.parking_end_pub       = rospy.Publisher("/parking_end",       Int16,         queue_size=1)
-        self.local_path_pub        = rospy.Publisher("/local_path",        PathReference, queue_size=1)
+        self.parking_path_pub      = rospy.Publisher("/parking_path",      PathReference, queue_size=1)
+        self.return_path_pub       = rospy.Publisher("/return_path",       PathReference, queue_size=1)
         self.rviz_parking_path_pub = rospy.Publisher("/rviz_parking_path", Path,          queue_size=1)
         self.rviz_return_path_pub  = rospy.Publisher("/rviz_return_path",  Path,          queue_size=1)
-        self.parking_marker_pub    = rospy.Publisher("/parking_marker",    Marker,        queue_size=1)
+        self.sorted_pts_marker_pub = rospy.Publisher("/sorted_pts_marker", Marker,        queue_size=1)
 
-        rospy.Subscriber("/object_info_labacon", ObjectInfo,  self.traffic_cone_info_CB, queue_size=1)
-        rospy.Subscriber("/current_pose",        Pose,        self.curr_pose_CB,         queue_size=1)
-        rospy.Subscriber("/state_init",          Bool,        self.state_init_CB,        queue_size=1)
+        rospy.Subscriber("/object_info_labacon", ObjectInfo,  self.obstacle_info_CB, queue_size=1)
+        rospy.Subscriber("/current_pose",  Pose,        self.curr_pose_CB,     queue_size=1)
+        rospy.Subscriber("/curr_idx", Int16, self.curr_idx_CB)
 
-    # -------------------- 초기화 --------------------
-
-    def state_init_CB(self, msg: Bool):
-        if msg.data:
-            self.tracks.clear()
-            self.stable_pts = np.empty((0, 2), dtype=float)
-            self.sorted_pts = np.empty((0, 2), dtype=float)
-
-            self.axis_ready = False
-            self.axis_u = np.array([1.0, 0.0], dtype=float)
-            self.axis_o = np.array([0.0, 0.0], dtype=float)
-
-            self.parking_stop_coords = None
-            self.reference_coords = None
-            self.parking_coords = None
-
-            self.parking_slot_found = False
-            self.parking_in_progress = False
-            self.parking_stop_done = False
-            self.parking_path_is_pub = False
-            self.parking_done = False
-            self.parking_done_once = False
-            self.parking_end = False
-            self.return_phase = 0
-
-            self.parking_path.path.clear()
-            self.return_path.path.clear()
-            self.rviz_parking_path.poses.clear()
-            self.rviz_return_path.poses.clear()
-
-            if self.path_timer is not None:
-                self.path_timer.shutdown()
-                self.path_timer = None
-
-            self.parking_stop_done_pub.publish(0)
-            self.parking_done_pub.publish(0)
-            self.parking_end_pub.publish(0)
-
-            rospy.loginfo(f"Parking Planner Initialized!!!!!!!!!")
-    
     # -------------------- 콜백 --------------------
 
+    def curr_idx_CB(self, msg: Int16):
+        self.g_curr_idx = msg.data
+
     def curr_pose_CB(self, msg: Pose):
+
+        if self.g_curr_idx < 3450:
+            return
+        
         self.curr_pose = msg
         
         if self.parking_slot_found and not self.parking_done:
             self.parking_stop_confirm()
 
         if not self.parking_end and self.parking_path_is_pub:
-            self.execute_parking_phase()
+            self.return_to_gpath()
 
-        self.publish_parking_marker()
+        self.publish_sorted_pts_marker()
 
-    def traffic_cone_info_CB(self, msg: ObjectInfo):
+    def obstacle_info_CB(self, msg: ObjectInfo):
         if self.curr_pose is None:
             return
 
@@ -160,21 +130,21 @@ class ParkingPlanner:
                 return
             cx, cy = cx[roi_mask], cy[roi_mask]
 
-            # 1) 로컬 → 글로벌 좌표 변환
+            # 좌표계 변환
             obs_pts = self.local_to_global(cx, cy)
 
             # 2) 매칭 및 count 누적
-            self.update_traffic_cone_state(obs_pts)
+            self.update_labacon_state(obs_pts)
 
             # 3) 안정 좌표 리스트 삽입
-            self.update_stable_state()                      
+            self.update_stable_state()
 
             if self.stable_pts.shape[0] < 2:
                 self.parking_slot_found = False
                 return
 
             # 4) 축 추정 및 정렬
-            self.update_traffic_cone_array(self.stable_pts)
+            self.update_labacon_array(self.stable_pts)
 
             # 5) 빈 공간 판정 후 좌표 생성
             self.generate_parking_coords()
@@ -192,7 +162,7 @@ class ParkingPlanner:
         y_g = py + (cx * s + cy * c)
         return np.column_stack((x_g, y_g))
 
-    def update_traffic_cone_state(self, obs_pts: np.ndarray):
+    def update_labacon_state(self, obs_pts: np.ndarray):
         used = np.zeros(len(self.tracks), dtype=bool)
 
         for point in obs_pts:
@@ -235,7 +205,7 @@ class ParkingPlanner:
         n = np.linalg.norm(v)
         return v / n if n > 1e-9 else v
     
-    def update_traffic_cone_array(self, pts: np.ndarray):
+    def update_labacon_array(self, pts: np.ndarray):
         if pts.shape[0] == 0:
             self.sorted_pts = np.empty((0, 2), dtype=float)
             return
@@ -315,14 +285,16 @@ class ParkingPlanner:
 
     # -------------------- 주차 경로 생성 --------------------
 
-    def generate_parking_path(self):
+    def make_parking_path(self):
         if self.parking_coords is None or self.curr_pose is None or self.parking_slot_found is False:
             return
+        
+        if self.g_curr_idx < 3470:
+            return
 
-        start_xy = np.array([self.curr_pose.position.x, self.curr_pose.position.y], dtype=float)
-        goal_xy  = self.parking_coords.astype(float)
+        self.parking_start_coords = np.array([self.curr_pose.position.x, self.curr_pose.position.y], dtype=float)
 
-        raw = self.make_raw_path(start_xy, goal_xy, n=800, flip=self.flip_arccos)
+        raw = self.make_raw_path(self.parking_start_coords, self.parking_coords, n=800, flip=self.flip_arccos)
         pts = self.spacing_parking_path(raw, self.resolution)
 
         self.parking_path.path.clear()
@@ -356,7 +328,7 @@ class ParkingPlanner:
         self.rviz_parking_path.header.frame_id = "map"
 
         if self.parking_in_progress and not self.parking_path_is_pub:
-            self.local_path_pub.publish(self.parking_path)
+            self.parking_path_pub.publish(self.parking_path)
             self.rviz_parking_path_pub.publish(self.rviz_parking_path)
             self.parking_path_is_pub = True
             rospy.loginfo(f"Parking path published!!!!!!")
@@ -364,6 +336,7 @@ class ParkingPlanner:
     # -------------------- rev 경로 생성 --------------------
 
     def generate_return_path(self):
+        rospy.loginfo(f"Start generating return path!!!!!!")
         path = self.parking_path.path
         if len(path) < 2:
             return
@@ -400,15 +373,17 @@ class ParkingPlanner:
         self.rviz_return_path.header.stamp = rospy.Time.now()
         self.rviz_return_path.header.frame_id = "map"
 
-        self.local_path_pub.publish(self.return_path)
+        self.return_path_pub.publish(self.return_path)
         self.rviz_return_path_pub.publish(self.rviz_return_path)
         rospy.loginfo(f"Return path published!!!!!!")
-
+        
     # -------------------- 딜레이 경로 생성 --------------------
 
     def delay_path_maker(self, event=None):
         if self.parking_in_progress and self.parking_stop_done and not self.parking_path_is_pub:
-            self.generate_parking_path()
+            self.make_parking_path()
+        if self.parking_in_progress and self.parking_done and not self.parking_end:
+            self.generate_return_path()
         
         self.path_timer = None
 
@@ -468,7 +443,7 @@ class ParkingPlanner:
     
     # -------------------- 주차 후 g_path로 복귀 --------------------
 
-    def execute_parking_phase(self):
+    def return_to_gpath(self):
         if self.return_phase == 0:
             self.parking_done_confirm()
             if self.parking_done:
@@ -477,7 +452,9 @@ class ParkingPlanner:
 
         if self.return_phase == 1:
             if self.parking_done and len(self.parking_path.path) >= 2:
-                self.generate_return_path()
+                if self.path_timer is None:
+                    rospy.loginfo(f"delay path maker!!!!!!")
+                    self.path_timer = rospy.Timer(rospy.Duration(2.5), self.delay_path_maker, oneshot=True)  # 타이머 취소 후 바로 경로 생성 예약
                 self.return_phase = 2
             return
 
@@ -503,7 +480,8 @@ class ParkingPlanner:
                 rospy.loginfo(f"Parking Stop Done!!!!!!!!!")
 
                 if self.path_timer is None:
-                    self.path_timer = rospy.Timer(rospy.Duration(self.path_delay_sec), self.delay_path_maker, oneshot=True)     # 1.5초 뒤 경로 생성 예약
+                    rospy.loginfo(f"delay path maker start!!!!!!")
+                    self.path_timer = rospy.Timer(rospy.Duration(self.path_delay_sec), self.delay_path_maker, oneshot=True)     #1.5초 뒤 경로 생성 예약
 
         self.parking_stop_done_pub.publish(1 if self.parking_stop_done else 0)
 
@@ -534,11 +512,11 @@ class ParkingPlanner:
             self.parking_end = True
             self.parking_end_pub.publish(1 if self.parking_end else 0)
             if self.parking_end:
-                rospy.loginfo(f"Parking Mission End!!!!!!!!!")
+                rospy.loginfo(f"Return to g_path Done!!!!!!!!!")
             self.parking_in_progress = False
             self.return_phase = 3
 
-    def publish_parking_marker(self):
+    def publish_sorted_pts_marker(self):
         if self.sorted_pts is None or self.sorted_pts.shape[0] == 0:
             return
 
@@ -582,8 +560,8 @@ class ParkingPlanner:
         m_line.color.a = 0.95
         m_line.points = pts
 
-        self.parking_marker_pub.publish(m_pts)
-        self.parking_marker_pub.publish(m_line)
+        self.sorted_pts_marker_pub.publish(m_pts)
+        self.sorted_pts_marker_pub.publish(m_line)
 
         # --- gap, gap+1 강조 (빨강 / 파랑) ---
         gap_idx = self.find_parking_slot(self.sorted_pts) if self.sorted_pts.shape[0] >= 2 else None
@@ -623,8 +601,8 @@ class ParkingPlanner:
             gap_next_marker.color.b = 1.00  # 파랑
             gap_next_marker.color.a = 1.00
 
-            self.parking_marker_pub.publish(gap_marker)
-            self.parking_marker_pub.publish(gap_next_marker)
+            self.sorted_pts_marker_pub.publish(gap_marker)
+            self.sorted_pts_marker_pub.publish(gap_next_marker)
 
         # --- 원 그리기 유틸 ---
         def circle_marker(center_xy, radius, mid, r, g, b, ns):
@@ -656,10 +634,10 @@ class ParkingPlanner:
         # --- Parking_Stop_Radius (하늘) ---
         stop_circle = circle_marker(self.parking_stop_coords, getattr(self, "Parking_Stop_Radius", 0.0), mid=10, r=0.2, g=0.8, b=1.0, ns="parking_radii")
         if stop_circle is not None:
-            self.parking_marker_pub.publish(stop_circle)
+            self.sorted_pts_marker_pub.publish(stop_circle)
 
         # --- Parking_Success_Radius (주황) ---
         success_circle = circle_marker(self.parking_coords, getattr(self, "Parking_Success_Radius", 0.0), mid=11, r=1.0, g=0.5, b=0.0, ns="parking_radii")
         
         if success_circle is not None:
-            self.parking_marker_pub.publish(success_circle)
+            self.sorted_pts_marker_pub.publish(success_circle)

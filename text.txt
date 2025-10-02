@@ -1,3 +1,12 @@
 rosbag
 
-rosbag record -O 0824_Kcity.bag /velodyne_points /usb_cam/image_raw /gps_front/fix /gps_front/velocity
+rosbag record -O 0921_lanenet1.bag /velodyne_points /usb_cam/image_raw /gps_front/fix /gps_front/velocity
+
+rosbag
+
+rosbag record -O 0921_lanenet1.bag /usb_cam/image_raw
+
+
+rosbag record -O 0921_park.bag /velodyne_points
+시작하고 0으로 찍\고 근처 안찾는
++ 시작하자마자 못찾는

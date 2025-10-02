@@ -97,6 +97,7 @@ class DeliveryPlanner:
         self.delivery_target_num_pub = rospy.Publisher("/delivery_target", String, queue_size=1)
         self.delivery_done_pub = rospy.Publisher("/delivery_done", Int16, queue_size=1) # 배달 목적지에 도착했는지 플래그
         self.marker_pub = rospy.Publisher("/delivery_target_marker", Marker, queue_size=1) # RViz 시각화를 위한 마커 퍼블리셔
+        self.stop_marker_pub = rospy.Publisher("/delivery_stop_marker", Marker, queue_size=1) # RViz 시각화를 위한 정지점 마커 퍼블리셔
 
 
     def test_CB(self, msg:Bool):
@@ -180,18 +181,22 @@ class DeliveryPlanner:
         self.target_stop_xy = candidates[idx]["stop_xy"]
         rospy.loginfo(f"가장 가까운 표지판 좌표: {self.sign_coords}, 정지 좌표: {self.target_stop_xy}, idx: {idx}")
 
+        # 정지점 마커 발행
+        self.publish_stop_marker()
+
     def delivery_sign_CB(self, msg:DetectYolo):
-        print(self.delivery_target_num)
-        print(self.sign_queue)
+        # print(self.delivery_target_num)
+        # print(self.sign_queue)
 
         # 유효성 검사
         if self.delivery_target_num is not None: # 타겟이 정해졌으면 pass
             return
         if self.curr_idx is None or self.delivery_done: # curr_idx가 없거나 배달미션이 끝났다면 pass
-
             return
         if (self.STOP_IDX <= self.curr_idx <= self.STOP_IDX + self.segment_len): # 배달 A구간이 아니면 pass
             return
+        
+
 
         # YOLO 박스 크기 필터: 단순히 width*height 면적 기준
         min_area = 2500  # 임계값 (상황에 맞게 조정: 정규화라면 0.01~0.05, 픽셀 단위라면 수백~수천)
@@ -204,6 +209,7 @@ class DeliveryPlanner:
             except ValueError:
                 pass  # 숫자로 변환 안되면 스킵
 
+        rospy.loginfo(f"queue : {self.result_queue}")
         # 큐에 충분히 쌓였으면 target 확정
         if len(self.sign_queue) >= self.min_queue_size:
             self.delivery_target_num = Counter(self.sign_queue).most_common(1)[0][0]
@@ -298,3 +304,45 @@ class DeliveryPlanner:
         self.radius_marker.color.a = 0.4 # 반투명
         self.radius_marker.lifetime = rospy.Duration()
         self.marker_pub.publish(self.radius_marker)
+
+    def publish_stop_marker(self):
+        """
+        정지점 좌표를 RViz에 SPHERE 형태로 시각화합니다.
+        """
+        if self.target_stop_xy is None:
+            return
+
+        stop_marker = Marker()
+        stop_marker.header.frame_id = "map"
+        stop_marker.header.stamp = rospy.Time.now()
+        stop_marker.ns = "delivery_stop_marker"
+        stop_marker.id = 2
+        stop_marker.type = Marker.SPHERE
+        stop_marker.action = Marker.ADD
+
+        # 정지점 위치 설정
+        stop_marker.pose.position.x = self.target_stop_xy[0] - self.rviz_offset_x
+        stop_marker.pose.position.y = self.target_stop_xy[1] - self.rviz_offset_y
+        stop_marker.pose.position.z = 0.5  # 지면에서 살짝 위에 표시
+
+        # 방향 설정 (회전 없음)
+        stop_marker.pose.orientation.x = 0.0
+        stop_marker.pose.orientation.y = 0.0
+        stop_marker.pose.orientation.z = 0.0
+        stop_marker.pose.orientation.w = 1.0
+
+        # 크기 설정 (0.7m 구)
+        stop_marker.scale.x = 0.7
+        stop_marker.scale.y = 0.7
+        stop_marker.scale.z = 0.7
+
+        # 색상 설정 (초록색)
+        stop_marker.color.r = 0.0
+        stop_marker.color.g = 1.0
+        stop_marker.color.b = 0.0
+        stop_marker.color.a = 1.0
+
+        # 지속시간 (영구 표시)
+        stop_marker.lifetime = rospy.Duration()
+        self.stop_marker_pub.publish(stop_marker)
+        rospy.loginfo(f"Published delivery stop marker at {self.target_stop_xy}")

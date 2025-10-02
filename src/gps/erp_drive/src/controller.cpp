@@ -2,10 +2,10 @@
 
 Controller::Controller(char control_target):
 
-    optimal_throttle(), timer(0), is_finish(false), is_delivery_path_set(false), 
-    is_path_set(false), is_pose_set(false), is_local_path_set(false), g_curr_idx(0), l_curr_idx(0), delivery_curr_idx(0),
-    velocity(0.), global_velocity(0.), local_velocity(0.), is_moving_front(false),
-    is_parking_done(false), is_parking_end(false){
+    optimal_throttle(), timer(0), is_finish(false), is_delivery_path_set(false),
+    is_path_set(false), is_pose_set(false), is_local_path_set(false), is_initial_idx_found(false), g_curr_idx(0), l_curr_idx(0), delivery_curr_idx(0),
+    velocity(0.), global_velocity(0.), local_velocity(0.), is_moving_front(false), is_moving_back(false), go_to_finish(false),
+    is_parking_done(false), is_parking_end(false), current_state(VehicleState::GLOBAL_PATH_DRIVING){
         this->delivery_stop_once = true;
         this->parking_stop_once = true;
         this->parking_done_once = true;
@@ -27,8 +27,11 @@ Controller::Controller(char control_target):
         this->l_path_done_sub = nh.subscribe("/local_path_done", 1, &Controller::localPathDoneCallback, this); 
 
         this->delivery_done_sub = nh.subscribe("/delivery_done", 1, &Controller::deliveryDoneCallback, this);
+
         this->parking_stop_done_sub = nh.subscribe("/parking_stop_done", 1, &Controller::parkingStopDoneCallback, this);
+        this->parking_path_sub = nh.subscribe("/parking_path", 1, &Controller::parkingPathCallback, this);
         this->parking_done_sub = nh.subscribe("/parking_done", 1, &Controller::parkingDoneCallback, this);
+        this->return_path_sub = nh.subscribe("/return_path", 1, &Controller::returnPathCallback, this);
         this->parking_end_sub = nh.subscribe("/parking_end", 1, &Controller::parkingEndCallback, this);
         
         this->curr_pose_sub = nh.subscribe("/current_pose", 1, &Controller::currentPoseCallback, this);
@@ -56,6 +59,7 @@ void Controller::localPathCallback(const erp_drive::PathReference& l_path){
     this->l_path = l_path;
     this->l_path_size = l_path.path.size();
     this->is_local_path_set = true;
+    this->current_state = VehicleState::LOCAL_PATH_DRIVING;
 }
 
 void Controller::localPathDoneCallback(const std_msgs::Int16& signal){
@@ -63,7 +67,8 @@ void Controller::localPathDoneCallback(const std_msgs::Int16& signal){
     this->is_local_path_set = false;
     this->l_curr_idx = 0;
     this->is_avoidance_success = true;
-    this->has_turned_after_avoidance = false;
+
+    this->current_state = VehicleState::GLOBAL_PATH_DRIVING;
 }
 
 void Controller::deliveryDoneCallback(const std_msgs::Int16& signal){
@@ -80,11 +85,26 @@ void Controller::deliveryDoneCallback(const std_msgs::Int16& signal){
 void Controller::parkingStopDoneCallback(const std_msgs::Int16& signal){
     if(this->parking_stop_once){
         if(signal.data == 1){
+            ROS_INFO_STREAM("[Controller] Parking Stop Done signal received.");
             this->is_parking_stop_done = true;
             this->parking_stop_once = false;
+
+            this->current_state = VehicleState::PARKING_STOPPING;
         }
         else{this->is_parking_stop_done = false;}
     }
+}
+
+void Controller::parkingPathCallback(const erp_drive::PathReference& parking_path){
+    // 나중에 인덱스 기준으로 콜백 종료 조건 추가
+    ROS_INFO_STREAM("[Controller] Received new parking path.");
+
+    this->l_path = parking_path;
+    this->l_path_size = parking_path.path.size();
+    this->is_local_path_set = true;
+    this->l_curr_idx = 0;
+
+    this->current_state = VehicleState::PARKING_REVERSING;
 }
 
 void Controller::parkingDoneCallback(const std_msgs::Int16& signal){
@@ -93,12 +113,26 @@ void Controller::parkingDoneCallback(const std_msgs::Int16& signal){
             ROS_INFO_STREAM("[Controller] Parking Done signal received.");
             this->is_parking_done = true;
             this->parking_done_once = false;
+            this->is_local_path_set = false;
             this->l_curr_idx = 0;
+            this->current_state = VehicleState::PARKING_DONE;
         }
         else{
             this->is_parking_done = false;
         }
     }
+}
+
+void Controller::returnPathCallback(const erp_drive::PathReference& return_path){
+    // 나중에 인덱스 기준으로 콜백 종료 조건 추가
+    ROS_INFO_STREAM("[Controller] Received new return path.");
+
+    this->l_path = return_path;
+    this->l_path_size = return_path.path.size();
+    this->is_local_path_set = true;
+    this->l_curr_idx = 0;
+
+    this->current_state = VehicleState::LOCAL_PATH_DRIVING;
 }
 
 void Controller::parkingEndCallback(const std_msgs::Int16& signal){
@@ -108,6 +142,8 @@ void Controller::parkingEndCallback(const std_msgs::Int16& signal){
             this->is_parking_end = true;
             this->parking_end_once = false;
             this->is_local_path_set = false;
+            this->l_curr_idx = 0;
+            this->current_state = VehicleState::GLOBAL_PATH_DRIVING;
         }
     }
 }
@@ -210,6 +246,7 @@ void Controller::flowControl(const geometry_msgs::Pose& curr_pose){
             ROS_INFO("[STOP_LINE] Timeout! Resuming driving.");
 
             this->brake = 0.0;
+            this->is_timer_on = false;
             this->optimal_throttle.shouldStop = false;
             this->optimal_throttle.shouldDecel = false;
             this->optimal_throttle.eventPlaceInfoManager.nextEventPlaceInfo();
@@ -248,6 +285,13 @@ int Controller::calcGlobalCurrWaypoint(const geometry_msgs::Pose& curr_pose){
     // 1. Initial Position Search Logic
     if (!is_initial_idx_found) {
         ROS_INFO("[Controller] Starting global search for initial position...");
+        ROS_INFO("[Controller] Path size: %d, is_path_set: %d", this->g_path_size, this->is_path_set);
+
+        if (this->g_path_size == 0 || !this->is_path_set) {
+            ROS_ERROR("[Controller] Cannot find initial position: path not loaded!");
+            return this->g_curr_idx;
+        }
+
         double min_dist_init = 1e9;
         int initial_idx = -1;
 
@@ -295,6 +339,8 @@ int Controller::calcGlobalCurrWaypoint(const geometry_msgs::Pose& curr_pose){
             this->g_curr_idx = initial_idx;
             this->is_initial_idx_found = true;
             ROS_INFO("[Controller] Initial position found: Index %d", this->g_curr_idx);
+        } else {
+            ROS_ERROR("[Controller] Failed to find initial position! Path size: %d", this->g_path_size);
         }
         return this->g_curr_idx;
     }
@@ -403,8 +449,14 @@ void Controller::publishControlMsg(){
         msg.throttle = this->velocity; // 6.; // 장애물 회피
         // 주의! deg 단위임
         msg.steering = -this->steering * (180 / M_PI);
-        if(msg.throttle < 0)
-            msg.steering *= -1;
+        // if(msg.throttle < 0)
+        //     msg.steering *= -1;
+
+        if (this->is_moving_back) {
+            msg.steering = this->steering * -1;
+        } else {
+            msg.steering = this->steering;
+        }
 
         msg.brake = this->brake;
 
@@ -418,7 +470,7 @@ void Controller::publishControlMsg(){
         // msg.accel = 10.0;
         msg.velocity = fabs(this->velocity);
         // 주의! rad 단위임
-        if (this->velocity < 0) {
+        if (this->is_moving_back) {
             msg.steering = this->steering * -1;
         } else {
             msg.steering = this->steering;

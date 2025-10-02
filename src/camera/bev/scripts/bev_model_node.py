@@ -75,8 +75,9 @@ class BEVParkingBoxDetector:
                     for box in result.boxes:
                         x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
                         conf = box.conf[0].cpu().numpy()
-                        
-                        if conf > 0.5:
+                        cls = int(box.cls[0].cpu().numpy())
+
+                        if conf > 0.5 and cls == 1:  # 비어있는 주차공간(클래스 1)만 선택
                             box_points = [
                                 (int(x1), int(y1)), (int(x2), int(y1)),
                                 (int(x2), int(y2)), (int(x1), int(y2))

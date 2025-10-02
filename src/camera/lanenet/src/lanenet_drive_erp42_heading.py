@@ -167,7 +167,7 @@ class LanenetDetection:
                 img_roi = img_frame[280:470,0:]   # y좌표 0~320 사이에는 차선과 관련없는 이미지들이 존재하기에 노이즈를 줄이기 위하여 roi설정을 해주었습니다.
 
                 img_filtered = color_filter(img_roi)   #roi가 설정된 이미지를 color_filtering 하여 흰색 픽셀만을 추출해냅니다.
-
+                # cv2.imshow("img_roi", img_roi)
                 height, width, channel = img_filtered.shape
 
 
@@ -191,8 +191,8 @@ class LanenetDetection:
                 # dst_point4 = [width//4*3, 190]  # 오른쪽 아래
 
                 # 카메라 중간 위치
-                left_margin = 128
-                top_margin =  81
+                left_margin = 250
+                top_margin =  200
                 src_point1 = [0, top_margin]      # 왼쪽 아래
                 src_point2 = [left_margin, 0]      #195,44
                 src_point3 = [width - left_margin, 0]    #445,44
@@ -506,6 +506,8 @@ class LanenetDetection:
         roll, pitch, yaw = euler
 
         self.real_heading = yaw * 180.0 / math.pi
+
+        rospy.loginfo(self.real_heading)
 
         if self.gt_heading != None:
             self.local_heading = self.real_heading - self.gt_heading

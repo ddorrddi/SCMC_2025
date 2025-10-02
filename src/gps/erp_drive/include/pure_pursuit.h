@@ -29,6 +29,8 @@ public:
     double lookahead_distance;
     double global_lookahead_distance;
     double local_lookahead_distance;
+    double reverse_local_lookahead_distance;
+    double parking_local_lookahead_distance;
     
     void calcSteering(const geometry_msgs::Pose& curr_pose);
     

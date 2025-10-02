@@ -74,8 +74,14 @@ class BEVParkingBoxDetector:
                     for box in result.boxes:
                         x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
                         conf = box.conf[0].cpu().numpy()
-                        
-                        if conf > 0.5:
+                        cls = int(box.cls[0].cpu().numpy())
+
+                        # 디버그: 클래스 정보 출력 (필요시 주석 해제)
+                        rospy.loginfo(f"Detected box - conf: {conf:.3f}, class: {cls}")
+
+                        # 클래스 11 (주차 공간)만 선택
+                        if conf > 0.5 and cls == 11:
+                            rospy.loginfo(f"Processing valid box - conf: {conf:.3f}, class: {cls}")
                             box_points = [
                                 (int(x1), int(y1)), (int(x2), int(y1)),
                                 (int(x2), int(y2)), (int(x1), int(y2))
@@ -90,6 +96,7 @@ class BEVParkingBoxDetector:
                             }
                             detected_parking_boxes.append(box_info)
             
+            rospy.loginfo(f"Total detected parking boxes: {len(detected_parking_boxes)}")
             return detected_parking_boxes
             
         except Exception as e:
@@ -145,11 +152,20 @@ class BEVParkingBoxDetector:
         for box_data in detected_parking_boxes:
             w = box_data['width']
             h = box_data['height']
-            if w == 0 or h == 0: continue # 너비나 높이가 0이면 스킵
+            rospy.loginfo(f"Box dimensions - width: {w}, height: {h}")
+            if w == 0 or h == 0:
+                rospy.loginfo("Skipping box with zero width/height")
+                continue # 너비나 높이가 0이면 스킵
 
             aspect_ratio = min(w, h) / max(w, h) # 짧은 변 / 긴 변
+            rospy.loginfo(f"Aspect ratio: {aspect_ratio:.3f} (threshold: 0.8)")
             if aspect_ratio >= 0.8: # 비율이 0.8 이상인 경우만 추가
+                rospy.loginfo("Box passed aspect ratio filter")
                 square_like_boxes.append(box_data)
+            else:
+                rospy.loginfo("Box filtered out by aspect ratio")
+
+        rospy.loginfo(f"Boxes after aspect ratio filtering: {len(square_like_boxes)}")
 
         # --- 필터링된 박스들 시각화 및 목표 선택 ---
         target_slot_center = None
@@ -221,7 +237,7 @@ class BEVParkingBoxDetector:
         try:
             ros_bev_image = self.bridge.cv2_to_imgmsg(bev_image, "bgr8")
             self.image_pub.publish(ros_bev_image)
-            # cv2.imshow("BEV Parking Box Detection", bev_image)
+            cv2.imshow("BEV Parking Box Detection", bev_image)
             cv2.waitKey(1)
         except Exception as e:
             rospy.logerr(f"Image publishing or display error: {e}")

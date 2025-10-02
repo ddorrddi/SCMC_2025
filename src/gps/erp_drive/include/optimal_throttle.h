@@ -101,51 +101,26 @@ private:
 
         // EventPlaceInfo(END_NUM, EventType::STOP_LINE),
 
-        // 배탈 A 체크
-        // EventPlaceInfo(935549.5145976712, 1915871.4294302394, EventType::STOP_DELIVERY),
-        EventPlaceInfo(220 , EventType::STOP_DELIVERY_A),
-
-        // 그냥 정지선 1
-        // EventPlaceInfo(935531.6553283043, 1915951.8808367082, EventType::STOP_LINE),
-        // EventPlaceInfo(425, EventType::STOP_TRAFFIC),
-
-        // 그냥 정지선 2
-        // EventPlaceInfo(935539.5026992218, 1915963.0705893768, EventType::STOP_LINE),
-        // EventPlaceInfo(605, EventType::STOP_TRAFFIC),
+        // 배달 A 
+        EventPlaceInfo(268, EventType::STOP_DELIVERY_A),
 
         // traffic 1
-        // EventPlaceInfo(935562.5859266134, 1915954.1952024777, EventType::STOP_LINE),
-        // EventPlaceInfo(1045, EventType::STOP_TRAFFIC),
+        EventPlaceInfo(500, EventType::STOP_TRAFFIC),
 
         // traffic 2
-        // EventPlaceInfo(935599.9336382326, 1915972.0595697816, EventType::STOP_LINE),
-        EventPlaceInfo(1470, EventType::STOP_LINE),
+        EventPlaceInfo(690, EventType::STOP_TRAFFIC),
 
-        // Big Obstacle deceleration
-        // EventPlaceInfo(1050/*tmp*/, EventType::DECEL_BIG),
+        // traffic 3
+        EventPlaceInfo(1175, EventType::STOP_TRAFFIC),
 
-        // delivery 1st stop sign 4 (배달 직전)
-        // EventPlaceInfo(935650.1697879703, 1916096.433997373, EventType::STOP_LINE),
-        EventPlaceInfo(1570, EventType::STOP_LINE),
+        // stop line
+        EventPlaceInfo(1670, EventType::STOP_LINE),
 
-        // 수정 시 delivery_planner.py 에서도 수정
-        // 배달 시작 지점 >> 중복인데 넌 누구냐?
-        // EventPlaceInfo(1348, EventType::STOP_DELIVERY_B),
+        // stop line
+        EventPlaceInfo(1775, EventType::STOP_LINE),
 
-        // 좌회전 traffic (1)
-        // EventPlaceInfo(2650, EventType::STOP_TRAFFIC),
-
-        // 좌회전 traffic (2)
-        // EventPlaceInfo(1854, EventType::STOP_TRAFFIC),
-
-        // // 그냥 정지선
-        // EventPlaceInfo(2443, EventType::STOP_LINE),
-        
-        // // traffic
-        // EventPlaceInfo(2914, EventType::STOP_TRAFFIC),
-
-        // // 그냥 정지선
-        // EventPlaceInfo(3072, EventType::STOP_LINE),
+        // traffic 3
+        EventPlaceInfo(2890, EventType::STOP_TRAFFIC),
 
         // Last Element
         EventPlaceInfo(END_NUM, EventType::STOP_LINE),

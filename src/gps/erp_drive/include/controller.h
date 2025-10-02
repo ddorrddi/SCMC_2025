@@ -38,9 +38,18 @@
 
 #include "timer.h"
 
+enum class VehicleState {
+    GLOBAL_PATH_DRIVING,  // 전역 경로 주행
+    PARKING_STOPPING,   // 주차 미션을 위한 정지
+    PARKING_REVERSING,   // 후진
+    PARKING_DONE,   // 주차 완료 후 정지
+    LOCAL_PATH_DRIVING, // 기존 로컬 경로와 주차 경로를 모두 처리
+};
+
 class Controller {
 public:
     Controller(char control_target);
+    VehicleState current_state;
 
     // 상수 값
     const int LOOP_RATE = 30;
@@ -72,6 +81,7 @@ public:
     bool is_erp, is_path_set, is_pose_set, is_local_path_set;
     bool is_delivery_path_set, is_finish;
     bool is_timer_on = false;
+    bool go_to_finish;
 
     // Publisher 및 Subscriber 등록용
     ros::NodeHandle nh;
@@ -81,8 +91,7 @@ public:
     ros::Publisher morai_drive_pub;
     void publishControlMsg();
 
-    // planner 에서 활용 하기 위한 현재 차량 인덱스 Publisher
-    ros::Publisher curr_idx_pub;
+
 
     // global path 및 Subscriber
     erp_drive::PathReference g_path;
@@ -110,6 +119,7 @@ public:
     bool is_delivery_end = false;
 
     // 주차 관련 플래그
+    bool is_moving_back;
     bool is_parking_stop_done = false;
     bool is_parking_done = false;
     bool is_parking_end = false;
@@ -118,14 +128,18 @@ public:
     bool parking_end_once;
 
     ros::Subscriber delivery_done_sub;
-    ros::Subscriber parking_stop_done_sub;
 
+    ros::Subscriber parking_stop_done_sub;
+    ros::Subscriber parking_path_sub;
     ros::Subscriber parking_done_sub;
+    ros::Subscriber return_path_sub;
     ros::Subscriber parking_end_sub;
 
     void deliveryDoneCallback(const std_msgs::Int16& signal);
-    void parkingStopDoneCallback(const std_msgs::Int16& signal);
 
+    void parkingStopDoneCallback(const std_msgs::Int16& signal);
+    void returnPathCallback(const erp_drive::PathReference& reverse_path);
+    void parkingPathCallback(const erp_drive::PathReference& parking_path);
     void parkingDoneCallback(const std_msgs::Int16& signal);
     void parkingEndCallback(const std_msgs::Int16& signal);
 
@@ -206,7 +220,6 @@ public:
 
     // 추가
     bool is_avoidance_success = false;
-    bool has_turned_after_avoidance = false;
     int last_avoidance_direction = 0;
 };
 
