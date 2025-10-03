@@ -40,9 +40,9 @@ class BEVParkingBoxDetector:
         self.path_meter_pub = rospy.Publisher('/parking_path_meter', Path, queue_size=1)
         
         # Subscriber 설정
-        # self.image_sub = rospy.Subscriber("/image_jpeg/compressed", CompressedImage, self.image_callback, queue_size=1)
-        self.image_sub = rospy.Subscriber("/usb_cam/image_raw/compressed", CompressedImage, self.image_callback, queue_size=1)
-        rospy.loginfo("Waiting for images on topic: /usb_cam/image_raw")
+        self.image_sub = rospy.Subscriber("/image_jpeg/compressed", CompressedImage, self.image_callback, queue_size=1)
+        # self.image_sub = rospy.Subscriber("/usb_cam/image_raw/compressed", CompressedImage, self.image_callback, queue_size=1)
+        # rospy.loginfo("Waiting for images on topic: /usb_cam/image_raw")
 
 
     def convert_pixel_to_local(self, point_px, image_shape):
@@ -77,7 +77,7 @@ class BEVParkingBoxDetector:
                         conf = box.conf[0].cpu().numpy()
                         cls = int(box.cls[0].cpu().numpy())
 
-                        if conf > 0.5 and cls == 1:  # 비어있는 주차공간(클래스 1)만 선택
+                        if conf > 0.5:  # 비어있는 주차공간(클래스 1)만 선택
                             box_points = [
                                 (int(x1), int(y1)), (int(x2), int(y1)),
                                 (int(x2), int(y2)), (int(x1), int(y2))
@@ -139,7 +139,7 @@ class BEVParkingBoxDetector:
             if w == 0 or h == 0: continue # 너비나 높이가 0이면 스킵
 
             aspect_ratio = min(w, h) / max(w, h) # 짧은 변 / 긴 변
-            if aspect_ratio >= 0.9: # 비율이 0.8 이상인 경우만 추가
+            if aspect_ratio >= 0.8: # 비율이 0.8 이상인 경우만 추가
                 square_like_boxes.append(box_data)
 
         # --- 필터링된 박스들 시각화 및 목표 선택 ---

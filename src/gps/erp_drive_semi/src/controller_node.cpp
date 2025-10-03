@@ -54,13 +54,13 @@ int main(int argc, char** argv) {
                     ROS_INFO_STREAM("State: GLOBAL_PATH_DRIVING");
                     control.lookahead_distance = control.global_lookahead_distance;
                     
-                    // g_idx가 300 전까지 저속 주행
-                    if (100 < control.g_curr_idx && control.g_curr_idx < 300 && !control.is_reverse_done) {
+                    // g_idx가 230 전까지 저속 주행
+                    if (100 < control.g_curr_idx && control.g_curr_idx < 230 && !control.is_reverse_done) {
                         control.brake = 0.0;
-                        control.velocity = 22.0; // 저속 설정
+                        control.velocity = 10.0; // 저속 설정
                     } else if (1050 < control.g_curr_idx && control.g_curr_idx < 1200) {
                         control.brake = 0.0;
-                        control.velocity = 8.0;
+                        control.velocity = 10.0;
                     } else {
                         control.brake = 0.0;
                         control.velocity = control.global_velocity;

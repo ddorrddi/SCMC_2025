@@ -212,7 +212,7 @@ void Controller::publishControlMsg(){
 
 void Controller::parkingPathCallback(const erp_drive_semi::PathReference& parking_path){
 
-    if(this->g_curr_idx < 120 or this->g_curr_idx > 200) return;
+    if(this->g_curr_idx < 100 or this->g_curr_idx > 230) return;
 
     ROS_INFO("Received New Parking Path, treating as a local path.");
     

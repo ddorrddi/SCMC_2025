@@ -46,7 +46,7 @@ class GlobalPathPlanner:
         
     def set_g_path(self, file_name): 
  
-        with open(f'{self.pkg_path}/paths/kcity_semi_path_0824_1.txt', 'r') as f: 
+        with open(f'{self.pkg_path}/paths/semi1.txt', 'r') as f: 
             for line in f.readlines():
                 x, y, yaw, mode = map(float, line.split())
                 quat = quaternion_from_euler(0., 0., yaw)
@@ -85,7 +85,7 @@ class GlobalPathPlanner:
 
                 self.rviz_g_path1.poses.append(rviz_pose)
 
-        with open(f'{self.pkg_path}/paths/kcity_semi_path_0824_2.txt', 'r') as f:
+        with open(f'{self.pkg_path}/paths/semi2.txt', 'r') as f:
             for line in f.readlines():
                 x, y, yaw, mode = map(float, line.split())
                 quat = quaternion_from_euler(0., 0., yaw)
