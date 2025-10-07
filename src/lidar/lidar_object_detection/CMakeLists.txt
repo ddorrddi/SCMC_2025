@@ -42,6 +42,7 @@ generate_dynamic_reconfigure_options(
   cfg/config_tunnel_labacon.cfg
   cfg/config_tunnel_dynamic.cfg
   cfg/config_tunnel_static.cfg
+  cfg/config_tunnel_semi.cfg
   cfg/config_delivery_info.cfg
   cfg/config_tunnel_big.cfg
 )
@@ -79,4 +80,8 @@ add_dependencies(object_detection_tunnel_static ${PROJECT_NAME}_gencfg)
 add_executable(object_detection_tunnel_big src/object_detection_tunnel_big.cpp)
 target_link_libraries(object_detection_tunnel_big ${catkin_LIBRARIES})
 add_dependencies(object_detection_tunnel_big ${PROJECT_NAME}_gencfg)
+
+add_executable(object_detection_tunnel_semi src/object_detection_tunnel_semi.cpp)
+target_link_libraries(object_detection_tunnel_semi ${catkin_LIBRARIES})
+add_dependencies(object_detection_tunnel_semi ${PROJECT_NAME}_gencfg)
 

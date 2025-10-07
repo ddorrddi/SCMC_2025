@@ -45,7 +45,11 @@ class drawing_path():
                 interval = dist_diff.sum() / 0.2
 
                 try:
-                    z = np.polyfit(x, y, 3)
+                    # 경고 숨기기
+                    import warnings
+                    with warnings.catch_warnings():
+                        warnings.simplefilter('ignore', np.RankWarning)
+                        z = np.polyfit(x, y, 3)
                 except:
                     continue
                 

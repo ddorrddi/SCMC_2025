@@ -40,11 +40,11 @@
 
 enum class VehicleState {
     GLOBAL_PATH_DRIVING,
-    LOCAL_PATH_DRIVING, // 기존 로컬 경로와 주차 경로를 모두 처리
+    LOCAL_PATH_DRIVING,
+    PARKING_PATH_DRIVING,
     PARKING_DONE_STOPPING,
     PARKING_REVERSING,
-    REVERSE_DONE_STOPPING, // 후진 완료 후 1초 정지
-    RESUMING_GLOBAL_PATH // 전진 기어 변경 후 잠시 대기 상태
+    REVERSE_DONE_STOPPING
 };
 
 class Controller {
@@ -54,19 +54,13 @@ public:
     VehicleState current_state;
     ros::ServiceClient morai_event_cmd_client;
     ros::Timer stop_timer;
-    ros::Timer reverse_timer;
     ros::Timer reverse_done_timer;
     void stopTimerCallback(const ros::TimerEvent&);
-    void reverseTimerCallback(const ros::TimerEvent&);
     void reverseDoneTimerCallback(const ros::TimerEvent&);
 
     bool is_moving_back;
-
-    bool is_reverse_done;
-
-    bool is_initial_idx_found;
-
     bool is_parking_complete;
+    bool uturn_done;
 
 
     // 상수 값
@@ -115,9 +109,9 @@ public:
     erp_drive_semi::PathReference l_path;
     int l_path_size, l_curr_idx;
     ros::Subscriber l_path_sub;
-    ros::Subscriber l_path_done_sub;
+    ros::Subscriber waypoint_done_sub;
     void localPathCallback(const erp_drive_semi::PathReference& l_path);
-    void localPathDoneCallback(const std_msgs::Int16& signal);
+    void waypointDoneCallback(const std_msgs::Int16& signal);
 
     // reverse parking path (역순 주차 경로)
     erp_drive_semi::PathReference reverse_path;
@@ -148,56 +142,16 @@ public:
 
     ros::Publisher curr_waypoint_pub;
 
-    std::string traffic_light_status;
-    ros::Subscriber traffic_light_status_sub;
-    void trafficLightStatusCallback(const std_msgs::String& traffic_light_status);
-    bool isLeftSign();
-    bool isGreenSign();
-    bool isLeftTurn();
-
-    ros::Time time;
-
     ros::ServiceClient client;
     erp_drive_semi::InitializePose srv;
-     
-    // geometry_msg::Pose -> tf::Vector3 로 변환
-    tf::Vector3 pose2vec(const geometry_msgs::Pose& pose) {
-        return tf::Vector3(pose.position.z, pose.position.y, pose.position.z);
-    }
-
-    // geometry_msg::Point -> tf::Vector3 로 변환
-    tf::Vector3 pt2vec(const geometry_msgs::Point& pt) {
-        return tf::Vector3(pt.x, pt.y, pt.z);
-    }
-
-    // index 기반 거리 구하기
-    double getDistance(const int& idx1, const int& idx2) {
-        return getDistance(this->g_path.path[idx1].pose, this->g_path.path[idx2].pose);
-    }
 
     // geometry_msgs::Pose 버전 거리 구하기
     double getDistance(const geometry_msgs::Pose& a, const geometry_msgs::Pose& b) {
         double dist = (a.position.x - b.position.x) * (a.position.x - b.position.x);
         dist += (a.position.y - b.position.y) * (a.position.y - b.position.y);
         dist = sqrt(dist);
-        
+
         return dist;
-    }
-
-    // geometry_msgs::Point 버전 거리 구하기 
-    double getDistance(const geometry_msgs::Point& a, const geometry_msgs::Point& b) {
-        return tf::tfDistance(pt2vec(a), pt2vec(b));
-    }
-
-    void quaternionToEuler(const geometry_msgs::Quaternion& quat, double& roll, double& pitch, double& yaw) const {
-        // geometry_msgs::Quaternion을 tf::Quaternion으로 변환
-        tf::Quaternion tf_quat(quat.x, quat.y, quat.z, quat.w);
-        
-        // tf::Quaternion을 tf::Matrix3x3으로 변환
-        tf::Matrix3x3 m(tf_quat);
-        
-        // 행렬에서 오일러 각을 추출
-        m.getRPY(roll, pitch, yaw);
     }
 };
 

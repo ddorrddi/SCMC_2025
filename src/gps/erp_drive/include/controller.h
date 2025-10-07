@@ -107,10 +107,6 @@ public:
     void localPathCallback(const erp_drive::PathReference& l_path);
     void localPathDoneCallback(const std_msgs::Int16& signal);
 
-    ros::Subscriber avoidance_direction_sub;
-    void avoidanceDirectionCallback(const std_msgs::Int16& msg);
-
-
     erp_drive::PathReference delivery_path;
 
     bool delivery_stop_once;
@@ -220,7 +216,6 @@ public:
 
     // 추가
     bool is_avoidance_success = false;
-    int last_avoidance_direction = 0;
 };
 
 #endif

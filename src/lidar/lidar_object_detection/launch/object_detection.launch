@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
-    <!-- <include file="$(find velodyne_pointcloud)/launch/VLP16_points.launch"/> -->
-    <include file="$(find lidar_object_detection)/launch/object_detection_tunnel_static.launch"/>
-    <include file="$(find lidar_object_detection)/launch/object_detection_tunnel_big.launch"/>
-    <include file="$(find lidar_object_detection)/launch/object_detection_delivery.launch"/>
-    <include file="$(find lidar_object_detection)/launch/object_detection_tunnel_labacon.launch"/>
+    <include file="$(find velodyne_pointcloud)/launch/VLP16_points.launch"/>
+	<node pkg="lidar_object_detection" type="object_detection_tunnel_static" output="screen"  name="object_detection_tunnel_static"/>
+    <node pkg="lidar_object_detection" type="object_detection_tunnel_big" output="screen"  name="object_detection_tunnel_big"/>
+    <node pkg="lidar_object_detection" type="object_detection_delivery" output="screen"  name="object_detection_delivery"/>
+    <node pkg="lidar_object_detection" type="object_detection_tunnel_labacon" output="screen"  name="object_detection_tunnel_labacon"/>
 </launch>   

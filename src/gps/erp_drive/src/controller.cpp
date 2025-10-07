@@ -40,8 +40,6 @@ Controller::Controller(char control_target):
 
         this->traffic_light_status_sub = nh.subscribe("/traffic_light_status", 1, &Controller::trafficLightStatusCallback, this);
 
-        this->avoidance_direction_sub = nh.subscribe("/avoidance_direction", 1, &Controller::avoidanceDirectionCallback, this);
-
         this->deceleration_request_sub = nh.subscribe("/deceleration_request", 1, &Controller::decelerationRequestCallback, this);
     }
 
@@ -202,9 +200,25 @@ void Controller::flowControl(const geometry_msgs::Pose& curr_pose){
     if(this->optimal_throttle.shouldDecel){
         switch(this->optimal_throttle.eventPlaceInfoManager.getCurrEventPlaceInfo().type){
         case EventType::STOP_TRAFFIC:
-            if(stop_idx - 10 <= this->g_curr_idx){
+            // [개선 1] 감속 중 초록불이면 바로 통과
+            if(this->isGreenSign()){
+                ROS_INFO("[TRAFFIC LIGHT] GREEN detected during deceleration - skipping stop");
                 this->optimal_throttle.shouldDecel = false;
-                this->optimal_throttle.shouldStop = true;
+                this->optimal_throttle.eventPlaceInfoManager.nextEventPlaceInfo();
+                break;
+            }
+
+            // [개선 3] -10에서 -5로 변경하여 신호등 인식 시간 확보
+            if(stop_idx - 5 <= this->g_curr_idx){
+                // [개선 2] 초록불이면 shouldStop으로 전환하지 않고 통과
+                if(this->isGreenSign()){
+                    ROS_INFO("[TRAFFIC LIGHT] GREEN at stop point - proceeding without stop");
+                    this->optimal_throttle.shouldDecel = false;
+                    this->optimal_throttle.eventPlaceInfoManager.nextEventPlaceInfo();
+                } else {
+                    this->optimal_throttle.shouldDecel = false;
+                    this->optimal_throttle.shouldStop = true;
+                }
             }
 
             break;
@@ -284,11 +298,8 @@ void Controller::flowControl(const geometry_msgs::Pose& curr_pose){
 int Controller::calcGlobalCurrWaypoint(const geometry_msgs::Pose& curr_pose){
     // 1. Initial Position Search Logic
     if (!is_initial_idx_found) {
-        ROS_INFO("[Controller] Starting global search for initial position...");
-        ROS_INFO("[Controller] Path size: %d, is_path_set: %d", this->g_path_size, this->is_path_set);
 
         if (this->g_path_size == 0 || !this->is_path_set) {
-            ROS_ERROR("[Controller] Cannot find initial position: path not loaded!");
             return this->g_curr_idx;
         }
 
@@ -325,7 +336,6 @@ int Controller::calcGlobalCurrWaypoint(const geometry_msgs::Pose& curr_pose){
         
         // If no point is found in front, fall back to the original distance-only search
         if (initial_idx == -1) {
-            ROS_WARN("[Controller] No path point found in front. Falling back to distance-only search.");
             for (int i = 0; i < this->g_path_size; i++) {
                 double curr_dist = this->getDistance(this->g_path.path[i].pose, curr_pose);
                 if (min_dist_init > curr_dist) {
@@ -338,10 +348,7 @@ int Controller::calcGlobalCurrWaypoint(const geometry_msgs::Pose& curr_pose){
         if (initial_idx != -1) {
             this->g_curr_idx = initial_idx;
             this->is_initial_idx_found = true;
-            ROS_INFO("[Controller] Initial position found: Index %d", this->g_curr_idx);
-        } else {
-            ROS_ERROR("[Controller] Failed to find initial position! Path size: %d", this->g_path_size);
-        }
+        } 
         return this->g_curr_idx;
     }
 
@@ -360,7 +367,7 @@ int Controller::calcGlobalCurrWaypoint(const geometry_msgs::Pose& curr_pose){
         quaternionToEuler(this->g_path.path[i].pose.orientation, roll, pitch, path_yaw);
         quaternionToEuler(curr_pose.orientation, roll, pitch, curr_yaw);
         
-        if(min_dist > curr_dist && abs(curr_yaw - path_yaw) <= M_PI / 6) {
+        if(min_dist > curr_dist && abs(curr_yaw - path_yaw) <= M_PI / 4) {
             min_dist = curr_dist;
             min_idx = i;
         }
@@ -368,7 +375,6 @@ int Controller::calcGlobalCurrWaypoint(const geometry_msgs::Pose& curr_pose){
 
     // 2-2. Secondary Search: If primary search fails, considers distance only within the limited range.
     if(min_idx == -1){
-        ROS_WARN("[Controller] Primary search failed! Starting secondary search within the limited range.");
         min_dist = 1e9;
         for(int i = search_start_idx; i < search_end_idx; i++){
             double curr_dist = this->getDistance(this->g_path.path[i].pose, curr_pose);
@@ -446,7 +452,14 @@ void Controller::publishControlMsg(){
     // ERP로 주행 시 실행되는 블럭
     if(this->is_erp){
         race::drive_values msg;
-        msg.throttle = this->velocity; // 6.; // 장애물 회피
+        // msg.throttle = this->velocity; // 6.; // 장애물 회피
+
+        if (this->is_moving_back) {
+            msg.throttle = -this->velocity; // 후진
+        } else {
+            msg.throttle = this->velocity * -1; // 전진
+        }
+        
         // 주의! deg 단위임
         msg.steering = -this->steering * (180 / M_PI);
         // if(msg.throttle < 0)
@@ -480,13 +493,6 @@ void Controller::publishControlMsg(){
 
         this->morai_drive_pub.publish(msg);    
     }
-}
-
-
-void Controller::avoidanceDirectionCallback(const std_msgs::Int16& msg){
-    // planner가 보낸 ccw 값을 저장합니다 (1: 좌회피, -1: 우회피)
-    this->last_avoidance_direction = msg.data;
-    ROS_INFO_STREAM("[Controller] Avoid direction: " << this->last_avoidance_direction);
 }
 
 void Controller::decelerationRequestCallback(const std_msgs::Int16& msg){

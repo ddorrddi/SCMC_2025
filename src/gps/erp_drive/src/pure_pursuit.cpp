@@ -24,6 +24,8 @@ void PurePursuit::calcSteering(const geometry_msgs::Pose& curr_pose) {
     geometry_msgs::Pose curr_waypoint;
     geometry_msgs::Pose next_waypoint;
 
+    // ROS_INFO_STREAM("Pure Pursuit : g_curr_idx" << this->g_curr_idx);
+
     calcGlobalCurrWaypoint(curr_pose);
     calcGlobalNextWaypoint(curr_pose);
 

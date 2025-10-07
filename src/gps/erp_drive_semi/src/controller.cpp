@@ -3,8 +3,8 @@
 Controller::Controller(char control_target):
     current_state(VehicleState::GLOBAL_PATH_DRIVING),
     optimal_throttle(), is_finish(false), flag(true),
-    is_path_set(false), is_pose_set(false), is_local_path_set(false), g_curr_idx(0), 
-    velocity(0.), global_velocity(0.), local_velocity(0.), is_moving_back(false), is_parking_complete(false), is_reverse_done(false)
+    is_path_set(false), is_pose_set(false), is_local_path_set(false), g_curr_idx(0),
+    velocity(0.), global_velocity(0.), local_velocity(0.), is_moving_back(false), is_parking_complete(false), uturn_done(false)
     {
         this->is_erp = control_target == 'e'; // e => erp (true), m => morai (false)
        
@@ -18,6 +18,7 @@ Controller::Controller(char control_target):
         this->g_path_sub = nh.subscribe("/global_path", 1, &Controller::globalPathCallback, this);
         
         this->l_path_sub = nh.subscribe("/local_path", 1, &Controller::localPathCallback, this);
+        this->waypoint_done_sub = nh.subscribe("/waypoint_done", 1, &Controller::waypointDoneCallback, this);
 
         this->parking_path_sub = nh.subscribe("/parking_path", 1, &Controller::parkingPathCallback, this);
         this->parking_path_done_sub = nh.subscribe("/parking_path_done", 1, &Controller::parkingPathDoneCallback, this);
@@ -41,6 +42,16 @@ void Controller::globalPathCallback(const erp_drive_semi::PathReference& g_path)
     // this->current_state = VehicleState::GLOBAL_PATH_DRIVING;
 }
 
+void Controller::waypointDoneCallback(const std_msgs::Int16& signal){
+    if(signal.data == 1){
+        ROS_INFO_STREAM("[Controller] Waypoint Done signal received. Switching to GLOBAL_PATH_DRIVING.");
+        this->current_state = VehicleState::GLOBAL_PATH_DRIVING;
+        this->is_local_path_set = false;
+        this->uturn_done = true;
+        this->l_curr_idx = 0;
+    }
+}
+
 void Controller::localPathCallback(const erp_drive_semi::PathReference& l_path){
     if(this->g_curr_idx < 1080) return;
 
@@ -50,11 +61,12 @@ void Controller::localPathCallback(const erp_drive_semi::PathReference& l_path){
     this->l_path = l_path;
     this->l_path_size = l_path.path.size();
     this->is_local_path_set = true;
-    if(this->g_curr_idx < 1380){
-        this->current_state = VehicleState::LOCAL_PATH_DRIVING;
-    } else {
-        this->current_state = VehicleState::GLOBAL_PATH_DRIVING;
-    }
+    this->current_state = VehicleState::LOCAL_PATH_DRIVING;
+    // if(this->g_curr_idx < 1500){
+    //     this->current_state = VehicleState::LOCAL_PATH_DRIVING;
+    // } else {
+    //     this->current_state = VehicleState::GLOBAL_PATH_DRIVING;
+    // }
 }
 
 void Controller::imuCallback(const sensor_msgs::Imu& imu_data){
@@ -74,54 +86,6 @@ void Controller::imuCallback(const sensor_msgs::Imu& imu_data){
     this->curr_yaw *= (180 / M_PI);
     this->curr_yaw += 180;
 }
-
-// 직진 혹은 우회전에 대한 비교 함수
-bool Controller::isGreenSign(){
-    bool ret = this->traffic_light_status.compare(TrafficLightStatus::GREEN3) == 0;
-    ret = ret || this->traffic_light_status.compare(TrafficLightStatus::GREEN4) == 0;
-    ret = ret || this->traffic_light_status.compare(TrafficLightStatus::GREEN_LEFT4) == 0;
-    return ret;
-}
-
-bool Controller::isLeftSign(){
-    bool ret = this->traffic_light_status.compare(TrafficLightStatus::RED_LEFT4) == 0;
-    ret = ret || this->traffic_light_status.compare(TrafficLightStatus::GREEN_LEFT4) == 0;
-    return ret;
-}
-
-bool Controller::isLeftTurn() {
-    calcGlobalCurrWaypoint(curr_pose);
-    geometry_msgs::Pose curr_waypoint, target_waypoint;
-    
-    curr_waypoint = this->g_path.path.at(this->g_curr_idx).pose;
-    target_waypoint = this->g_path.path.at(std::max(this->g_curr_idx + 30, this->g_path_size - 1)).pose;
-    
-    double roll, pitch, curr_yaw, target_yaw;
-
-    tf2::Quaternion _curr_yaw(
-        curr_waypoint.orientation.x,
-        curr_waypoint.orientation.y,
-        curr_waypoint.orientation.z,
-        curr_waypoint.orientation.w
-    );
-    tf2::Matrix3x3(_curr_yaw).getRPY(roll, pitch, curr_yaw);
-
-    tf2::Quaternion _target_yaw(
-        target_waypoint.orientation.x,
-        target_waypoint.orientation.y,
-        target_waypoint.orientation.z,
-        target_waypoint.orientation.w
-    );
-    
-    tf2::Matrix3x3(_target_yaw).getRPY(roll, pitch, target_yaw);
-
-    curr_yaw = curr_yaw * 180 / M_PI;
-    target_yaw = target_yaw * 180 / M_PI;
-
-    // @@@ TODO @@@ 적절한 각도 찾기
-    return std::abs(curr_yaw - target_yaw) >= 30;
-}
-
 
 void Controller::currentPoseCallback(const geometry_msgs::Pose& curr_pose){
     this->curr_pose = curr_pose;
@@ -179,11 +143,23 @@ void Controller::publishControlMsg(){
     // ERP로 주행 시 실행되는 블럭
     if(this->is_erp){
         race::drive_values msg;
-        msg.throttle = this->velocity; // 6.; // 장애물 회피
+        // msg.throttle = this->velocity; // 6.; // 장애물 회피
+        
+        if (this->is_moving_back) {
+            msg.throttle = -this->velocity; // 후진
+        } else {
+            msg.throttle = this->velocity * -1; // 전진
+        }
         // 주의! deg 단위임
         msg.steering = -this->steering * (180 / M_PI);
-        if(msg.throttle < 0)
-            msg.steering *= -1;
+        // if(msg.throttle < 0)
+        //     msg.steering *= -1;
+
+        if (this->is_moving_back) {
+            msg.steering = this->steering * -1;
+        } else {
+            msg.steering = this->steering;
+        }
 
         msg.brake = this->brake;
 
@@ -211,36 +187,24 @@ void Controller::publishControlMsg(){
 }
 
 void Controller::parkingPathCallback(const erp_drive_semi::PathReference& parking_path){
+    if(this->g_curr_idx < 110 or this->g_curr_idx > 230) return;
 
-    if(this->g_curr_idx < 100 or this->g_curr_idx > 230) return;
-
-    ROS_INFO("Received New Parking Path, treating as a local path.");
-    
-    // 받은 주차 경로를 '로컬 경로(l_path)' 변수에 그대로 복사합니다.
     this->l_path = parking_path;
     this->l_path_size = parking_path.path.size();
-    
-    // 로컬 경로 추종 모드를 활성화하여 Pure Pursuit가 이 경로를 따라가도록 합니다.
-    this->is_local_path_set = true;
-    
-    // 새로운 주차를 시작하므로, 주차 완료 상태는 false로 리셋합니다.
-    this->is_parking_complete = false; 
-    this->l_curr_idx = 0; // 로컬 경로 인덱스 초기화
 
-    this->current_state = VehicleState::LOCAL_PATH_DRIVING;
+    this->is_local_path_set = true;
+    this->is_parking_complete = false; 
+    this->l_curr_idx = 0; 
+
+    this->current_state = VehicleState::PARKING_PATH_DRIVING;
 }
 
-// '/parking_path_done' 토픽을 받았을 때 호출되는 함수
 void Controller::parkingPathDoneCallback(const std_msgs::Int16& signal){
     if(signal.data == 1){
-        ROS_INFO("Parking Path Done signal received. Stopping vehicle.");
-        
-        // 모든 경로 추종 모드를 비활성화합니다.
         this->is_local_path_set = false;
-        
+
         this->current_state = VehicleState::PARKING_DONE_STOPPING;
 
-        // '주차 완료 및 정지' 상태로 전환합니다.
         this->is_parking_complete = true; 
         this->l_curr_idx = 0;
 
@@ -249,47 +213,33 @@ void Controller::parkingPathDoneCallback(const std_msgs::Int16& signal){
 }
 
 void Controller::stopTimerCallback(const ros::TimerEvent&) {
-    ROS_INFO("3-second stop finished. Switching to REVERSING state and changing gear to R.");
     
-    // 1. 후진 경로가 준비되어 있는지 확인
     if(this->reverse_path_size > 0) {
-        // 2. 역순 경로를 로컬 경로로 설정
         this->l_path = this->reverse_path;
         this->l_path_size = this->reverse_path_size;
+
         this->l_curr_idx = 0;
         this->is_local_path_set = true;
-        ROS_INFO("Set reverse path as local path for backing up (%d waypoints)", this->reverse_path_size);
 
-        // 3. 상태를 '후진'으로 변경
         this->current_state = VehicleState::PARKING_REVERSING;
-    } else {
-        ROS_WARN("No reverse path available! Staying in PARKING_DONE_STOPPING state.");
-    }
+    } 
 }
 
 void Controller::reversePathCallback(const erp_drive_semi::PathReference& reverse_path){
-    ROS_INFO("Received reverse parking path with %d waypoints", (int)reverse_path.path.size());
-    
     this->reverse_path = reverse_path;
     this->reverse_path_size = reverse_path.path.size();
 }
 
 void Controller::reversePathDoneCallback(const std_msgs::Int16& signal){
-    if(signal.data == 1){
-        ROS_INFO("Reverse path completed! Stopping for 1 second before resuming global path.");
-        
-        // 1. 후진 모드 종료
+    if(signal.data == 1){        
         this->is_local_path_set = false;
+
         this->current_state = VehicleState::REVERSE_DONE_STOPPING;
         
-        // 2. 1초 후에 글로벌 경로로 복귀하는 타이머 시작
         this->reverse_done_timer = nh.createTimer(ros::Duration(1.0), &Controller::reverseDoneTimerCallback, this, true);
     }
 }
 
 void Controller::reverseDoneTimerCallback(const ros::TimerEvent&) {
-    ROS_INFO("1-second stop finished. Resuming global path driving.");
-    
-    // 글로벌 경로 주행으로 복귀
     this->current_state = VehicleState::GLOBAL_PATH_DRIVING;
 }

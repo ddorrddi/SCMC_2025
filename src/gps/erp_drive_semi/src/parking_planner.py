@@ -24,12 +24,11 @@ class ParkingPlanner:
         self.parking_target_marker_pub = rospy.Publisher('/parking_target_marker', Marker, queue_size=1)
         
         # 후진 경로 관련 Publisher
-        self.reverse_path_pub = rospy.Publisher('/reverse_parking_path', PathReference, queue_size=1)
+        self.reverse_path_pub = rospy.Publisher('/reverse_parking_path', PathReference, queue_size=1,latch=True)
         self.rviz_reverse_path_pub = rospy.Publisher('/rviz_reverse_parking_path', Path, queue_size=1)
         self.reverse_path_done_pub = rospy.Publisher('/reverse_parking_done', Int16, queue_size=1)
 
         # Subscriber
-        self.path_meter_sub = rospy.Subscriber('/parking_path_meter', Path, self.path_meter_callback)
         self.current_pose_sub = rospy.Subscriber('/current_pose', Pose, self.pose_callback)
 
         # 변수 초기화
@@ -39,65 +38,85 @@ class ParkingPlanner:
         self.current_pose = None
         self.final_destination_global = None
         self.reverse_start_global = None # 후진 시작점 (주차 완료 지점)
-        self.completion_threshold = 0.5 # 30cm 이내로 들어오면 도착으로 간주
-        self.reverse_completion_threshold = 5.0  # 후진은 50cm 이내
+        self.completion_threshold = 0.3 # 30cm 이내로 들어오면 도착으로 간주
+        self.reverse_completion_threshold = 4.0  # 후진은 40cm 이내
 
         self.parking_mission_complete = False
         self.is_reversing = False # 현재 후진 중인지 플래그
 
-    def path_meter_callback(self, msg):
-        # 이미 주차 경로를 따라가는 중이거나, 받은 정보가 유효하지 않거나, 현재 위치를 모르면 무시
-        if self.is_parking_path_set or len(msg.poses) < 2 or self.current_pose is None:
-            return
+        # 주차 경로 로드
 
-        rospy.loginfo("Received new parking path points. Generating fixed global path...")
 
-        # 1. bev_node가 보낸 로컬 좌표계 기준 시작점/끝점을 추출
-        start_local = msg.poses[0].pose.position
-        end_local = msg.poses[1].pose.position
+    def load_parking_path(self):
+        # 경로 초기화
+        self.parking_path_global = PathReference() 
 
-        # 2. 두 점 사이를 20개의 웨이포인트로 보간
-        num_waypoints = 20
-        local_waypoints_x = np.linspace(start_local.x, end_local.x, num_waypoints)
-        local_waypoints_y = np.linspace(start_local.y, end_local.y, num_waypoints)
+        # ROS 파라미터 서버에서 경로 파일 위치를 읽어옵니다.
+        # 파라미터가 설정되지 않았을 경우를 대비해 기본값을 지정합니다.
+        path_file = '/home/foscar/SCMC_2025/src/gps/erp_drive_semi/paths/parking_3.txt'
 
-        # 3. 경로의 방향(yaw) 계산
-        path_dx_local = end_local.x - start_local.x
-        path_dy_local = end_local.y - start_local.y
-        path_yaw_local = np.arctan2(path_dy_local, path_dx_local)
-        quat = quaternion_from_euler(0, 0, path_yaw_local)
+        try:
+            with open(path_file, 'r') as f:
+                rospy.loginfo(f"Loading parking path from file: {path_file}")
+                
+                # 파일의 각 줄을 읽어 웨이포인트로 변환합니다.
+                for line in f.readlines():
+                    # 빈 줄이나 주석('#')은 건너뜁니다.
+                    line = line.strip()
+                    if not line or line.startswith('#'):
+                        continue
 
-        # 4. 현재 차량의 '전역' 위치와 방향을 기준으로 로컬 경로를 '고정된 전역 경로'로 변환
-        self.parking_path_global = PathReference() # 경로 초기화
-        g_x, g_y = self.current_pose.position.x, self.current_pose.position.y
-        orientation_q = self.current_pose.orientation
-        _, _, g_yaw = euler_from_quaternion([orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w])
+                    # 공백으로 구분된 값을 파싱합니다.
+                    try:
+                        parts = list(map(float, line.split()))
+                        if len(parts) != 4:
+                            rospy.logwarn(f"Skipping malformed line in path file: {line}")
+                            continue
 
-        for lx, ly in zip(local_waypoints_x, local_waypoints_y):
-            # 2D 회전 변환 행렬 적용
-            global_x = g_x + lx * np.cos(g_yaw) - ly * np.sin(g_yaw)
-            global_y = g_y + lx * np.sin(g_yaw) + ly * np.cos(g_yaw)
+                        x, y, yaw, mode = parts
+                        
+                        l_yaw = yaw
+                        # 새로운 PathReferenceElement 메시지를 생성합니다.
+                        element = PathReferenceElement()
+                        
+                        # position 필드에 x, y, z 값 할당
+                        element.pose.position.x = x
+                        element.pose.position.y = y
+                        element.pose.position.z = 0.0  # z는 0으로 고정
 
-            element = PathReferenceElement()
-            element.pose.position.x = global_x
-            element.pose.position.y = global_y
+                        # yaw(라디안)를 쿼터니언으로 변환하여 orientation에 할당
+                        quat = quaternion_from_euler(0, 0, yaw)
+                        element.pose.orientation.x = quat[0]
+                        element.pose.orientation.y = quat[1]
+                        element.pose.orientation.z = quat[2]
+                        element.pose.orientation.w = quat[3]
+                        
+                        # 모드 할당 (정수로 변환)
+                        element.mode = int(mode)
+                        
+                        # 생성된 요소를 전역 경로 리스트에 추가합니다.
+                        self.parking_path_global.path.append(element)
+
+                        self.publish_path_and_viz()
+
+                    except ValueError as e:
+                        rospy.logwarn(f"Error parsing line: {line}. Details: {e}")
+                        continue
+
+            rospy.loginfo(f"Successfully loaded {len(self.parking_path_global.path)} waypoints.")
+
+            self.final_destination_global=self.parking_path_global.path[-1]
+            # 6. 후진용 역순 경로 생성
+            self.generate_reverse_path()
             
-            # 경로의 방향은 차량의 현재 방향에 로컬 경로의 방향을 더한 값
-            final_quat = quaternion_from_euler(0, 0, g_yaw + path_yaw_local)
-            element.pose.orientation.x, element.pose.orientation.y, element.pose.orientation.z, element.pose.orientation.w = final_quat
-            element.mode = 11 # 로컬 경로와 동일한 모드
-            self.parking_path_global.path.append(element)
+            # 7. 플래그 설정: 이제부터 이 경로를 따라 주행 시작
+            self.is_parking_path_set = True
         
-        # 5. 최종 목적지의 전역 좌표 저장 (도착 확인용)
-        last_point = self.parking_path_global.path[-1].pose.position
-        self.final_destination_global = (last_point.x, last_point.y)
-        rospy.loginfo(f"Parking path generated. Final destination: ({last_point.x:.2f}, {last_point.y:.2f})")
-
-        # 6. 후진용 역순 경로 생성
-        self.generate_reverse_path()
-        
-        # 7. 플래그 설정: 이제부터 이 경로를 따라 주행 시작
-        self.is_parking_path_set = True
+        except IOError as e:
+            rospy.logerr(f"Could not read parking path file: {path_file}. Error: {e}")
+            # 파일 로딩에 실패했으므로 주행을 시작하면 안됨
+            self.is_parking_path_set = False
+    
 
     def pose_callback(self, msg):
         self.current_pose = msg
@@ -107,8 +126,8 @@ class ParkingPlanner:
         # 주차 완료 체크
         if self.is_parking_path_set and self.final_destination_global is not None and self.current_pose is not None:
             dist = np.hypot(
-                self.current_pose.position.x - self.final_destination_global[0],
-                self.current_pose.position.y - self.final_destination_global[1]
+                self.current_pose.position.x - self.final_destination_global.pose.position.x,
+                self.current_pose.position.y - self.final_destination_global.pose.position.y
             )
             if dist < self.completion_threshold:
                 rospy.loginfo(f"주차 완료! 목표 지점과의 거리: {dist:.2f}m")
@@ -185,8 +204,8 @@ class ParkingPlanner:
             marker.header.frame_id = 'map'
             marker.header.stamp = rospy.Time.now()
             marker.ns, marker.id, marker.type, marker.action = 'parking_target', 0, Marker.SPHERE, Marker.ADD
-            marker.pose.position.x = self.final_destination_global[0] - self.rviz_offset_x
-            marker.pose.position.y = self.final_destination_global[1] - self.rviz_offset_y
+            marker.pose.position.x = self.final_destination_global.pose.position.x - self.rviz_offset_x
+            marker.pose.position.y = self.final_destination_global.pose.position.y - self.rviz_offset_y
             marker.pose.orientation.w = 1.0
             marker.scale.x, marker.scale.y, marker.scale.z = 0.7, 0.7, 0.7
             marker.color.a, marker.color.r, marker.color.g, marker.color.b = 0.8, 0.2, 0.8, 1.0

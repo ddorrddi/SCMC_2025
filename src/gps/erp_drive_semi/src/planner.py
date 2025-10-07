@@ -18,7 +18,7 @@ from constant import const, Lane
 
 # 각종 Planner 관련 클래스
 from global_path_planner import GlobalPathPlanner
-from parking_planner import ParkingPlanner
+from parking_planner_lidar import ParkingPlanner
 from waypoint_maker.msg import Waypoint
 from std_msgs.msg import String
 from erp_drive.msg import PathReference, PathReferenceElement
@@ -38,6 +38,7 @@ class Planner(object):
         self.g_path_planner.set_g_path(file_name)
 
         self.parking_planner = ParkingPlanner(self.g_path_planner.rviz_offset_x, self.g_path_planner.rviz_offset_y)
+        self.parking_planner.load_parking_path()
         
         self.rviz_curr_pose = PoseStamped()
         self.rviz_curr_pose.header.frame_id = 'map'

@@ -5,6 +5,7 @@ void paramCallback(erp_drive_semi::CtrlParamSemiConfig &config, PurePursuit* con
     control->global_lookahead_distance = config.global_lookahead_distance;
     control->local_velocity = config.local_velocity;
     control->local_lookahead_distance = config.local_lookahead_distance;
+    control->parking_local_lookahead_distance = config.parking_local_lookahead_distance;
 }
 
 int main(int argc, char** argv) {
@@ -27,7 +28,6 @@ int main(int argc, char** argv) {
 
     std_msgs::Bool msg;
 
-    // lanenet 주행 속도 7 -> 15
     while(ros::ok()){
         ros::spinOnce();
 
@@ -45,7 +45,6 @@ int main(int argc, char** argv) {
                 continue;
             }
 
-            // ROS_INFO_STREAM("start_yaw : " << control.start_yaw << ", curr_yaw : " << control.curr_yaw << ", _diff : " << _diff);
         }
 
         switch(control.current_state) {
@@ -53,12 +52,11 @@ int main(int argc, char** argv) {
                 if(!control.is_finish && control.is_path_set && control.is_pose_set){
                     ROS_INFO_STREAM("State: GLOBAL_PATH_DRIVING");
                     control.lookahead_distance = control.global_lookahead_distance;
-                    
-                    // g_idx가 230 전까지 저속 주행
-                    if (100 < control.g_curr_idx && control.g_curr_idx < 230 && !control.is_reverse_done) {
+
+                    if (110 < control.g_curr_idx && control.g_curr_idx < 230 && !control.is_parking_complete) {
                         control.brake = 0.0;
-                        control.velocity = 10.0; // 저속 설정
-                    } else if (1050 < control.g_curr_idx && control.g_curr_idx < 1200) {
+                        control.velocity = 10.0;
+                    } else if (1100 < control.g_curr_idx && !control.uturn_done) {
                         control.brake = 0.0;
                         control.velocity = 10.0;
                     } else {
@@ -73,8 +71,18 @@ int main(int argc, char** argv) {
 
             case VehicleState::LOCAL_PATH_DRIVING:
                 if(!control.is_finish && control.is_local_path_set){
-                    ROS_INFO_STREAM("State: LOCAL_PATH_DRIVING (Parking)");
+                    ROS_INFO_STREAM("State: LOCAL_PATH_DRIVING");
                     control.lookahead_distance = control.local_lookahead_distance;
+                    control.velocity = control.local_velocity;
+                    control.calcSteering(control.curr_pose);
+                    control.publishControlMsg();
+                }
+                break;
+            
+            case VehicleState::PARKING_PATH_DRIVING:
+                if(!control.is_finish && control.is_local_path_set){
+                    ROS_INFO_STREAM("State: PARKING_PATH_DRIVING");
+                    control.lookahead_distance = control.parking_local_lookahead_distance;
                     control.velocity = control.local_velocity;
                     control.calcSteering(control.curr_pose);
                     control.publishControlMsg();
@@ -90,15 +98,13 @@ int main(int argc, char** argv) {
 
             case VehicleState::PARKING_REVERSING:
                 if(control.is_local_path_set){
-                    ROS_INFO_STREAM("State: PARKING_REVERSING (Following reverse path)");
-                    control.lookahead_distance = control.local_lookahead_distance;
+                    ROS_INFO_STREAM("State: PARKING_REVERSING");
+                    control.lookahead_distance = control.parking_local_lookahead_distance;
                     control.brake = 0.0;
-                    control.velocity = 5.0; // 후진 속도 -1.0 m/s
+                    control.velocity = 5.0;
                     control.calcSteering(control.curr_pose);
                     control.is_moving_back = true;
                     control.publishControlMsg();
-                    
-                    // 후진 경로 완료는 parking_planner에서 감지하여 토픽으로 알려줌
                 }
                 break;
 
@@ -107,31 +113,10 @@ int main(int argc, char** argv) {
                 control.velocity = 0.0;
                 control.brake = 1.0;
                 control.is_moving_back = false;
-                control.is_reverse_done = true;
+                control.is_parking_complete = true;
                 control.publishControlMsg();
                 break;
         }
-
-        // 유턴 path 용
-        // if(!control.is_finish && control.is_local_path_set && control.flag){
-        //     ROS_INFO_STREAM("local PATH");
-        //     control.lookahead_distance = control.local_lookahead_distance;
-        //     control.velocity = control.local_velocity;
-        //     control.calcSteering(control.curr_pose);
-        //     control.publishControlMsg();
-        // }
-
-        // // global path 용
-        // else if(!control.is_finish && control.is_path_set && control.is_pose_set){
-        //     ROS_INFO_STREAM("GLOBAL PATH");
-
-        //     control.lookahead_distance = control.global_lookahead_distance;
-        //     control.velocity = control.global_velocity;
-        //     control.calcSteering(control.curr_pose);
-
-
-        //     control.publishControlMsg();
-        // }
 
         if(control.is_finish){
             ROS_INFO_STREAM("IS_FINISH");

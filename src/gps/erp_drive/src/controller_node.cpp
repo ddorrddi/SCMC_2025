@@ -75,6 +75,14 @@ int main(int argc, char** argv) {
                     control.velocity = control.optimal_throttle.calcTanhVelocity(control.curr_pose);
 
                     // PARKING 모드: 인덱스 3450부터 속도 5로 제한
+                    if(810 < control.g_curr_idx && control.g_curr_idx < 950){
+                        if(control.is_deceleration_requested){
+                            control.velocity = 10.0;
+                        } else {
+                            control.velocity = 10.0;
+                        }
+                    }
+
                     if(control.g_curr_idx >= 3450 && !control.go_to_finish){
                         control.velocity = std::min(control.velocity, 5.0);
                     }
@@ -127,10 +135,6 @@ int main(int argc, char** argv) {
                             control.brake = 0.0;
                             control.is_delivery_done = false;
                         }
-                    }
-
-                    if (control.is_deceleration_requested) {
-                        control.velocity = control.local_velocity;
                     }
 
                     control.calcSteering(control.curr_pose);

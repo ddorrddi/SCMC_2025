@@ -105,10 +105,10 @@ private:
         EventPlaceInfo(268, EventType::STOP_DELIVERY_A),
 
         // traffic 1
-        EventPlaceInfo(500, EventType::STOP_TRAFFIC),
+        EventPlaceInfo(510, EventType::STOP_TRAFFIC),
 
         // traffic 2
-        EventPlaceInfo(690, EventType::STOP_TRAFFIC),
+        EventPlaceInfo(697, EventType::STOP_TRAFFIC),
 
         // traffic 3
         EventPlaceInfo(1175, EventType::STOP_TRAFFIC),
@@ -174,7 +174,7 @@ public:
         // // }
 
         // // return std::min(15.0 * tanh(dist_to_stop / 5.0), MAX_VELOCITY);
-        if(shouldDecel) return this->max_velocity / 3;
+        if(shouldDecel) return this->max_velocity / 2;
         
         if(shouldStop) {
             return 0.;

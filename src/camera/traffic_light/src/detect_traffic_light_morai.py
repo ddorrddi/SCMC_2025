@@ -10,7 +10,7 @@ from ultralytics import YOLO
 
 CONFIDENCE = 0.5
 
-weights_path = '/home/foscar/SCMC_2025_Test/src/camera/traffic_light/weight/1027_40epoch.pt'
+weights_path = '/home/foscar/SCMC_2025/src/camera/traffic_light/weight/1027_40epoch.pt'
 model = YOLO(weights_path)
 bridge = CvBridge()
 

@@ -41,15 +41,10 @@ import rospkg
 class ObstacleAvoidancePlanner:
     def __init__(self, g_path: dict, rviz_offset_x: float, rviz_offset_y: float):
 
-        # self.left_flag_pub = rospy.Publisher('/pure_pursuit/left_flag', Int16, queue_size=1)
-        # self.right_flag_pub = rospy.Publisher('/pure_pursuit/right_flag', Int16, queue_size=1)
-        self.ccw_pub = rospy.Publisher('/avoidance_direction', Int16, queue_size=1)
         self.decel_request_pub = rospy.Publisher('/deceleration_request', Int16, queue_size=1)
-        # self.just_finished_local_path_pub = rospy.Publisher('/pure_pursuit/just_finished_local_path', Int16, queue_size=1)
-
+        
         #dh
-        self.override_radius = 2.0
-        self.yaw_correction_deg = 50.0
+        self.override_radius = 1.0
         self.last_ccw = 0
         ###
         self.rviz_offset_x, self.rviz_offset_y = rviz_offset_x, rviz_offset_y
@@ -94,13 +89,7 @@ class ObstacleAvoidancePlanner:
         
         self.obstacle_info_sub = rospy.Subscriber("/obstacle_info", ObjectInfo, self.obstacle_info_CB)
         self.big_info_sub = rospy.Subscriber("/big_info", ObjectInfo, self.big_info_CB)
-        
-        # 추가한 부분
-        self.tail_len       = 0.2    # 꼬리 길이 [m]
-        self.tail_steps     = 3       # 포인트 개수
-        self.tail_deg       = 5.0     # 절대 회전각 [deg]
-        
-
+  
 
     def update_curr_pose(self, curr_pose: Pose):
         self.curr_pose = curr_pose
@@ -166,8 +155,8 @@ class ObstacleAvoidancePlanner:
 
         self.rel_obstacle_info = np.array([msg.centerX, msg.centerY, msg.centerZ, msg.lengthX, msg.lengthY, msg.lengthZ])
         self.rel_obstacle_info = self.rel_obstacle_info[:, :msg.objectCounts]
-        self.rel_obstacle_info[0] += 1.2
-        
+        self.rel_obstacle_info[0] +=1.2
+
         # GPS 수신기의 위치에 따라 값이 변동됨.
         # ERP 기준으로는 ~~ 약 0.2???? @@@ 내일 하기 전에 꼭 변경하기
         # self.rel_obstacle_info[1] -= 0.2
@@ -383,7 +372,17 @@ class ObstacleAvoidancePlanner:
         return True
 
     def is_obst_on_path (self):
-        roi_ld = 6.9
+        # 인덱스 구간에 따라 감지 거리 설정
+        if 850 <= self.g_curr_idx <= 1000:
+            # 대형 장애물 구간
+            roi_ld = 10.0
+        elif 3160 <= self.g_curr_idx <= 3470:
+            # 소형 장애물 구간
+            roi_ld = 6.0
+        else:
+            # 기본 구간
+            roi_ld = 10.0
+
         vehicle_radius = 0.6
 
         start = self.g_curr_idx + 3
@@ -459,13 +458,13 @@ class ObstacleAvoidancePlanner:
         if blocked_left:
             rospy.loginfo('left mid')
             self.blocked_idx = blocked_left_idx
-            return True, True, 1
+            return True, False, 1
 
         # 소형인 경우
         if blocked_right:
             rospy.loginfo('mid right')
             self.blocked_idx = blocked_right_idx
-            return True, True, -1
+            return True, False, -1
         
         self.blocked_idx = -1
         return False, False, 0
@@ -480,24 +479,21 @@ class ObstacleAvoidancePlanner:
         s_list, yaw_list = compute_s_and_yaw(original_ref_path)
 
         rospy.loginfo(f"[회피 경로 생성] ccw: {ccw}, is_big: {is_big}, blocked_idx: {self.blocked_idx}")
-        self.ccw_pub.publish(Int16(ccw))
 
         # 3. 차량의 현재 위치도 '기준 경로'에 맞춰 변환합니다.
         curr_x = self.curr_pose.position.x
         curr_y = self.curr_pose.position.y
         s0, l0 = cartesian_to_frenet(curr_x, curr_y, original_ref_path, s_list)
 
-        lane_offset = 0.85
+        lane_offset = 0.82
 
         rospy.loginfo(f"[BIG??]: {is_big}")
 
         #  if 710 <= self.g_curr_idx <= 930 and is_big:
 
         if 850 <= self.g_curr_idx <= 1000 and is_big:
-            rospy.loginfo("🚨 대형 장애물 감지 -> 차선 변경 로직 실행")
             # 목표 차선을 변경합니다.
             self.curr_lane = Lane.TWO if self.curr_lane == Lane.ONE else Lane.ONE
-            # is_obst_on_path에서 이미 ccw를 차선 변경에 맞게 계산했으므로 추가 로직은 불필요합니다.
             self.avoidance_in_progress = True
 
             target_lookahead = 40 # 50 * 0.2m = 10m 앞을 목표로 설정 (튜닝 필요)
@@ -511,8 +507,6 @@ class ObstacleAvoidancePlanner:
 
             rospy.loginfo(f"단순 차선 변경 완료 목표 지점 설정: ({self.target_x:.2f}, {self.target_y:.2f})")
 
-            # ======================= 👇 시각화 코드 추가 👇 =======================
-            # 4. RViz에 해당 목표 지점을 파란색 구체로 표시
             target_marker = Marker()
             target_marker.header.frame_id = 'map'
             target_marker.header.stamp = rospy.Time.now()
@@ -540,10 +534,7 @@ class ObstacleAvoidancePlanner:
 
             return
         
-        # [조건] 소형 장애물 회피 구간 (2890~2970)
-        # elif 2890 <= self.g_curr_idx <= 2970:
-        elif 3160 <= self.g_curr_idx <= 3470:
-            rospy.loginfo("🚗 소형 장애물 감지 -> 차선 내 회피 로직 실행")
+        elif 3160 <= self.g_curr_idx <= 3260:
             # 목표 차선 변경 없이, 현재 차선 내에서 회피합니다.
             # self.curr_lane은 변경하지 않습니다.
             pass # 특별히 할 작업 없음

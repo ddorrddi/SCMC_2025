@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<launch>
-	<include file="$(find velodyne_pointcloud)/launch/VLP16_points.launch"/>
-
-	<node pkg="lidar_object_detection" type="object_detection_tunnel_labacon" output="screen"  name="object_detection_tunnel_labacon"/>
-</launch>
