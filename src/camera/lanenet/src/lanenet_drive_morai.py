@@ -68,6 +68,15 @@ class PID():
     self.p_error = cte
     self.i_error += cte
     return self.kp*self.p_error + self.ki*self.i_error + self.kd*self.d_error
+  
+  ### 추가
+  def set_gain(self, kp, ki, kd):
+      self.kp = kp
+      self.ki = ki
+      self.kd = kd
+      self.p_error = 0.0
+      self.i_error = 0.0
+      self.d_error = 0.0
 
 class LanenetDetection:
     def __init__(self):
@@ -84,7 +93,7 @@ class LanenetDetection:
         self.last_x_location = 320
 
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        self.model_path = '/home/foscar/SCMC_2025/src/camera/lanenet/src/lanenet_.model'
+        self.model_path = '/home/foscar/SCMC_2025_Test/src/camera/lanenet/src/lanenet_.model'
         self.LaneNet_model = Lanenet(2, 4)
         self.LaneNet_model.load_state_dict(torch.load(self.model_path, map_location=torch.device(self.device)))
         self.LaneNet_model.to(self.device)
@@ -102,19 +111,28 @@ class LanenetDetection:
         # 정적 장애물 파라미터
         # self.static_state = 'L'  # 'L': Lane, 'A': Avoid, 'R': Return
         # 정적 장애물 파라미터
-        self.is_passing_static_zone = False  # [추가] 회피 구간 플래그
-        self.real_heading = None
-        self.gt_heading = None
-        self.avoid_heading = None
-        self.return_heading = None
-        self.local_heading = None
+        # 파라미터 수정
+        self.static_state = 'LANE_FOLLOWING'  # 'LANE_FOLLOWING', 'AVOIDING', 'RETURNING'
+        self.avoid_direction = None  # 'left' or 'right'
+        self.obstacle_list_static = []
+        self.avoid_start_time = None
+        self.avoid_min_duration = 0.2# 최소 회피 시간 (초)
+        self.waypoints = []
+        self.waypoints_index = 0
+        self.waypoint_reached_threshold = 60  # 픽셀 단위
+        self.avoid_stage = 0
+        self.force_line = None  # 'left', 'right', or None
+        self.pid = PID(0.02, 0.003, 0.01)
+
+        self.stage1_start_time = None
+        self.stage2_start_time = None
+        self.stage2_end_time = None
 
         self.global_path_finish = False
-
+        
         rospy.Subscriber("/global_path_finish", Bool, self.global_path_finish_CB)
-        # rospy.Subscriber("/image_jpeg/compressed", CompressedImage, self.image_callback)
-        rospy.Subscriber("/usb_cam/image_raw", Image, self.image_callback)
-
+        rospy.Subscriber("/image_jpeg/compressed", CompressedImage, self.image_callback)
+        # rospy.Subscriber("/usb_cam/image_raw", Image, self.camCB)
         rospy.Subscriber("imu", Imu, self.imuCB)
         rospy.Subscriber("/bounding_box_static", MarkerArray, self.objectCB_static)
         rospy.Subscriber("/bounding_box_dynamic", MarkerArray, self.objectCB_dynamic)
@@ -142,7 +160,8 @@ class LanenetDetection:
                 # Bird's Eye View 변환
                 left_margin, top_margin = 195, 44
                 src_points = np.float32([[0, 190], [left_margin, top_margin], [width - left_margin, top_margin], [width, 190]])
-                dst_points = np.float32([[width//4, 190], [width//4, 0], [width//4*3, 0], [width//4*3, 190]])
+                # dst_points 간격을 좁혀서 차선이 더 벌어지게 (width//5 ~ width//5*4)
+                dst_points = np.float32([[width//5, 190], [width//5, 0], [width//5*4, 0], [width//5*4, 190]])
                 matrix = cv2.getPerspectiveTransform(src_points, dst_points)
                 img_warped = cv2.warpPerspective(img_filtered, matrix, [width, height])
                 img_warped = cv2.resize(img_warped, dsize=(640, 480))
@@ -151,7 +170,16 @@ class LanenetDetection:
                 _, L, _ = cv2.split(cv2.cvtColor(img_warped, cv2.COLOR_BGR2HLS))
                 _, img_binary = cv2.threshold(L, 0, 255, cv2.THRESH_BINARY)
                 img_masked = region_of_interest(img_binary)
-                out_img, self.x_location, _ = self.slidewindow.slidewindow(img_masked, True)
+
+                # 정적 장애물 회피 시퀀스에 따라 force_line 설정
+                force_line = None
+                if not self.is_dynamic:
+                    if self.avoid_stage == 1:
+                        force_line = 'right'  # Stage 1: 오른쪽 차선만
+                    elif self.avoid_stage >= 2:
+                        force_line = 'left'   # Stage 2, 3: 왼쪽 차선만
+
+                out_img, self.x_location, _ = self.slidewindow.slidewindow(img_masked, True, force_line)
                 if self.x_location is None:
                     self.x_location = self.last_x_location
                 else:
@@ -186,111 +214,60 @@ class LanenetDetection:
                     # 동적 장애물 미션 완료 후 정적 시퀀스로 전환
                     if self.dynamic_stop_flag and len(self.obstacle_list_dynamic) == 0:
                         print("동적 회피 완료!")
+                        time.sleep(2)
+                        rospy.loginfo("2초 정지!!")
                         self.is_dynamic = False # 시퀀스 전환!
+                        self.avoid_stage = 1  # 정적 Stage 1 시작 (오른쪽 붙어서 주행)
                         motor_msg = 15 # 전환 후 빠르게 출발
                     else:
                         motor_msg = 10
-                
-                # # --- 2. 정적 장애물 회피 시퀀스 ---
-                # if not self.is_dynamic:
-                #     print("정적 시퀀스로 전환합니다.")
-                #     tunnel_static_roi_check_arr = [0, 0, 0]
-                #     # 'L' 상태에서 장애물 감지 및 'A' 상태로 전환
-                #     if self.static_state == 'L':
-                #         print("seq : L")
-                #         for obstacle in self.obstacle_list_static:
-                #             if 0.5 < obstacle.x < 8.5 and -1.5 <= obstacle.y <= 0.0: # 오른쪽 장애물
-                #                 tunnel_static_roi_check_arr[1] = 1
-                #             if 0.5 < obstacle.x < 8.5 and 0.0 <= obstacle.y <= 1.5: # 왼쪽 장애물
-                #                 tunnel_static_roi_check_arr[0] = 1
 
-                #         if tunnel_static_roi_check_arr == [0, 1, 0]: # 오른쪽 장애물 -> 왼쪽 회피
-                #             print("seq : A / R -> L")
-                #             self.static_state = 'A'; motor_msg = 7
-                #             self.gt_heading = self.real_heading; self.avoid_heading = 25; self.return_heading = -13
-                #         elif tunnel_static_roi_check_arr == [1, 0, 0]: # 왼쪽 장애물 -> 오른쪽 회피
-                #             print("seq : A / L -> R")
-                #             self.static_state = 'A'; motor_msg = 7
-                #             self.gt_heading = self.real_heading; self.avoid_heading = -25; self.return_heading = 13
-
-                #     # 'A' 상태에서 IMU 기반 회피 및 'L' 상태 복귀
-                #     if self.static_state == 'A':
-                #         print("seq : A")
-                #         if self.local_heading is not None:
-                #             # 복귀 완료 조건
-                #             if (self.avoid_heading > 0 and self.local_heading < self.return_heading) or \
-                #                (self.avoid_heading < 0 and self.local_heading > self.return_heading):
-                #                 self.static_state = 'L'
-                #                 self.gt_heading, self.avoid_heading, self.return_heading = None, None, None
-                #             else: # 회피/복귀 중
-                #                 angle = 1 * abs(self.local_heading - self.return_heading)
-                #                 motor_msg = 7
-                # --- 2. 정적 장애물 회피 시퀀스 ---
+                # --- 2. 정적 장애물 회피 시퀀스 (터널: 오른쪽 붙어서 주행 → 정면 장애물 왼쪽 회피) ---
                 if not self.is_dynamic:
-                    # ------------------------------
-                    # 1. 새로운 장애물 구간 탐지 및 회피 시작
-                    # 조건: (아직 회피 중이 아님) + (헤딩 기준값 없음)
-                    # 동작: 전방 0.5~8.5m, 좌우 -1.5~1.5m 안에 장애물이 있으면 회피 시작
-                    # ------------------------------
-                    if not self.is_passing_static_zone and self.gt_heading is None:
-                        is_obstacle_found = False
-                        for obstacle in self.obstacle_list_static:
-                            print(f"[DEBUG] 정적 후보 장애물: x={obstacle.x:.2f}, y={obstacle.y:.2f}, dist={obstacle.distance():.2f}")
-                            if 0.5 < obstacle.x < 8.5 and -1.5 < obstacle.y < 1.5:
-                                is_obstacle_found = True
-                                print("[DEBUG] → 정적 장애물 조건 충족! 회피 시작 준비")
+                    motor_msg = 10
+
+                    # --- 0단계: 오른쪽 차선에 붙어서 주행 (왼쪽 장애물 자동 회피) ---
+                    if self.avoid_stage == 1:
+                        # 오른쪽 차선 따라가기 (slidewindow가 오른쪽 차선 기준으로 x_location 반환)
+
+                        # 정면 장애물 감지 (두 번째 오른쪽 장애물)
+                        obstacle_to_avoid = None
+                        for obs in self.obstacle_list_static:
+                            if 2.0 < obs.x < 6.0 and -0.7 < obs.y < 0.7:
+                                obstacle_to_avoid = obs
                                 break
-                        
-                        if is_obstacle_found:
-                            self.is_passing_static_zone = True
-                            motor_msg = 7
-                            self.gt_heading = self.real_heading
-                            self.local_heading = 0.0
-                            self.avoid_heading = 25
-                            self.return_heading = -13
-                            print(f"[DEBUG] 회피 시작: gt_heading={self.gt_heading}, avoid={self.avoid_heading}, return={self.return_heading}")
 
-                    # ------------------------------
-                    # 2. IMU 회피 기동 실행
-                    # 조건: 회피 동작 중 (gt_heading이 세팅되어 있음)
-                    # 동작: local_heading이 return_heading 조건을 만족하면 회피 종료
-                    # ------------------------------
-                    if self.gt_heading is not None:
-                        if self.local_heading is None:
-                            print("[DEBUG] local_heading 아직 없음 (IMU 미반영)")
-                        else:
-                            angle = 1 * abs(self.local_heading - self.return_heading)
-                            motor_msg = 7
-                            print(f"[DEBUG] 회피 진행 중: local_heading={self.local_heading:.2f}, target={self.return_heading}, angle={angle:.2f}")
+                        if obstacle_to_avoid is not None:
+                            print(f"[DEBUG] 정면 장애물 감지 (오른쪽 장애물) at x={obs.x:.2f}, y={obs.y:.2f}")
+                            self.avoid_stage = 2  # 왼쪽 회피 시작
+                            self.stage1_start_time = time.time()
+                            self.pid.set_gain(0.015, 0.003, 0.01)
 
-                        is_turn_complete = (self.avoid_heading > 0 and self.local_heading < self.return_heading) or \
-                                        (self.avoid_heading < 0 and self.local_heading > self.return_heading)
-                        
-                        if is_turn_complete:
-                            print("[DEBUG] 회피 동작 완료 → 헤딩값 초기화")
-                            self.gt_heading, self.avoid_heading, self.return_heading = None, None, None
+                    # --- 1단계: 왼쪽으로 회피 ---
+                    elif self.avoid_stage == 2:
+                        motor_msg = 5
+                        angle = -10  # 왼쪽으로 고정 조향각 (음수 = 왼쪽)
+                        print(f"[DEBUG] Avoid Stage 2: Moving left with fixed angle={angle}")
 
-                    # ------------------------------
-                    # 3. 장애물 구간 완전 통과 확인
-                    # 조건: 회피는 끝났지만, 여전히 구간 플래그가 True일 때
-                    # 동작: 전방에 더 이상 장애물이 없으면 구간 종료
-                    # ------------------------------
-                    if self.is_passing_static_zone and self.gt_heading is None:
-                        is_zone_cleared = True
-                        for obstacle in self.obstacle_list_static:
-                            if obstacle.x > 0.5:  # 아직 앞쪽에 장애물이 남아 있음
-                                is_zone_cleared = False
-                                print(f"[DEBUG] 아직 구간에 장애물 있음: x={obstacle.x:.2f}, y={obstacle.y:.2f}")
-                                break
-                        
-                        if is_zone_cleared:
-                            self.is_passing_static_zone = False
-                            print("[DEBUG] 정적 장애물 구간 완전 통과! 플래그 리셋")
+                        if not hasattr(self, 'stage1_start_time'):
+                            self.stage1_start_time = time.time()
 
+                        # 시간 경과로 Stage 3 전환
+                        if (time.time() - self.stage1_start_time) > 1.0:
+                            print("Stage 2: 왼쪽 회피 완료 → Stage 3 진입")
+                            self.avoid_stage = 3
+                            self.stage1_start_time = None
+
+                    # --- 2단계: 왼쪽 차선 따라가기 ---
+                    elif self.avoid_stage == 3:
+                        motor_msg = 10
+                        # slidewindow가 왼쪽 차선 기준으로 x_location 반환
+                        print(f"[DEBUG] Avoid Stage 2: Following left lane, x_location={self.x_location}")
 
                 # 최종 제어값 발행
                 servo_msg = -radians(angle)
                 self.publishCtrlCmd(motor_msg, servo_msg, 0)
+
 
             except Exception as e:
                 print(e)
@@ -298,8 +275,10 @@ class LanenetDetection:
             rate.sleep()
 
     def image_callback(self, msg):
-        # self.image = self.bridge.compressed_imgmsg_to_cv2(msg)
-        self.image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
+        self.image = self.bridge.compressed_imgmsg_to_cv2(msg)
+
+    # def camCB(self, msg):
+    #     self.image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
 
     def objectCB_static(self, msg):
         self.obstacle_list_static = []

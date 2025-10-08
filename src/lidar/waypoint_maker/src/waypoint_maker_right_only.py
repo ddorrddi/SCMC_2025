@@ -17,8 +17,9 @@ class WaypointMaker:
     def __init__(self):
         self.right_cones = []
         self.waypoint_msg = Waypoint()
-        self.done_published = False     
-        self.cone_detected_once = False 
+        self.done_published = False
+        self.cone_detected_once = False
+        self.g_curr_idx = 0
 
         self.prev_waypoint_x = None
         self.prev_waypoint_y = None
