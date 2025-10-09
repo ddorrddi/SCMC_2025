@@ -57,7 +57,7 @@ class ParkingPlanner:
 
         # 장애물 정보
         self.g_obstacle_info = None  # 글로벌 좌표계 장애물 정보
-        self.obstacle_collision_threshold = 0.5  # 0.5m 이내면 충돌로 간주
+        self.obstacle_collision_threshold = 0.3  # 0.5m 이내면 충돌로 간주
 
         # 경로 로드
 
@@ -164,7 +164,7 @@ class ParkingPlanner:
 
         ############################## 라이다 위치 보정 ##############################
         # 라이다가 차량 전방 0.8m
-        rel_obstacle_info[0] -= 0.8
+        rel_obstacle_info[0] +=1.2
 
         angle_filter = np.abs(np.arctan2(rel_obstacle_info[1], rel_obstacle_info[0])) < np.pi / 9
         rel_obstacle_info = rel_obstacle_info[:, angle_filter]
