@@ -78,7 +78,7 @@ class SlideWindow:
 
         circle_height = 100  # 원 높이 설정
         
-        road_width = 0.2  # 도로 너비 설정
+        road_width = 0.3  # 도로 너비 설정
         half_road_width = 0.5 * road_width  # 도로 반 너비 설정
 
         # 왼쪽 폴리라인 설정

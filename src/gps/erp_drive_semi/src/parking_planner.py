@@ -236,10 +236,13 @@ class ParkingPlanner:
         original_start = self.parking_path_global.path[0]  # A
         original_end = self.parking_path_global.path[-1]   # B
         
-        # 2. 주차 경로를 역순으로 복사 (B → A)
+        # 2. 주차 경로를 역순으로 복사 (B → A), 마지막 10% 자르기
         self.reverse_path_global = PathReference()
         reversed_path = list(reversed(self.parking_path_global.path))
-        
+        # 마지막 10%를 제거 (A 근처 포인트 제거)
+        cut_index = int(len(reversed_path) * 0.6)
+        reversed_path = reversed_path[:cut_index]
+
         # 3. A를 기준으로 B의 대칭점 A' 계산 (거리를 절반으로 축소)
         symmetric_point = PathReferenceElement()
         # A-B 벡터의 절반만 사용해서 A' 생성
@@ -273,7 +276,7 @@ class ParkingPlanner:
             
             # A 지점에서 기울기 0으로 시작해서 점점 가파르게 꺾이는 오프셋 (제곱 함수 사용)
             # ratio=0에서 0이고 기울기도 0, ratio=1에서 최대값
-            curve_offset = (ratio ** 1.5) * 4.0  # A지점에서 부드럽게 시작해서 점점 가파르게
+            curve_offset = (ratio ** 2.5) * 4.0  # A지점에서 부드럽게 시작해서 점점 가파르게
 
             extended_point.pose.position.x = base_x
             extended_point.pose.position.y = base_y - curve_offset  # Y축 음의 방향으로 오프셋
