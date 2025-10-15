@@ -75,14 +75,6 @@ int main(int argc, char** argv) {
                     control.velocity = control.optimal_throttle.calcTanhVelocity(control.curr_pose);
 
                     // PARKING 모드: 인덱스 3450부터 속도 5로 제한
-                    if(810 < control.g_curr_idx && control.g_curr_idx < 950){
-                        if(control.is_deceleration_requested){
-                            control.velocity = 10.0;
-                        } else {
-                            control.velocity = 10.0;
-                        }
-                    }
-
                     if(control.g_curr_idx >= 3450 && !control.go_to_finish){
                         control.velocity = std::min(control.velocity, 5.0);
                     }
@@ -137,6 +129,10 @@ int main(int argc, char** argv) {
                         }
                     }
 
+                    if (control.is_deceleration_requested) {
+                        control.velocity = control.local_velocity;
+                    }
+
                     control.calcSteering(control.curr_pose);
                     control.publishControlMsg();
                 }
@@ -145,6 +141,7 @@ int main(int argc, char** argv) {
             case VehicleState::LOCAL_PATH_DRIVING:
                 if(control.is_local_path_set){
                     ROS_INFO_STREAM("State: LOCAL_PATH_DRIVING");
+                    control.is_moving_back = false;
                     if(control.is_parking_done){
                         control.lookahead_distance = control.parking_local_lookahead_distance;
                     } else {
@@ -153,7 +150,6 @@ int main(int argc, char** argv) {
                     control.velocity = control.local_velocity;
                     control.brake = 0.0;
                     control.calcSteering(control.curr_pose);
-                    control.is_moving_back = false;
                     control.publishControlMsg();
                 }
                 break;
@@ -168,13 +164,15 @@ int main(int argc, char** argv) {
 
                 stop_elapsed = ros::Time::now() - parking_stop_start_time;
 
-                if(stop_elapsed < ros::Duration(2.5)){
-                    double ratio = 1.0 - (stop_elapsed.toSec() / 2.5);
+                if(stop_elapsed < ros::Duration(3.0)){
+                    double ratio = 1.0 - (stop_elapsed.toSec() / 3.0);
                     control.velocity = original_velocity_before_parking * ratio;
                     control.brake = 0.0;
                 } else {
                     control.velocity = 0.0;
                     control.brake = 1.0;
+                    control.steering = 0.0;
+                    control.is_moving_back = true;
                     control.is_parking_stop_done = false;
                 }
                 control.publishControlMsg();
@@ -204,11 +202,19 @@ int main(int argc, char** argv) {
                 if(hold_elapsed < ros::Duration(3.0)){
                     control.velocity = 0.0;
                     control.brake = 1.0;
+                    control.is_moving_back = false;
+                    control.steering = 0.0;
+                    control.publishControlMsg();
+                } else if(hold_elapsed >= ros::Duration(3.0) && hold_elapsed < ros::Duration(4.0)){
+                    control.velocity = 5.0;
+                    control.brake = 0.0;
+                    control.steering = 30.0;
                     control.publishControlMsg();
                 } else {
                     control.velocity = 0.0;
                     control.brake = 1.0;
-                    control.publishControlMsg();
+                    control.is_moving_back = false;
+                    control.steering = 0.0;
                 }
                 break;
         }

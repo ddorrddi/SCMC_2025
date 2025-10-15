@@ -19,14 +19,10 @@ class ParkingPlanner:
         self.rviz_offset_y = float(rviz_offset_y)
 
         # === 트래킹/안정화 파라미터 ===
-        self.ROI_radius = 5.0      # 차량 기준 ROI (m) -> 실험적으로 찾아야함
         self.match_gate = 0.30     # 트랙 매칭 허용 거리 (m)
-        self.stable_k   = 1        # count 임계값 (>= 이면 안정 좌표 편입)   ->   근데 이건 나중에 실제 라이다 돌리면서 기준 잡아야함
-        self.decay_miss = 10       # 미관측 허용 프레임(지나면 트랙 삭제)   ->  이거도 나중에 실제 라이다 돌리면서 기준 잡아야함
 
         # === 빈 공간 판정 파라미터 ===
         self.benchmark_coords = np.array([935537.090, 1915866.639], dtype=float)  # 앵커 좌표(기본 0,0)
-        self.empty_gap = 4.0       # 인접 점 사이 3m 이상 → 빈 공간
 
         # === 장애물 인지 및 트래킹 ===
         self.tracks = []
@@ -44,11 +40,9 @@ class ParkingPlanner:
         self.reference_coords = None
         self.parking_start_coords = None  # 진입 좌표 (x,y)
         self.parking_coords = None
-        self.parking_radius = 1.1  # 주차 좌표 생성 반지름 (m) -> 실험적으로 찾아야함
-        self.parking_theta = 90.0 * math.pi / 180.0 # 주차 좌표 생성 각도 (rad) -> 실험적으로 찾아야함
 
         # === 주차 경로 생성 파라미터 ===
-        self.resolution = 0.3      # 경로 해상도 (m)
+        self.resolution = 0.1      # 경로 해상도 (m)
         self.path_delay_sec = 3.5 # 경로 발행 지연 시간 (s) -> 주차 정지 후 약간의 시간이 지난 후 경로 발행
         self.path_timer = None
         self.flip_arccos = False   # arccos 함수 상하 반전 여부
@@ -66,12 +60,19 @@ class ParkingPlanner:
         self.parking_done_once = False     # 주차 완료 1회 체크용 플래그
         self.parking_end = False           # 주차 종료 플래그
         self.return_phase = 0              # g_path 복귀 단계 플래그 (0: 대기, 1: 경로 발행, 2: 복귀 완료 대기)
-        self.Parking_Stop_Radius = 2.0     # 정지 반경 (m) -> parking_stop_done는 플래그 세워지고 1.5s 후 정지라 좀 루즈하게 설정
-        self.Parking_Success_Radius = 2.0  # 주차 성공 반경 (m) -> parking_done은 플래그 세워지자마자 정지라 좀 타이트하게 설정
 
         self.curr_pose = None
         self.parking_path_set = False
-        self.g_curr_idx = 0
+
+        # === 튜닝 파라미터 ===
+        self.ROI_radius = 4.0      # 차량 기준 ROI (m)
+        self.empty_gap = 4.0       # 인접 라바콘 사이 거리 4m 이상 → 빈 공간
+        self.stable_k   = 1        # count 임계값 (>= 이면 안정 좌표 편입)   ->   근데 이건 나중에 실제 라이다 돌리면서 기준 잡아야함
+        self.decay_miss = 10       # 미관측 허용 프레임(지나면 트랙 삭제)   ->  이거도 나중에 실제 라이다 돌리면서 기준 잡아야함
+        self.parking_radius = 1.7  # 주차 좌표 생성 반지름 (m)
+        self.parking_theta = 50.0 * math.pi / 180.0 # 주차 좌표 생성 각도 (rad)
+        self.Parking_Stop_Radius = 2.2     # 정지 반경 (m)
+        self.Parking_Success_Radius = 1.2  # 주차 성공 반경 (m) 
 
         # === ROS Pub/Sub ===
         self.parking_stop_done_pub = rospy.Publisher("/parking_stop_done", Int16,         queue_size=1)
@@ -85,18 +86,10 @@ class ParkingPlanner:
 
         rospy.Subscriber("/object_info_labacon", ObjectInfo,  self.obstacle_info_CB, queue_size=1)
         rospy.Subscriber("/current_pose",  Pose,        self.curr_pose_CB,     queue_size=1)
-        rospy.Subscriber("/curr_idx", Int16, self.curr_idx_CB)
 
     # -------------------- 콜백 --------------------
 
-    def curr_idx_CB(self, msg: Int16):
-        self.g_curr_idx = msg.data
-
     def curr_pose_CB(self, msg: Pose):
-
-        if self.g_curr_idx < 3450:
-            return
-        
         self.curr_pose = msg
         
         if self.parking_slot_found and not self.parking_done:
@@ -288,13 +281,8 @@ class ParkingPlanner:
     def make_parking_path(self):
         if self.parking_coords is None or self.curr_pose is None or self.parking_slot_found is False:
             return
-        
-        if self.g_curr_idx < 3470:
-            return
 
-        self.parking_start_coords = np.array([self.curr_pose.position.x, self.curr_pose.position.y], dtype=float)
-
-        raw = self.make_raw_path(self.parking_start_coords, self.parking_coords, n=800, flip=self.flip_arccos)
+        raw = self.make_raw_path(n=800, flip=self.flip_arccos)
         pts = self.spacing_parking_path(raw, self.resolution)
 
         self.parking_path.path.clear()
@@ -344,7 +332,11 @@ class ParkingPlanner:
         self.return_path.path.clear()
         self.rviz_return_path.poses.clear()
 
-        pts = [(e.pose.position.x, e.pose.position.y) for e in path][::-1]
+        pts = [(e.pose.position.x, e.pose.position.y) for e in path]
+        keep_count = max(0, int(len(pts) - 5))
+        if keep_count == 0:
+            return
+        pts = pts[:keep_count][::-1]
 
         for x, y in pts:
             return_path_element = PathReferenceElement()
@@ -389,14 +381,30 @@ class ParkingPlanner:
 
     # -------------------- raw path 생성 --------------------
 
-    def make_raw_path(self, start_xy, goal_xy, n=800, flip=False):
-        start_xy = np.asarray(start_xy, dtype=float)
-        goal_xy  = np.asarray(goal_xy,  dtype=float)
+    def make_raw_path(self, n=800, flip=False, ext_length=4.0, ext_points=None):
+        """
+        arccos 기반 경로 생성 후, 경로의 끝 방향으로 직진 구간을 이어 붙임.
+        - n: 원래 샘플 포인트 수
+        - flip: 원래대로 y를 뒤집음
+        - ext_length: 마지막에 이어붙일 직진 길이 (meters)
+        - ext_points: 직진 구간에 샘플할 포인트 수 (None이면 n*0.05)
+        반환: numpy.ndarray shape (M,2)
+        """
+        import numpy as np
+
+        # 안전한 시작/목표 추출 (네가 올려준 코드 가정)
+        start_x = (float(self.curr_pose.position.x)*2.0 + float(self.parking_start_coords[0]))/3.0
+        start_y = (float(self.curr_pose.position.y)*2.0 + float(self.parking_start_coords[1]))/3.0
+        goal_x  = float(self.parking_coords[0])
+        goal_y  = float(self.parking_coords[1])
+
+        start_xy = np.array([start_x, start_y], dtype=float)
+        goal_xy  = np.array([goal_x,  goal_y ], dtype=float)
 
         A = np.array([-1.0, np.pi], dtype=float)
         B = np.array([ 1.0, 0.0 ], dtype=float)
 
-        x = np.linspace(-1.0, 1.0, n)
+        x = np.linspace(-1.0, 1.0, int(n))
         y = np.arccos(x)
         if flip:
             y = -y
@@ -404,7 +412,16 @@ class ParkingPlanner:
 
         v_ab = B - A
         v    = goal_xy - start_xy
-        s = np.linalg.norm(v) / np.linalg.norm(v_ab)
+        # 안전: 0으로 나누는 것 방지
+        norm_vab = np.linalg.norm(v_ab)
+        if norm_vab < 1e-12:
+            # fallback: 직선 보간
+            tlin = np.linspace(0.0, 1.0, int(n))
+            line = np.column_stack([start_xy[0] + (goal_xy[0]-start_xy[0]) * tlin,
+                                    start_xy[1] + (goal_xy[1]-start_xy[1]) * tlin])
+            return line
+
+        s = np.linalg.norm(v) / norm_vab
 
         ang_ab = np.arctan2(v_ab[1], v_ab[0])
         ang_v  = np.arctan2(v[1],    v[0])
@@ -413,7 +430,39 @@ class ParkingPlanner:
         R = np.array([[c, -si],[si, c]], dtype=float)
         t = start_xy - s * (R @ A)
 
-        return (s * (R @ P.T)).T + t
+        # 기본 변환된 경로 (N x 2)
+        pts = (s * (R @ P.T)).T + t
+        pts = np.asarray(pts, dtype=float)
+
+        # 만약 포인트가 2개 미만이면 연장 불가 -> 그대로 반환
+        if pts.shape[0] < 2:
+            return pts
+
+        # 직진 연장 파라미터
+        if ext_points is None:
+            ext_points = max(5, int(max(1, n * 0.05)))  # 기본: 전체의 5% 또는 최소 5개
+        ext_points = int(ext_points)
+        ext_length = float(ext_length)
+
+        # 마지막 방향 벡터: 마지막 두 점 이용 (안정성: 너무 작으면 ang_v 사용)
+        last_vec = pts[-1] - pts[-2]
+        last_norm = np.linalg.norm(last_vec)
+        if last_norm < 1e-9:
+            # 거의 동일한 점이면 ang_v 사용
+            dir_vec = np.array([np.cos(ang_v), np.sin(ang_v)], dtype=float)
+        else:
+            dir_vec = last_vec / last_norm
+
+        # ext 구간 t (0 excluded because last point already 포함)
+        # we generate ext_points samples along (0, ext_length], excluding 0 to avoid duplicate
+        ext_t = np.linspace(ext_length / ext_points, ext_length, ext_points)
+        ext_pts = pts[-1] + np.outer(ext_t, dir_vec)  # shape (ext_points, 2)
+
+        # 합치기
+        combined = np.vstack([pts, ext_pts])
+
+        return combined
+
     
     # -------------------- 등간격 보간 --------------------
 
@@ -454,7 +503,7 @@ class ParkingPlanner:
             if self.parking_done and len(self.parking_path.path) >= 2:
                 if self.path_timer is None:
                     rospy.loginfo(f"delay path maker!!!!!!")
-                    self.path_timer = rospy.Timer(rospy.Duration(2.5), self.delay_path_maker, oneshot=True)  # 타이머 취소 후 바로 경로 생성 예약
+                    self.path_timer = rospy.Timer(rospy.Duration(4.0), self.delay_path_maker, oneshot=True)  # 타이머 취소 후 바로 경로 생성 예약
                 self.return_phase = 2
             return
 
@@ -475,6 +524,7 @@ class ParkingPlanner:
         
         if not self.parking_done_once:
             if dist_to_target < self.Parking_Stop_Radius and self.parking_in_progress:
+                self.parking_start_coords = np.array([self.curr_pose.position.x, self.curr_pose.position.y], dtype=float)
                 self.parking_stop_done = True
                 self.parking_done_once = True
                 rospy.loginfo(f"Parking Stop Done!!!!!!!!!")
@@ -490,8 +540,7 @@ class ParkingPlanner:
         if self.curr_pose is None or not path_list:
             return
         
-        last_element = path_list[-1]
-        end_x, end_y = float(last_element.pose.position.x), float(last_element.pose.position.y)
+        end_x, end_y = float(self.parking_coords[0]), float(self.parking_coords[1])
         px, py = float(self.curr_pose.position.x), float(self.curr_pose.position.y)
         
         self.parking_done = (math.hypot(px - end_x, py - end_y) <= self.Parking_Success_Radius)
