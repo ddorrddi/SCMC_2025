@@ -23,23 +23,24 @@ void PurePursuit::calcSteering(const geometry_msgs::Pose& curr_pose) {
     geometry_msgs::Pose curr_waypoint;
     geometry_msgs::Pose next_waypoint;
 
-    calcGlobalCurrWaypoint(curr_pose);
-    calcGlobalNextWaypoint(curr_pose);
-
-    ROS_INFO_STREAM("Pure Pursuit : g_curr_idx" << this->g_curr_idx);
-
     if(this->is_local_path_set && this->flag){
+        // LOCAL_PATH_DRIVING: 지역 경로만 사용 (global waypoint 업데이트 안함)
         calcLocalCurrWaypoint(curr_pose);
         calcLocalNextWaypoint(curr_pose);
 
         curr_waypoint = this->l_path.path.at(this->l_curr_idx).pose;
-        next_waypoint = this->l_path.path.at(this->l_next_idx).pose;    
-    } 
-    
+        next_waypoint = this->l_path.path.at(this->l_next_idx).pose;
+    }
     else {
+        // GLOBAL_PATH_DRIVING: 전역 경로 사용
+        calcGlobalCurrWaypoint(curr_pose);
+        calcGlobalNextWaypoint(curr_pose);
+
         curr_waypoint = this->g_path.path.at(this->g_curr_idx).pose;
         next_waypoint = this->g_path.path.at(this->g_next_idx).pose;
     }
+
+    ROS_INFO_STREAM("Pure Pursuit : g_curr_idx" << this->g_curr_idx);
 
     // 감속해야 하는데, U_TURN 임.
     if(this->optimal_throttle.shouldDecel 

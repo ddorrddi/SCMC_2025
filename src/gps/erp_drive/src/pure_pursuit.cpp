@@ -21,7 +21,7 @@ geometry_msgs::Pose PurePursuit::calcRelativeCoordinateAboutCurr(const geometry_
 }
 
 void PurePursuit::calcSteering(const geometry_msgs::Pose& curr_pose) {
-    geometry_msgs::Pose curr_waypoint;.
+    geometry_msgs::Pose curr_waypoint;
     geometry_msgs::Pose next_waypoint;
 
     calcGlobalCurrWaypoint(curr_pose);
