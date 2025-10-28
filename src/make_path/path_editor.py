@@ -856,6 +856,6 @@ if __name__ == '__main__':
     import os
     # 스크립트가 있는 디렉토리 기준으로 파일 경로 설정
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    file_path = os.path.join(script_dir, 'kcity_semi.txt')
+    file_path = os.path.join(script_dir, 'kcity_semi_2.txt')
     editor = PathEditor(file_path)
     editor.run()

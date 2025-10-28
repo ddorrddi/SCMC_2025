@@ -9,8 +9,8 @@ import numpy as np
 from scipy.interpolate import CubicSpline
 from std_msgs.msg import Int16
 
-LEFT_OFFSET_DISTANCE = 2.0     
-MAX_CONE_DISTANCE = 3.3         
+LEFT_OFFSET_DISTANCE = 2.0    # 2.0 -> 2.8 (안쪽 파고들기 방지)
+MAX_CONE_DISTANCE = 4.0
 INTERPOLATION_STEP = 0.2        
 
 class WaypointMaker:
@@ -23,9 +23,12 @@ class WaypointMaker:
 
         self.prev_waypoint_x = None
         self.prev_waypoint_y = None
-        self.smoothing_alpha = 0.7 
+        self.smoothing_alpha = 0.9
 
-        
+        # 안정성 개선을 위한 추가 변수
+        self.no_cone_counter = 0  # 콘이 없는 프레임 카운터
+        self.no_cone_threshold = 10  # 10프레임(약 0.33초) 연속 미감지 시 완료
+        self.min_detection_count = 10
         rospy.init_node('waypoint_maker', anonymous=True)
         self.cone_sub = rospy.Subscriber("/obstacle_info_semi", ObjectInfo, self.traffic_cone_callback)
         self.idx_sub = rospy.Subscriber("/curr_idx", Int16, self.idx_callback)
@@ -55,17 +58,34 @@ class WaypointMaker:
         candidate_cones = []
 
         for i in range(msg.objectCounts):
-            if (msg.centerY[i] < 0) and (msg.centerX[i] < 3.0):
-                all_right_objects.append({'x': msg.centerX[i], 'y': msg.centerY[i]})
+            # 라이다 위치 보정: 라이다가 차량 전방 1.25m에 위치
+            cone_x = msg.centerX[i] + 1.25
+            cone_y = msg.centerY[i]
 
-                if msg.centerX[i] > 0:
-                    cone = {'x': msg.centerX[i], 'y': msg.centerY[i]}
+            if (cone_y < 0) and (cone_x < 5.0):
+                all_right_objects.append({'x': cone_x, 'y': cone_y})
+
+                if cone_x > 0:
+                    cone = {'x': cone_x, 'y': cone_y}
                     candidate_cones.append(cone)
 
-        if self.cone_detected_once and len(candidate_cones) == 0:
-            if not self.done_published:
-                self.waypoint_done_pub.publish(Int16(data=1))
-                self.done_published = True
+        # 콘 감지 상태 업데이트
+        if len(candidate_cones) > 0:
+            self.no_cone_counter = 0  # 콘이 감지되면 카운터 리셋
+            if not self.cone_detected_once:
+                self.cone_detected_once = True
+                rospy.loginfo("[WaypointMaker] U-turn cone detection started")
+        else:
+            # 콘이 없을 때
+            if self.cone_detected_once and not self.done_published:
+                self.no_cone_counter += 1
+                rospy.loginfo_throttle(1.0, f"[WaypointMaker] No cone detected: {self.no_cone_counter}/{self.no_cone_threshold}")
+
+                # 연속으로 threshold 프레임 동안 콘이 없으면 완료
+                if self.no_cone_counter >= self.no_cone_threshold:
+                    rospy.loginfo("[WaypointMaker] U-turn completed! Publishing waypoint_done signal")
+                    self.waypoint_done_pub.publish(Int16(data=1))
+                    self.done_published = True
 
         candidate_cones.sort(key=lambda c: c['x'])
 
@@ -102,6 +122,27 @@ class WaypointMaker:
             self.waypoint_pub.publish(self.waypoint_msg)
             return
 
+        # 콘 사이사이를 선형으로 채워서 Cubic Spline이 과도하게 휘지 않도록 함
+        dense_control_x = []
+        dense_control_y = []
+
+        for i in range(len(control_x)):
+            dense_control_x.append(control_x[i])
+            dense_control_y.append(control_y[i])
+
+            # 다음 콘이 있고, 거리가 2m 이상이면 중간 지점 추가
+            if i < len(control_x) - 1:
+                dist = np.hypot(control_x[i+1] - control_x[i], control_y[i+1] - control_y[i])
+                if dist > 1.0:  # 2m 이상 떨어진 콘 사이에 중간점 추가
+                    mid_x = (control_x[i] + control_x[i+1]) / 2.0
+                    mid_y = (control_y[i] + control_y[i+1]) / 2.0
+                    dense_control_x.append(mid_x)
+                    dense_control_y.append(mid_y)
+
+        control_x = dense_control_x
+        control_y = dense_control_y
+        rospy.loginfo_throttle(2.0, f"[WaypointMaker] Densified control points: {len(control_x)} points")
+
         control_points = np.array([control_x, control_y]).T
         distances = np.zeros(len(control_points))
         for i in range(1, len(control_points)):
@@ -111,8 +152,9 @@ class WaypointMaker:
             )
 
         try:
-            cs_x = CubicSpline(distances, control_x)
-            cs_y = CubicSpline(distances, control_y)
+            # Cubic Spline 보간 (콘 사이를 미리 채웠으므로 안정적)
+            cs_x = CubicSpline(distances, control_x, bc_type='natural')  # natural boundary로 과도한 곡선 억제
+            cs_y = CubicSpline(distances, control_y, bc_type='natural')
 
             total_distance = distances[-1]
             num_points = int(total_distance / INTERPOLATION_STEP) + 1

@@ -45,6 +45,27 @@ void Controller::globalPathCallback(const erp_drive_semi::PathReference& g_path)
 void Controller::waypointDoneCallback(const std_msgs::Int16& signal){
     if(signal.data == 1){
         ROS_INFO_STREAM("[Controller] Waypoint Done signal received. Switching to GLOBAL_PATH_DRIVING.");
+
+        // 유턴 완료 후 전체 글로벌 경로에서 가장 가까운 인덱스 재탐색
+        if(this->is_pose_set && this->is_path_set){
+            int closest_idx = -1;
+            double min_dist = 1e9;
+
+            // 전체 글로벌 경로에서 현재 위치와 가장 가까운 점 찾기
+            for(int i = 0; i < this->g_path_size; i++){
+                double dist = this->getDistance(this->g_path.path[i].pose, this->curr_pose);
+                if(dist < min_dist){
+                    min_dist = dist;
+                    closest_idx = i;
+                }
+            }
+
+            if(closest_idx != -1){
+                this->g_curr_idx = closest_idx;
+                ROS_INFO_STREAM("[Controller] Global path index reset to: " << closest_idx << " (distance: " << min_dist << "m)");
+            }
+        }
+
         this->current_state = VehicleState::GLOBAL_PATH_DRIVING;
         this->is_local_path_set = false;
         this->uturn_done = true;
@@ -53,8 +74,15 @@ void Controller::waypointDoneCallback(const std_msgs::Int16& signal){
 }
 
 void Controller::localPathCallback(const erp_drive_semi::PathReference& l_path){
-    if(this->g_curr_idx < 1080) return;
+    // 유턴 구간 범위 체크 및 이미 유턴 완료했으면 무시
+    if(this->g_curr_idx < 1000 || this->uturn_done) return;
     // if(this->g_curr_idx < 75) return;
+
+    // 로컬 경로가 너무 짧으면 무시 (노이즈 방지)
+    if(l_path.path.size() < 5) {
+        ROS_WARN_STREAM("[Controller] Local path too short (" << l_path.path.size() << " points), ignoring");
+        return;
+    }
 
     if(this->start_yaw == -400)
         this->start_yaw = static_cast<int>(this->curr_yaw);
@@ -63,6 +91,7 @@ void Controller::localPathCallback(const erp_drive_semi::PathReference& l_path){
     this->l_path_size = l_path.path.size();
     this->is_local_path_set = true;
     this->current_state = VehicleState::LOCAL_PATH_DRIVING;
+    ROS_INFO_STREAM("[Controller] Switching to LOCAL_PATH_DRIVING (path size: " << l_path.path.size() << ")");
     // if(this->g_curr_idx < 1500){
     //     this->current_state = VehicleState::LOCAL_PATH_DRIVING;
     // } else {
@@ -96,22 +125,38 @@ void Controller::currentPoseCallback(const geometry_msgs::Pose& curr_pose){
 int Controller::calcGlobalCurrWaypoint(const geometry_msgs::Pose& curr_pose){
     int min_idx = -1;
     double min_dist = 1e9;
-  
-    int len = std::min(this->g_curr_idx + 100, this->g_path_size);
-    for(int i = this->g_curr_idx; i < this->g_path_size; i++){
+
+    // 현재 인덱스 주변 100개 포인트 범위 내에서 탐색
+    int search_start = std::max(0, this->g_curr_idx - 10);
+    int search_end = std::min(this->g_curr_idx + 100, this->g_path_size);
+
+    for(int i = search_start; i < search_end; i++){
         double curr_dist = this->getDistance(this->g_path.path[i].pose, curr_pose);
-        
+
         if(min_dist > curr_dist) {
             min_dist = curr_dist;
             min_idx = i;
         }
     }
 
+    // 가까운 인덱스를 찾지 못했거나 거리가 너무 멀면 전체 재탐색
+    if(min_idx == -1 || min_dist > 5.0){
+        ROS_WARN_STREAM("[Controller] Distance to path is too large (" << min_dist << "m), searching entire path...");
+        for(int i = 0; i < this->g_path_size; i++){
+            double curr_dist = this->getDistance(this->g_path.path[i].pose, curr_pose);
+            if(min_dist > curr_dist) {
+                min_dist = curr_dist;
+                min_idx = i;
+            }
+        }
+        ROS_INFO_STREAM("[Controller] Full search completed. New index: " << min_idx << ", distance: " << min_dist << "m");
+    }
+
     this->g_curr_idx = min_idx;
     if(this->g_curr_idx >= this->g_path_size - 20){
         this->is_finish = true;
     }
-    
+
     std_msgs::Int16 msg;
     msg.data = this->g_curr_idx;
     this->curr_waypoint_pub.publish(msg); //planner에서 활용

@@ -65,7 +65,7 @@ class ParkingPlanner:
         """parking_1.txt ~ parking_6.txt 모든 경로 로드"""
         rospy.loginfo("Loading all parking paths...")
 
-        base_path = '/home/foscar/SCMC_2025/src/gps/erp_drive_semi/paths/'
+        base_path = '/home/ivsp/SCMC_2025/src/gps/erp_drive_semi/paths/'
 
         for i in range(1, 3):
             path_file = f'{base_path}s{i}.txt'
