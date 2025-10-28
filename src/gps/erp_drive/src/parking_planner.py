@@ -71,8 +71,8 @@ class ParkingPlanner:
         self.empty_gap = 4.0       # 인접 라바콘 사이 거리 4m 이상 → 빈 공간
         self.stable_k   = 1        # count 임계값 (>= 이면 안정 좌표 편입)   ->   근데 이건 나중에 실제 라이다 돌리면서 기준 잡아야함
         self.decay_miss = 10       # 미관측 허용 프레임(지나면 트랙 삭제)   ->  이거도 나중에 실제 라이다 돌리면서 기준 잡아야함
-        self.parking_radius = 1.7  # 주차 좌표 생성 반지름 (m)
-        self.parking_theta = 50.0 * math.pi / 180.0 # 주차 좌표 생성 각도 (rad)
+        self.parking_radius = 4.0  # 주차 좌표 생성 반지름 (m)
+        self.parking_theta = 155.0 * math.pi / 180.0 # 주차 좌표 생성 각도 (rad)
         self.Parking_Stop_Radius = 2.2     # 정지 반경 (m)
         self.Parking_Success_Radius = 1.2  # 주차 성공 반경 (m) 
 
@@ -264,7 +264,6 @@ class ParkingPlanner:
     def generate_parking_coords(self):
         gap_idx = self.find_parking_slot(self.sorted_pts)
         if gap_idx is not None:
-            ref  = self.sorted_pts[gap_idx]
             stop = self.sorted_pts[gap_idx + 1]
 
             # 차량 진행방향(헤딩)과 차량 우측 벡터
@@ -277,9 +276,8 @@ class ParkingPlanner:
             v_dir = math.cos(self.parking_theta) * fwd + math.sin(self.parking_theta) * right
             v_dir /= (np.linalg.norm(v_dir) + 1e-12)
 
-            self.reference_coords    = ref
             self.parking_stop_coords = stop
-            self.parking_coords      = ref + self.parking_radius * v_dir
+            self.parking_coords      = stop + self.parking_radius * v_dir
 
             self.parking_slot_found  = True
             self.parking_in_progress = True

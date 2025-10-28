@@ -1,0 +1,20 @@
+<launch>
+    <arg name="ntrip_server"    default="rtk.ngii.go.kr" />
+    <arg name="ntrip_port"      default="2101" />
+    <arg name="ntrip_user"      default="YOUR_NGII_ID" />
+    <arg name="ntrip_pass"      default="YOUR_NGII_PASSWORD" />
+    <arg name="ntrip_mount"     default="VRS_RTCM32" /> <arg name="rtcm_topic"      default="/rtcm" /> <node pkg="ublox_gps" type="ublox_gps" name="ublox_gps">
+        <rosparam file="$(find your_package_name)/config/ublox_config.yaml" command="load" />
+
+        <param name="rtcm_in/enable" value="true" />
+        <param name="rtcm_in/topic"  value="$(arg rtcm_topic)" />
+    </node>
+
+    <node pkg="nmea_navsat_driver" type="ntrip_client.py" name="ntrip_client" output="screen">
+        <param name="host"       value="$(arg ntrip_server)" />
+        <param name="port"       value="$(arg ntrip_port)" />
+        <param name="user"       value="$(arg ntrip_user)" />
+        <param name="password"   value="$(arg ntrip_pass)" />
+        <param name="mountpoint" value="$(arg ntrip_mount)" />
+        <param name="rtcm_topic" value="$(arg rtcm_topic)" /> </node>
+</launch>

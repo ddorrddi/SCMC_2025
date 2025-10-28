@@ -2,7 +2,7 @@
 
 debug: 1                    # Range 0-4 (0 means no debug statements will print)
 
-device: /dev/ttyGPS1
+device: /dev/ttyGPS2
 frame_id: gps_front
 
 uart1:
