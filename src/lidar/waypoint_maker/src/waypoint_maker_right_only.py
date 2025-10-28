@@ -34,24 +34,28 @@ class WaypointMaker:
         self.waypoint_done_pub = rospy.Publisher("/waypoint_done", Int16, queue_size=1)
 
 
+
+    def idx_callback(self, msg):
+        self.g_curr_idx = msg.data
+
     def traffic_cone_callback(self, msg):
 
-        if self.g_curr_idx < 1100 or self.g_curr_idx > 1660:
+        if self.g_curr_idx < 1000 or self.g_curr_idx > 1200:
             return  
+        
+        # if self.g_curr_idx < 75:
+        #     return
         
         self.filter_right_cones(msg)
         self.generate_waypoint_info()
         self.visualize_cones()
-
-    def idx_callback(self, msg):
-        self.g_curr_idx = msg.data
 
     def filter_right_cones(self, msg):
         all_right_objects = []
         candidate_cones = []
 
         for i in range(msg.objectCounts):
-            if (msg.centerY[i] < 0) and (msg.centerX[i] < 2.5):
+            if (msg.centerY[i] < 0) and (msg.centerX[i] < 3.0):
                 all_right_objects.append({'x': msg.centerX[i], 'y': msg.centerY[i]})
 
                 if msg.centerX[i] > 0:

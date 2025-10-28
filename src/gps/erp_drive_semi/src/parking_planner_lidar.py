@@ -43,8 +43,8 @@ class ParkingPlanner:
         self.current_pose = None
         self.final_destination_global = None
         self.reverse_start_global = None  # 후진 시작점 (주차 완료 지점)
-        self.completion_threshold = 0.3  # 30cm 이내로 들어오면 도착으로 간주
-        self.reverse_completion_threshold = 4.0  # 후진은 40cm 이내
+        self.completion_threshold = 0.6  # 30cm 이내로 들어오면 도착으로 간주
+        self.reverse_completion_threshold = 2.0  # 후진은 40cm 이내
 
         self.parking_mission_complete = False
         self.is_reversing = False  # 현재 후진 중인지 플래그
@@ -57,7 +57,7 @@ class ParkingPlanner:
 
         # 장애물 정보
         self.g_obstacle_info = None  # 글로벌 좌표계 장애물 정보
-        self.obstacle_collision_threshold = 0.3  # 0.5m 이내면 충돌로 간주
+        self.obstacle_collision_threshold = 0.4  # 0.5m 이내면 충돌로 간주
 
         # 경로 로드
 
@@ -67,8 +67,8 @@ class ParkingPlanner:
 
         base_path = '/home/foscar/SCMC_2025/src/gps/erp_drive_semi/paths/'
 
-        for i in range(1, 7):
-            path_file = f'{base_path}parking_{i}.txt'
+        for i in range(1, 3):
+            path_file = f'{base_path}s{i}.txt'
             try:
                 parking_path = PathReference()
 
@@ -164,7 +164,7 @@ class ParkingPlanner:
 
         ############################## 라이다 위치 보정 ##############################
         # 라이다가 차량 전방 0.8m
-        rel_obstacle_info[0] +=1.2
+        rel_obstacle_info[0] +=1.25
 
         angle_filter = np.abs(np.arctan2(rel_obstacle_info[1], rel_obstacle_info[0])) < np.pi / 9
         rel_obstacle_info = rel_obstacle_info[:, angle_filter]
@@ -391,68 +391,19 @@ class ParkingPlanner:
         self.candidate_paths_pub.publish(marker_array)
 
     def generate_reverse_path(self):
-        """주차 경로를 기반으로 후진용 역순 경로 생성 - 원래 시작점에 대해 대칭 연장"""
+        """주차 경로를 기반으로 후진용 역순 경로 생성 - 단순 역순"""
         if len(self.parking_path_global.path) == 0:
             return
 
         rospy.loginfo("Generating reverse parking path...")
 
-        # 1. 원래 주차 경로의 시작점(A)과 끝점(B) 추출
-        original_start = self.parking_path_global.path[0]  # A
-        original_end = self.parking_path_global.path[-1]   # B
-
-        # 2. 주차 경로를 역순으로 복사 (B → A)
+        # 주차 경로를 역순으로 복사 (B → A)
         self.reverse_path_global = PathReference()
-        reversed_path = list(reversed(self.parking_path_global.path))
-
-        # 3. A를 기준으로 B의 대칭점 A' 계산 (거리를 절반으로 축소)
-        symmetric_point = PathReferenceElement()
-        # A-B 벡터의 절반만 사용해서 A' 생성
-        symmetric_point.pose.position.x = original_start.pose.position.x + 0.5 * (original_start.pose.position.x - original_end.pose.position.x)
-        symmetric_point.pose.position.y = original_start.pose.position.y + 0.5 * (original_start.pose.position.y - original_end.pose.position.y)
-        symmetric_point.pose.position.z = original_start.pose.position.z
-        symmetric_point.pose.orientation = original_start.pose.orientation
-        symmetric_point.mode = original_start.mode
-
-        # 4. A에서 A'까지 추가 경로 생성 (A → A')
-        # A의 위치
-        A_x = original_start.pose.position.x
-        A_y = original_start.pose.position.y
-        # A'의 위치
-        Ap_x = symmetric_point.pose.position.x
-        Ap_y = symmetric_point.pose.position.y
-
-        # A에서 A'까지의 거리 계산
-        extension_distance = np.sqrt((Ap_x - A_x)**2 + (Ap_y - A_y)**2)
-        num_extension_points = max(int(extension_distance / 0.2), 1)  # 0.2m 간격
-
-        # A에서 A'까지 보간된 웨이포인트 생성 (지수함수 곡선으로 부드럽게 아래로 꺾임)
-        extended_points = []
-        for i in range(1, num_extension_points + 1):
-            ratio = i / num_extension_points
-            extended_point = PathReferenceElement()
-
-            # 기본 직선 보간
-            base_x = A_x + (Ap_x - A_x) * ratio
-            base_y = A_y + (Ap_y - A_y) * ratio
-
-            # A 지점에서 기울기 0으로 시작해서 점점 가파르게 꺾이는 오프셋 (제곱 함수 사용)
-            # ratio=0에서 0이고 기울기도 0, ratio=1에서 최대값
-            curve_offset = (ratio ** 1.5) * 4.0  # A지점에서 부드럽게 시작해서 점점 가파르게
-
-            extended_point.pose.position.x = base_x
-            extended_point.pose.position.y = base_y - curve_offset  # Y축 음의 방향으로 오프셋
-            extended_point.pose.position.z = original_start.pose.position.z
-            extended_point.pose.orientation = original_start.pose.orientation
-            extended_point.mode = original_start.mode
-            extended_points.append(extended_point)
-
-        # 5. 최종 경로: B → A → A'
-        self.reverse_path_global.path = reversed_path + extended_points
+        self.reverse_path_global.path = list(reversed(self.parking_path_global.path))
 
         rospy.loginfo(f"Generated reverse path with {len(self.reverse_path_global.path)} waypoints")
 
-        # 3. 후진 경로 시각화 및 발행
+        # 후진 경로 시각화 및 발행
         self.publish_reverse_path()
 
     def publish_reverse_path(self):

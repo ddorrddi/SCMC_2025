@@ -53,15 +53,17 @@ int main(int argc, char** argv) {
                     ROS_INFO_STREAM("State: GLOBAL_PATH_DRIVING");
                     control.lookahead_distance = control.global_lookahead_distance;
 
-                    if (110 < control.g_curr_idx && control.g_curr_idx < 230 && !control.is_parking_complete) {
+                    if (110 < control.g_curr_idx && control.g_curr_idx < 300 && !control.is_parking_complete) {
                         control.brake = 0.0;
                         control.velocity = 10.0;
-                    } else if (1100 < control.g_curr_idx && !control.uturn_done) {
+                    } else if (1000 < control.g_curr_idx && !control.uturn_done) {
                         control.brake = 0.0;
                         control.velocity = 10.0;
+                        ROS_WARN("111111111111111111");
                     } else {
                         control.brake = 0.0;
                         control.velocity = control.global_velocity;
+                        ROS_WARN("2222222222222222");
                     }
                     
                     control.calcSteering(control.curr_pose);
@@ -72,6 +74,7 @@ int main(int argc, char** argv) {
             case VehicleState::LOCAL_PATH_DRIVING:
                 if(!control.is_finish && control.is_local_path_set){
                     ROS_INFO_STREAM("State: LOCAL_PATH_DRIVING");
+                    control.brake = 0.0;
                     control.lookahead_distance = control.local_lookahead_distance;
                     control.velocity = control.local_velocity;
                     control.calcSteering(control.curr_pose);
@@ -82,6 +85,8 @@ int main(int argc, char** argv) {
             case VehicleState::PARKING_PATH_DRIVING:
                 if(!control.is_finish && control.is_local_path_set){
                     ROS_INFO_STREAM("State: PARKING_PATH_DRIVING");
+                    control.is_moving_back = false;
+                    control.brake = 0.0;
                     control.lookahead_distance = control.parking_local_lookahead_distance;
                     control.velocity = control.local_velocity;
                     control.calcSteering(control.curr_pose);
@@ -91,8 +96,9 @@ int main(int argc, char** argv) {
 
             case VehicleState::PARKING_DONE_STOPPING:
                 ROS_INFO_STREAM("State: PARKING_DONE_STOPPING (3 seconds)");
+                control.is_moving_back = true;
                 control.velocity = 0.0;
-                control.brake = 1.0;
+                control.brake = 0.3;
                 control.publishControlMsg();
                 break;
 
@@ -100,10 +106,10 @@ int main(int argc, char** argv) {
                 if(control.is_local_path_set){
                     ROS_INFO_STREAM("State: PARKING_REVERSING");
                     control.lookahead_distance = control.parking_local_lookahead_distance;
+                    control.is_moving_back = true;
                     control.brake = 0.0;
                     control.velocity = 5.0;
                     control.calcSteering(control.curr_pose);
-                    control.is_moving_back = true;
                     control.publishControlMsg();
                 }
                 break;
@@ -111,7 +117,7 @@ int main(int argc, char** argv) {
             case VehicleState::REVERSE_DONE_STOPPING:
                 ROS_INFO_STREAM("State: REVERSE_DONE_STOPPING (1 second)");
                 control.velocity = 0.0;
-                control.brake = 1.0;
+                control.brake = 0.3;
                 control.is_moving_back = false;
                 control.is_parking_complete = true;
                 control.publishControlMsg();

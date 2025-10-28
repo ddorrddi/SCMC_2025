@@ -26,6 +26,7 @@ find_package(catkin REQUIRED COMPONENTS
 generate_dynamic_reconfigure_options(
   cfg/controller.cfg
   cfg/FusionExtrinsics.cfg
+  cfg/CaliReal.cfg
 )
 
 add_service_files(

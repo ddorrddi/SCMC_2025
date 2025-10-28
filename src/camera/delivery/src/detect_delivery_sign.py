@@ -11,6 +11,7 @@ from torchvision.transforms import ToTensor
 import numpy as np
 import rospy
 from sensor_msgs.msg import Image
+from sensor_msgs.msg import CompressedImage
 from std_msgs.msg import String
 from cv_bridge import CvBridge
 from delivery.msg import DetectYolo
@@ -294,6 +295,9 @@ class Yolov7Publisher:
         self.img_subscriber = rospy.Subscriber(
             "/usb_cam/image_raw", Image, self.process_img_msg # 원래는 usb_cam_right
         )
+        # self.img_subscriber = rospy.Subscriber(
+        #     "/image_jpeg/compressed", CompressedImage, self.process_img_msg # 원래는 usb_cam_right
+        # )
 
         self.delivery_target = None
         self.delivery_target_subscriber = rospy.Subscriber("/delivery_target", String, self.delivery_target_callback, queue_size=1)
@@ -306,6 +310,9 @@ class Yolov7Publisher:
         np_img_orig = self.bridge.imgmsg_to_cv2(
             img_msg, desired_encoding='bgr8'
         )
+        # np_img_orig = self.bridge.compressed_imgmsg_to_cv2(
+        #     img_msg, desired_encoding='bgr8'
+        # )
         if len(np_img_orig.shape) == 2:
             np_img_orig = np.stack([np_img_orig] * 3, axis=2)
         h_orig, w_orig, c = np_img_orig.shape

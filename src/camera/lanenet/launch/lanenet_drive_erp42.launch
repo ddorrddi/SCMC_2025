@@ -13,13 +13,7 @@
         <remap from="image" to="/usb_cam/image_raw"/>
         <param name="autosize" value="true" />
     </node>
-    
-    <!-- 모터값 제어 관련 노드 -->
-    <!-- <node pkg="race" type="serial_control_node" name="serial_control_node" /> -->
 
-    <!-- Run RViz -->
-    <!-- <node name="rviz" pkg="rvizgit " type="rviz" args="-d $(find lane_pkg)/rviz/tunnel.rviz" output="screen"/> -->
-    
     <!-- 차선인식 및 장애물 회피 알고리즘 노드 -->
-    <node pkg="lanenet" type="lanenet_drive_erp42_heading.py" name="lane" output="screen"/>
+    <node pkg="lanenet" type="lanenet_drive_erp42.py" name="lane" output="screen"/>
 </launch>

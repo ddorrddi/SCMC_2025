@@ -102,25 +102,31 @@ private:
         // EventPlaceInfo(END_NUM, EventType::STOP_LINE),
 
         // 배달 A 
-        EventPlaceInfo(268, EventType::STOP_DELIVERY_A),
+        EventPlaceInfo(310, EventType::STOP_DELIVERY_A),
 
         // traffic 1
         EventPlaceInfo(510, EventType::STOP_TRAFFIC),
 
         // traffic 2
-        EventPlaceInfo(697, EventType::STOP_TRAFFIC),
+        EventPlaceInfo(702, EventType::STOP_TRAFFIC),
 
         // traffic 3
-        EventPlaceInfo(1175, EventType::STOP_TRAFFIC),
+        EventPlaceInfo(1120, EventType::STOP_TRAFFIC),
 
         // stop line
-        EventPlaceInfo(1670, EventType::STOP_LINE),
+        EventPlaceInfo(1575, EventType::STOP_LINE),
 
         // stop line
-        EventPlaceInfo(1775, EventType::STOP_LINE),
+        EventPlaceInfo(1650, EventType::STOP_LINE),
 
-        // traffic 3
-        EventPlaceInfo(2890, EventType::STOP_TRAFFIC),
+        // traffic 4
+        EventPlaceInfo(1885, EventType::STOP_TRAFFIC),
+
+        // traffic 5
+        EventPlaceInfo(2450, EventType::STOP_TRAFFIC),
+
+        // traffic 6
+        EventPlaceInfo(2600, EventType::STOP_TRAFFIC),
 
         // Last Element
         EventPlaceInfo(END_NUM, EventType::STOP_LINE),

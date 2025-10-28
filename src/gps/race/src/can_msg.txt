@@ -1,0 +1,1693 @@
+kt@kt:~/can$ python3 view.py
+'[ERP-42 Pro]Withus_S1_CAN1_231214.dbc' 파일 분석 시작...
+================================================================================
+
+[메시지] 이름: VCU_Vehicle_Status_1
+  - ID: 771 (0x303)
+  - 길이: 8 bytes
+  - 송신 노드: VCU
+  --- 신호 목록 ---
+    * 신호: Vehicle_Gear
+      - 위치: 시작 비트 0, 길이 2 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: N/A
+      - 범위: 0 ~ 3
+      - 코멘트: Vehicle gearing status
+ 0£ºP gear
+ 1£ºD gear
+ 2£ºN gear
+ 3£ºR gear
+
+    * 신호: Clamping_Brake_Status
+      - 위치: 시작 비트 3, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 1
+      - 코멘트: Brake holding state
+ 0 : loose
+ 1 : Tight
+
+    * 신호: Drive_Mode_State
+      - 위치: 시작 비트 8, 길이 4 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 15
+      - 코멘트: 0 : Remote control mode
+1 : Represents the AD mode
+2 : Indicates parallel driving mode
+3 : Indicates semi-autonomous driving mode (AD or parallel driving with remote control. such as ad(parallel driving) steering control, Remote control drive brake)
+
+    * 신호: VCU_Speed_Req
+      - 위치: 시작 비트 16, 길이 16 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 0.1 + -80
+      - 단위: km/h
+      - 범위: -80 ~ 80
+      - 코멘트: VCU Speed Request km/h
+
+    * 신호: Vehicle_Soc
+      - 위치: 시작 비트 48, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: %
+      - 범위: 0 ~ 100
+      - 코멘트: Vehicle residual electricity %
+
+    * 신호: Vehicle_Status_MsgCntr
+      - 위치: 시작 비트 60, 길이 4 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 15
+      - 코멘트: Heartbeat Cycle 0-15
+
+
+[메시지] 이름: Parallel_Control_Flag
+  - ID: 1297 (0x511)
+  - 길이: 8 bytes
+  - 송신 노드: Parallel_Driving
+  --- 신호 목록 ---
+    * 신호: Parallel_Control_Request_Flag
+      - 위치: 시작 비트 0, 길이 4 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: N/A
+      - 범위: 0 ~ 1
+      - 코멘트: 0 : Invalid
+1 : Valid
+
+    * 신호: Parallel_Flag_MsgCntr
+      - 위치: 시작 비트 4, 길이 4 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 15
+      - 코멘트: Heartbeat Cycle 0-15
+
+
+[메시지] 이름: Parallel_Control_Body
+  - ID: 1302 (0x516)
+  - 길이: 8 bytes
+  - 송신 노드: Parallel_Driving
+  --- 신호 목록 ---
+    * 신호: Parallel_Left_Light_Switch
+      - 위치: 시작 비트 0, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: N/A
+      - 범위: 0 ~ 1
+      - 코멘트: 0 : Left turn Light off
+1 : Left turn Light on
+
+    * 신호: Parallel_Right_Light_Switch
+      - 위치: 시작 비트 1, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: N/A
+      - 범위: 0 ~ 1
+      - 코멘트: 0 : Right turn Light off
+ 1 : Right turn Light on
+
+    * 신호: Parallel_Hom_Switch
+      - 위치: 시작 비트 2, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: N/A
+      - 범위: 0 ~ 1
+      - 코멘트: 0 : Horn off
+ 1 : Horn on
+
+    * 신호: Parallel_Headlight_Switch
+      - 위치: 시작 비트 3, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: N/A
+      - 범위: 0 ~ 1
+      - 코멘트: 0 : Light off
+ 1 : Light on
+
+    * 신호: Parallel_Body_MsgCntr
+      - 위치: 시작 비트 4, 길이 4 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 15
+      - 코멘트: Heartbeat Cycle 0-15
+
+    * 신호: Parallel_BrakeLight_Switch
+      - 위치: 시작 비트 8, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: N/A
+      - 범위: 0 ~ 1
+      - 코멘트: 0 : Light off
+ 1 : Light on
+
+
+[메시지] 이름: Parallel_Control_Steering
+  - ID: 1298 (0x512)
+  - 길이: 8 bytes
+  - 송신 노드: Parallel_Driving
+  --- 신호 목록 ---
+    * 신호: Parallel_Steering_Valid
+      - 위치: 시작 비트 0, 길이 4 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: N/A
+      - 범위: 0 ~ 1
+      - 코멘트: 0 : Invalid
+ 1 : Controllable steering
+
+    * 신호: Parallel_Steering_MsgCntr
+      - 위치: 시작 비트 4, 길이 4 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 15
+      - 코멘트: Heartbeat Cycle 0-15
+
+    * 신호: Parallel_Steering_Angle_Cmd
+      - 위치: 시작 비트 32, 길이 16 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 0.1 + -30
+      - 단위: deg
+      - 범위: -30 ~ 30
+      - 코멘트: From -30 to +30 degrees Corner
+
+
+[메시지] 이름: Parallel_Control_Accelerate
+  - ID: 1300 (0x514)
+  - 길이: 8 bytes
+  - 송신 노드: Parallel_Driving
+  --- 신호 목록 ---
+    * 신호: Parallel_Accelerate_Valid
+      - 위치: 시작 비트 0, 길이 4 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 15
+      - 코멘트: 0 : Invalid
+ 1 : Controllable drive
+
+    * 신호: Parallel_Accelerate_MsgCntr
+      - 위치: 시작 비트 4, 길이 4 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 15
+      - 코멘트: Heartbeat Cycle 0-15
+
+    * 신호: Parallel_Accelerate_Work_Mode
+      - 위치: 시작 비트 16, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 2
+      - 코멘트: 0 : Torque control
+ 1 : Speed control
+ 2 : Accel and deceleration control
+
+    * 신호: Parallel_Accelerate_Gear
+      - 위치: 시작 비트 24, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 3
+      - 코멘트: 0£ºP gear
+1£ºD gear
+2£ºN gear
+3£ºR gear
+
+    * 신호: Parallel_Acc_De
+      - 위치: 시작 비트 32, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 0.1 + -5
+      - 단위: m/ss
+      - 범위: -5 ~ 5
+      - 코멘트: Parallel Drive -5 ~ 5m/ss
+Acceleration Request
+
+    * 신호: Parallel_driving_Torque_Control
+      - 위치: 시작 비트 40, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: %
+      - 범위: 0 ~ 100
+      - 코멘트: Drive throttle opening 0~100%
+
+    * 신호: Parallel_driving_Speed_Control
+      - 위치: 시작 비트 48, 길이 16 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 0.1 + 0
+      - 단위: km/h
+      - 범위: 0 ~ 20
+      - 코멘트: Vehicle requested speed km/h
+
+
+[메시지] 이름: Parallel_Control_Brake
+  - ID: 1299 (0x513)
+  - 길이: 8 bytes
+  - 송신 노드: Parallel_Driving
+  --- 신호 목록 ---
+    * 신호: Parallel_DBS_Valid
+      - 위치: 시작 비트 0, 길이 4 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 15
+      - 코멘트: 0 : Invalid
+ 1 : Brake controllable
+
+    * 신호: Parallel_DBS_MsgCntr
+      - 위치: 시작 비트 4, 길이 4 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 15
+      - 코멘트: Heartbeat Cycle 0-15
+
+    * 신호: Parallel_BrakePressure_Cmd
+      - 위치: 시작 비트 8, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: %
+      - 범위: 0 ~ 100
+      - 코멘트: Brake pedal (0~100%)
+0~8Mpa pressure request
+
+
+[메시지] 이름: VCU_EPS_Control_Request
+  - ID: 788 (0x314)
+  - 길이: 8 bytes
+  - 송신 노드: VCU
+  --- 신호 목록 ---
+    * 신호: VCU_EPS_Calibration_Req
+      - 위치: 시작 비트 2, 길이 1 bits
+      - Byte Order: Motorola (빅엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: N/A
+      - 범위: 0 ~ 1
+      - 코멘트: Calibration control bit
+ 0 : Invalid
+ 1 : Set position to the center
+
+    * 신호: VCU_EPS_CtrlEnable
+      - 위치: 시작 비트 0, 길이 1 bits
+      - Byte Order: Motorola (빅엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: N/A
+      - 범위: 0 ~ 1
+      - 코멘트: EPS control enabled
+ 0 : Stops
+ 1 : Works
+
+    * 신호: VCU_EPS_StrAngle_Req
+      - 위치: 시작 비트 15, 길이 16 bits
+      - Byte Order: Motorola (빅엔디안)
+      - 데이터 타입: Signed
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: deg
+      - 범위: -720 ~ 720
+      - 코멘트: Directional end angle request
+
+
+[메시지] 이름: AD_Control_Body
+  - ID: 1286 (0x506)
+  - 길이: 8 bytes
+  - 송신 노드: ADU
+  --- 신호 목록 ---
+    * 신호: AD_Left_Turn_Light
+      - 위치: 시작 비트 0, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: N/A
+      - 범위: 0 ~ 1
+      - 코멘트: 0 : Left turn light off
+1 : Left turn light on
+
+    * 신호: AD_Right_Turn_Light
+      - 위치: 시작 비트 1, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: N/A
+      - 범위: 0 ~ 1
+      - 코멘트: 0 : Right turn light off
+1 : Right turn light on
+
+    * 신호: AD_Horn_Control
+      - 위치: 시작 비트 2, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: N/A
+      - 범위: 0 ~ 1
+      - 코멘트: 0 : Horn off
+1 : Horn on
+
+    * 신호: AD_HeadLight
+      - 위치: 시작 비트 3, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: N/A
+      - 범위: 0 ~ 1
+      - 코멘트: 0 : Headlights off
+1 : Headlight on
+
+    * 신호: AD_Body_MsgCntr
+      - 위치: 시작 비트 4, 길이 4 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 15
+      - 코멘트: Heartbeat Cycle 0-15
+
+    * 신호: AD_Brake_Light
+      - 위치: 시작 비트 8, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: N/A
+      - 범위: 0 ~ 1
+      - 코멘트: 0 : Brake light off
+1 : Brake light on
+
+
+[메시지] 이름: VCU_Vehicle_Status_2
+  - ID: 772 (0x304)
+  - 길이: 8 bytes
+  - 송신 노드: VCU
+  --- 신호 목록 ---
+    * 신호: Vehicle_Speed
+      - 위치: 시작 비트 0, 길이 16 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 0.1 + -80
+      - 단위: km/h
+      - 범위: -80 ~ 80
+      - 코멘트: Vehicle speed km/h
+
+    * 신호: Vehicle_Brake_Pressure
+      - 위치: 시작 비트 16, 길이 16 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 0.01 + 0
+      - 단위: Mpa
+      - 범위: 0 ~ 8
+      - 코멘트: Vehicle brake line pressure
+
+    * 신호: Vehicle_Steering_Angle
+      - 위치: 시작 비트 32, 길이 10 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 0.1 + -35
+      - 단위: deg
+      - 범위: -35 ~ 67.3
+      - 코멘트: Vehicle wheel end angle
+
+    * 신호: Vehicle_Status_2_MsgCntr
+      - 위치: 시작 비트 60, 길이 4 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 15
+      - 코멘트: Heartbeat Cycle 0-15
+
+
+[메시지] 이름: AD_Control_Accelerate
+  - ID: 1284 (0x504)
+  - 길이: 8 bytes
+  - 송신 노드: ADU
+  --- 신호 목록 ---
+    * 신호: AD_Accelerate_Valid
+      - 위치: 시작 비트 0, 길이 4 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: N/A
+      - 범위: 0 ~ 1
+      - 코멘트: 0 : Invalid
+1 : Controllable drive
+
+    * 신호: AD_Accelerate_MsgCntr
+      - 위치: 시작 비트 4, 길이 4 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 15
+      - 코멘트: Heartbeat Cycle 0-15
+
+    * 신호: AD_Accelerate_Work_Mode
+      - 위치: 시작 비트 16, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: N/A
+      - 범위: 0 ~ 2
+      - 코멘트: 0 : Torque control mode
+1 : Speed control
+
+    * 신호: AD_Accelerate_Gear
+      - 위치: 시작 비트 24, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: N/A
+      - 범위: 0 ~ 3
+      - 코멘트: 0£ºP gear
+1£ºD gear
+2£ºN gear
+3£ºR gear
+
+    * 신호: AD_Acc_De
+      - 위치: 시작 비트 32, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 0.1 + -5
+      - 단위: m/ss
+      - 범위: -5 ~ 5
+      - 코멘트: AD -5~5m/ss Accel Request
+
+    * 신호: AD_Torque_Control
+      - 위치: 시작 비트 40, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: %
+      - 범위: 0 ~ 100
+      - 코멘트: Drive throttle opening 0~100%
+Corresponding torque 0~20N.m
+
+    * 신호: AD_Speed_Control
+      - 위치: 시작 비트 48, 길이 16 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 0.1 + 0
+      - 단위: km/h
+      - 범위: 0 ~ 80
+      - 코멘트: Vehicle requested speed (km/h)
+
+
+[메시지] 이름: AD_Control_Brake
+  - ID: 1283 (0x503)
+  - 길이: 8 bytes
+  - 송신 노드: ADU
+  --- 신호 목록 ---
+    * 신호: AD_DBS_Valid
+      - 위치: 시작 비트 0, 길이 4 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: N/A
+      - 범위: 0 ~ 1
+      - 코멘트: 0 : Invalid
+1 : Controllable brake
+
+    * 신호: AD_DBS_MsgCntr
+      - 위치: 시작 비트 4, 길이 4 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 15
+      - 코멘트: Heartbeat Cycle 0-15
+
+    * 신호: AD_BrakePressure_Cmd
+      - 위치: 시작 비트 8, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: %
+      - 범위: 0 ~ 100
+      - 코멘트: Brake pedal (0~100%)
+0-8Mpa pressure request
+
+
+[메시지] 이름: AD_Control_Steering
+  - ID: 1282 (0x502)
+  - 길이: 8 bytes
+  - 송신 노드: ADU
+  --- 신호 목록 ---
+    * 신호: AD_Steering_Valid
+      - 위치: 시작 비트 0, 길이 4 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: N/A
+      - 범위: 0 ~ 15
+      - 코멘트: 0 : Invalid
+1 : Controllable steering
+
+    * 신호: AD_Steering_MsgCntr
+      - 위치: 시작 비트 4, 길이 4 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 15
+      - 코멘트: Heartbeat Cycle 0-15
+
+    * 신호: AD_Steering_Angle_Cmd
+      - 위치: 시작 비트 32, 길이 16 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 0.1 + -30
+      - 단위: deg
+      - 범위: -30 ~ 30
+      - 코멘트: AD mode
+ -30¡Æ to +30¡Æ corner request
+
+
+[메시지] 이름: AD_Control_Flag
+  - ID: 1281 (0x501)
+  - 길이: 8 bytes
+  - 송신 노드: ADU
+  --- 신호 목록 ---
+    * 신호: AD_Control_Request_Flag
+      - 위치: 시작 비트 0, 길이 4 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: N/A
+      - 범위: 0 ~ 15
+      - 코멘트: 0 : Invalid.
+1 : Valid.
+
+    * 신호: AD_Flag_MsgCntr
+      - 위치: 시작 비트 4, 길이 4 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 15
+      - 코멘트: Heartbeat Cycle 0-15
+
+
+[메시지] 이름: VCU_Vehicle_Diagnosis
+  - ID: 769 (0x301)
+  - 길이: 8 bytes
+  - 송신 노드: VCU
+  --- 신호 목록 ---
+    * 신호: Emergency_Button_State
+      - 위치: 시작 비트 0, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 1
+      - 코멘트: 0 : Not pressed
+1 : Pressed
+
+    * 신호: Motor_State
+      - 위치: 시작 비트 1, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: N/A
+      - 범위: 0 ~ 1
+      - 코멘트: 0 : Not fault
+1 : Fault
+
+    * 신호: Remote_State
+      - 위치: 시작 비트 5, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: N/A
+      - 범위: 0 ~ 1
+      - 코멘트: 0 : Not fault
+1 : Fault
+
+    * 신호: AD_State
+      - 위치: 시작 비트 6, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: N/A
+      - 범위: 0 ~ 1
+      - 코멘트: 0 : AD signal received
+1 : AD signal not received
+
+    * 신호: DBS_State
+      - 위치: 시작 비트 7, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: N/A
+      - 범위: 0 ~ 1
+      - 코멘트: 0 : Not fault
+1 : Fault
+
+    * 신호: Parallel_State
+      - 위치: 시작 비트 8, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: N/A
+      - 범위: 0 ~ 1
+      - 코멘트: 0 : Parallel driving
+1 : Not parallel driving
+
+    * 신호: BMS_State
+      - 위치: 시작 비트 9, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 1
+      - 코멘트: 0 : Normal
+1 : Fault.
+
+    * 신호: EPS_State
+      - 위치: 시작 비트 10, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: N/A
+      - 범위: 0 ~ 1
+      - 코멘트: 0 : Not fault
+1 : Fault
+
+    * 신호: F_Touch_Switch_State
+      - 위치: 시작 비트 12, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 1
+      - 코멘트: 0 : Sensor not trigger
+1 : Sensor trigger
+
+    * 신호: R_Touch_Switch_State
+      - 위치: 시작 비트 13, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 1
+      - 코멘트: 0 : Sensor not trigger
+1 : Sensor trigger
+
+    * 신호: HeadLight_State
+      - 위치: 시작 비트 15, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 1
+      - 코멘트: 0 : Headlight off
+1 : Headlight on
+
+    * 신호: Vehicle_Voltage
+      - 위치: 시작 비트 22, 길이 10 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 0.1 + 0
+      - 단위: V
+      - 범위: 0 ~ 90
+      - 코멘트: Battery voltage
+
+    * 신호: Left_Turn_Light_State
+      - 위치: 시작 비트 32, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 1
+      - 코멘트: 0 : Left turn light off
+1 : Left turn light on
+
+    * 신호: Light_states_Brake
+      - 위치: 시작 비트 40, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 1
+      - 코멘트: 0 : Brake light off
+1 : Brake light on
+
+    * 신호: Oil_pot_State
+      - 위치: 시작 비트 41, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: N/A
+      - 범위: 0 ~ 1
+      - 코멘트: 0 : Oil level normal
+1 : Abnormal
+
+    * 신호: Horn_State
+      - 위치: 시작 비트 43, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 1
+      - 코멘트: 0 : Horn off
+1 : Horn on
+
+    * 신호: Right_Turn_Light_State
+      - 위치: 시작 비트 48, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 1
+      - 코멘트: 0 : Right turn light off
+1 : Right turn light on
+
+    * 신호: Vehicle_Diagnosis_MsgCntr
+      - 위치: 시작 비트 60, 길이 4 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 15
+      - 코멘트: Heartbeat Cycle 0-15
+
+[메시지] 이름: RemoteT10_Control_Shake_2
+  - ID: 267 (0x10B)
+  - 길이: 8 bytes
+  - 송신 노드: Remote
+  --- 신호 목록 ---
+    * 신호: Remote_X2_Lateral_Control
+      - 위치: 시작 비트 0, 길이 16 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Signed
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: N/A
+      - 범위: -450 ~ 450
+      - 코멘트: 0~450 corresponds to 0-100% to the right steering angle request,
+indicating a right turn;
+
+0~-450 corresponds to 0-100% 
+left turn request, and remote 
+indicating a left turn.
+
+    * 신호: Remote_Y1_Longitudinal_Control
+      - 위치: 시작 비트 32, 길이 16 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Signed
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: N/A
+      - 범위: -450 ~ 450
+      - 코멘트: 0~450 corresponds to 0~100% throttle opening request,
+indicating acceleration;
+
+0~-450 corresponds to 0-100% braking force request, 
+indicating deceleration.
+
+
+[메시지] 이름: RemoteT10_Control_IO
+  - ID: 266 (0x10A)
+  - 길이: 8 bytes
+  - 송신 노드: Remote
+  --- 신호 목록 ---
+    * 신호: Remote_E_Gear
+      - 위치: 시작 비트 0, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: N/A
+      - 범위: 0 ~ 2
+      - 코멘트: 0 : Reverse gear
+1 : Neutral gear
+2 : Forward gear
+
+    * 신호: Remote_F_Horn
+      - 위치: 시작 비트 8, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 2
+      - 코멘트: control horn
+
+    * 신호: Remote_A_Mode_Switch
+      - 위치: 시작 비트 16, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: N/A
+      - 범위: 0 ~ 2
+      - 코멘트: Autonomous driving mode
+
+    * 신호: Remote_B_Motor_Holding_Brake
+      - 위치: 시작 비트 24, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: N/A
+      - 범위: 0 ~ 2
+      - 코멘트: 0 : Motor brake released
+2 : Motor holding brake
+
+    * 신호: Remote_C_Speed_Torque
+      - 위치: 시작 비트 32, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: N/A
+      - 범위: 0 ~ 2
+      - 코멘트: 0 : Torque control
+1, 2 : Speed control
+
+    * 신호: Remote_D_HeadLight
+      - 위치: 시작 비트 40, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: N/A
+      - 범위: 0 ~ 2
+      - 코멘트: 0 : Headlights off
+1, 2 : Headlights on
+
+
+[메시지] 이름: EPS_Status
+  - ID: 399 (0x18F)
+  - 길이: 8 bytes
+  - 송신 노드: EPS
+  --- 신호 목록 ---
+    * 신호: EPS_Calibration_Status
+      - 위치: 시작 비트 2, 길이 1 bits
+      - Byte Order: Motorola (빅엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 1
+      - 코멘트: 1 EPS median is not calibrated
+0 EPS median is calibrated
+
+    * 신호: EPS_Fault
+      - 위치: 시작 비트 1, 길이 1 bits
+      - Byte Order: Motorola (빅엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 1
+      - 코멘트: 0 : ECU Not fault
+1 : ECU Fault
+
+    * 신호: EPS_Work_Mode
+      - 위치: 시작 비트 0, 길이 1 bits
+      - Byte Order: Motorola (빅엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: N/A
+      - 범위: 0 ~ 1
+      - 코멘트: 0 : Stop mode
+1 : Operating mode
+
+    * 신호: EPS_StrAngle_Act
+      - 위치: 시작 비트 15, 길이 16 bits
+      - Byte Order: Motorola (빅엔디안)
+      - 데이터 타입: Signed
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: -720 ~ 720
+      - 코멘트: EPS Current angle value
+
+    * 신호: EPS_Motor_Current
+      - 위치: 시작 비트 31, 길이 16 bits
+      - Byte Order: Motorola (빅엔디안)
+      - 데이터 타입: Signed
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: mA
+      - 범위: -32768 ~ 32767
+      - 코멘트: Motor current (mA)
+
+    * 신호: EPS_Temperature
+      - 위치: 시작 비트 55, 길이 8 bits
+      - Byte Order: Motorola (빅엔디안)
+      - 데이터 타입: Signed
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: ¡æ
+      - 범위: -128 ~ 127
+      - 코멘트: EPS ECU Temperature
+
+
+[메시지] 이름: VCU_DBS_Request
+  - ID: 340 (0x154)
+  - 길이: 8 bytes
+  - 송신 노드: VCU
+  --- 신호 목록 ---
+    * 신호: VCU_DBS_Request_Flag
+      - 위치: 시작 비트 0, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 1
+      - 코멘트: VCU Brake request Enable bit
+0 : Power assistance mode
+1 : Wire control mode
+
+    * 신호: VCU_DBS_Work_Mode
+      - 위치: 시작 비트 8, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 코멘트: Exhaust mode
+0 : Lline control mode
+1 : Exhaust mode
+
+    * 신호: VCU_DBS_Pressure_Request
+      - 위치: 시작 비트 16, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 0.1 + 0
+      - 단위: Mpa
+      - 범위: 0 ~ 8
+      - 코멘트: VCU Brake request Enable bit
+0 : Power assistance mode
+1 : Wire control mode
+
+    * 신호: VCU_ABS_Active
+      - 위치: 시작 비트 24, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 1
+      - 코멘트: ABS work flag
+                             0 : Not working
+                                            1 : Working.
+
+
+[메시지] 이름: DBS_Status2
+  - ID: 323 (0x143)
+  - 길이: 8 bytes
+  - 송신 노드: DBS
+  --- 신호 목록 ---
+    * 신호: DBS_FaultCode
+      - 위치: 시작 비트 0, 길이 24 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 16777215
+      - 코멘트: Fault Type Bit
+    * 신호: DBS_WaringCode
+      - 위치: 시작 비트 24, 길이 24 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 16777215
+      - 코멘트: Warning Type
+Bit 1 : Emergency stop button closing warning
+Bit 2 : The parking time is too long, more than 1 minute
+Bit 3 : CAN1 interrupt warning
+Bit 4 : CAN2 interrupt warning
+Bit 5 : Ignition wire disconnection warning
+
+    * 신호: DBS_RollingCounter
+      - 위치: 시작 비트 48, 길이 4 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 15
+      - 코멘트: Counts in a loop from 0 to 15,
+if communication is interrupted,
+Then start counting again from 0
+
+    * 신호: DBS_CheckSum
+      - 위치: 시작 비트 56, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 255
+      - 코멘트: Checksum = byte0 XOR byte1 XOR
+                 byte2 XOR¡¤¡¤¡¤XOR byte6
+
+
+[메시지] 이름: DBS_Status
+  - ID: 322 (0x142)
+  - 길이: 8 bytes
+  - 송신 노드: DBS
+  --- 신호 목록 ---
+    * 신호: DBS_System_Status
+      - 위치: 시작 비트 0, 길이 2 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: N/A
+      - 범위: 0 ~ 3
+      - 코멘트: System fault status
+0 : System No Fault
+1 : System Warning
+2 : System Fault
+
+    * 신호: DBS_Park_Warning
+      - 위치: 시작 비트 6, 길이 2 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 1
+      - 코멘트: Parking time warning signal
+0 : Working normally
+1 : Parking time more than 1 minute, 
+    issue a warning, recommended
+    EPB parking request.
+
+    * 신호: DBS_Work_Mode
+      - 위치: 시작 비트 8, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 2
+      - 코멘트: Operation mode
+0x0 : CAN control 
+0x1 : Exhaust Mode 
+0x2 : Pedal Mode
+
+    * 신호: BrakePressureReqACK
+      - 위치: 시작 비트 16, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 1
+      - 코멘트: Brake pressure request response,
+DBS execution completion 
+response is valid
+                 0x0 : Not ACK
+                              0x1 : ACK
+
+    * 신호: DBS_HP_pressure
+      - 위치: 시작 비트 24, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 0.1 + 0
+      - 단위: Mpa
+      - 범위: 0 ~ 8
+      - 코멘트: Front wheel brake system 
+pressure feedback
+
+    * 신호: DBS_PeadalOpening
+      - 위치: 시작 비트 32, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: %
+      - 범위: 0 ~ 100
+      - 코멘트: Pedal opening and closing (0-100%)
+
+    * 신호: DBS_Ref_Iq
+      - 위치: 시작 비트 40, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 0.5 + -20
+      - 범위: -20 ~ 107.5
+      - 코멘트: Actual current
+
+    * 신호: DBS_RollingCounter
+      - 위치: 시작 비트 48, 길이 4 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 15
+      - 코멘트: Counts in a loop from 0 to 15,
+if communication is interrupted,
+Then start counting again from 0
+
+    * 신호: DBS_EstopFlag
+      - 위치: 시작 비트 54, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 1
+      - 코멘트: Emergency stop sign
+
+    * 신호: DBS_PedaiFlag
+      - 위치: 시작 비트 55, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 1
+      - 코멘트: Pedal insertion flag
+0 : Pedal not inserted
+1 : Pedal inserted
+
+    * 신호: DBS_CheckSum
+      - 위치: 시작 비트 56, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 255
+      - 코멘트: Checksum = byte0 XOR byte1 XOR
+                 byte2 XOR¡¤¡¤¡¤XOR byte6
+
+
+[메시지] 이름: MCU_Drive_Motor_Feedback_Msg
+  - ID: 96 (0x60)
+  - 길이: 8 bytes
+  - 송신 노드: MCU
+  --- 신호 목록 ---
+    * 신호: Motor_Udc
+      - 위치: 시작 비트 0, 길이 16 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 0.1 + 0
+      - 단위: V
+      - 범위: 0 ~ 6553.5
+      - 코멘트: BUS voltage
+
+    * 신호: Motor_Idc
+      - 위치: 시작 비트 16, 길이 16 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 0.1 + -1000
+      - 단위: A
+      - 범위: -1000 ~ 5553.5
+      - 코멘트: BUS current
+
+    * 신호: Motor_ControlTemp
+      - 위치: 시작 비트 32, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + -50
+      - 단위: ¶È
+      - 범위: -50 ~ 205
+      - 코멘트: Controller temperature
+
+    * 신호: MCU_Motor_Error_Grade
+      - 위치: 시작 비트 41, 길이 2 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: N/A
+      - 범위: 0 ~ 3
+      - 코멘트: Fault level
+
+    * 신호: Clamping_brake_status
+      - 위치: 시작 비트 47, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: N/A
+      - 범위: 0 ~ 1
+      - 코멘트: Brake status
+0 : Release
+1 : Hold brake
+
+
+[메시지] 이름: VCU_MCU_Request
+  - ID: 352 (0x160)
+  - 길이: 8 bytes
+  - 송신 노드: VCU
+  --- 신호 목록 ---
+    * 신호: MCU_VCU_Motor_Request_Valid
+      - 위치: 시작 비트 0, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 1
+      - 코멘트: VCU Request Validity
+
+    * 신호: MCU_DriveMode
+      - 위치: 시작 비트 1, 길이 2 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 3
+      - 코멘트: Drive mode
+0 : Torque
+1 : Speed
+2 : Torque ring
+3 : Speed loop
+
+    * 신호: MCU_Clamping_Brake_Req
+      - 위치: 시작 비트 3, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 1
+      - 코멘트: Brake request VCU to MCU 
+0 : Release
+1 : Hold brake
+
+    * 신호: MCU_Torque_Req
+      - 위치: 시작 비트 8, 길이 16 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 0.1 + -1000
+      - 단위: Nm
+      - 범위: -1000 ~ 1000
+      - 코멘트: [Requested torque]
+    * 신호: MCU_Speed_Req
+      - 위치: 시작 비트 24, 길이 16 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + -7000
+      - 단위: RPM
+      - 범위: -7000 ~ 7000
+      - 코멘트: [Speed command]
+-Requested rotation speed
+-Positive rotation speed means forward rotation
+-Negative rotation speed means reverse rotation
+
+
+[메시지] 이름: MCU_Torque_Feedback
+  - ID: 16 (0x10)
+  - 길이: 8 bytes
+  - 송신 노드: MCU
+  --- 신호 목록 ---
+    * 신호: MCU_Shift
+      - 위치: 시작 비트 0, 길이 2 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: N/A
+      - 범위: 0 ~ 3
+      - 코멘트: Stop
+
+    * 신호: MCU_SPEED
+      - 위치: 시작 비트 2, 길이 18 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + -100000
+      - 단위: rpm
+      - 범위: -100000 ~ 162143
+      - 코멘트: Motor feedback speed
+
+    * 신호: MCU_TORQUE
+      - 위치: 시작 비트 20, 길이 16 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 0.1 + -1000
+      - 단위: Nm
+      - 범위: -1000 ~ 5553.5
+      - 코멘트: Motor feedback torque
+
+    * 신호: MCU_CURRENT
+      - 위치: 시작 비트 36, 길이 12 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: A
+      - 범위: 0 ~ 1000
+      - 코멘트: Motor current
+
+    * 신호: MCU_MOTORTEMP
+      - 위치: 시작 비트 48, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + -50
+      - 단위: ¶È
+      - 범위: -50 ~ 205
+      - 코멘트: Motor temperature
+
+    * 신호: MCU_ERRORCODE
+      - 위치: 시작 비트 56, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: N/A
+      - 범위: 0 ~ 255
+      - 코멘트: Error code
+
+
+[메시지] 이름: VCU_Meter_Req
+  - ID: 1810 (0x712)
+  - 길이: 8 bytes
+  - 송신 노드: VCU
+  --- 신호 목록 ---
+    * 신호: VCU_Meter_Req_Voltage
+      - 위치: 시작 비트 0, 길이 10 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 1023
+      - 코멘트: VCU voltage request to the meter
+
+    * 신호: VCU_Meter_Req_Current
+      - 위치: 시작 비트 10, 길이 10 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + -500
+      - 범위: -500 ~ 500
+      - 코멘트: VCU requests the current
+ value displayed by the meter
+
+    * 신호: VCU_Meter_Req_SOC
+      - 위치: 시작 비트 20, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 255
+      - 코멘트: VCU requests the SOC 
+power displayed by the meter
+
+    * 신호: VCU_Meter_Req_Mileage
+      - 위치: 시작 비트 28, 길이 20 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: km
+      - 범위: 0 ~ 1048575
+      - 코멘트: VCU odometer request
+ for the instrument
+
+    * 신호: VCU_Meter_Req_ErrorCode
+      - 위치: 시작 비트 52, 길이 10 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 1023
+      - 코멘트: -VCU's fault code display request for the instrument 
+-When 0 is sent, it means there is no fault, the maximum value is 999
+-A fault code is sent every 5 seconds and displayed in polling. 
+
+    * 신호: VCU_Meter_Req_Ready
+      - 위치: 시작 비트 62, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 1
+      - 코멘트: 0 : Not ready
+1 : Ready
+
+    * 신호: VCU_Meter_Req_Charge_State
+      - 위치: 시작 비트 63, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 1
+      - 코멘트: 0 : Not charged.
+1 : Charged.
+
+
+[메시지] 이름: VCU_ICM_Req
+  - ID: 1554 (0x612)
+  - 길이: 8 bytes
+  - 송신 노드: VCU
+  --- 신호 목록 ---
+    * 신호: VCU_ICM_Req_msg1
+      - 위치: 시작 비트 0, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 255
+      - 코멘트: Fixed 0x40
+
+    * 신호: VCU_ICM_Req_msg2
+      - 위치: 시작 비트 8, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 255
+    * 신호: VCU_ICM_Req_msg3
+      - 위치: 시작 비트 16, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 255
+    * 신호: VCU_ICM_Req_msg4
+      - 위치: 시작 비트 24, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 255
+      - 코멘트: Fixed 0x01
+
+    * 신호: VCU_ICM_Req_msg5
+      - 위치: 시작 비트 32, 길이 32 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Signed
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: -2147483648 ~ 2147483647
+
+[메시지] 이름: BMS_2B1h
+  - ID: 689 (0x2B1)
+  - 길이: 8 bytes
+  - 송신 노드: VCU
+  --- 신호 목록 ---
+    * 신호: BMS_HVBatLowestTem
+      - 위치: 시작 비트 0, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + -40
+      - 단위: ¡æ
+      - 범위: -40 ~ 125
+      - 코멘트: High Voltage Battery
+Lowest Temperature
+
+    * 신호: BMS_HVBatHighestTem
+      - 위치: 시작 비트 8, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + -40
+      - 단위: ¡æ
+      - 범위: -40 ~ 125
+      - 코멘트: High Voltage Battery 
+highest Temperature
+
+    * 신호: BMS_HVBatLowestTemCellNum
+      - 위치: 시작 비트 32, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 250
+      - 코멘트: High Voltage Battery Lowest
+  Temperature Cell Number Valid
+  value range 1¢¦250
+ 0xFE : Abnormal
+ 0xFF : Invalid
+
+    * 신호: BMS_HVBatHighestTemCellNum
+      - 위치: 시작 비트 40, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 250
+      - 코멘트: High Voltage Battery highest
+  Temperature Cell Number Valid
+  value range 1¢¦250
+ 0xFE: Abnormal
+ 0xFF: Invalid
+
+
+[메시지] 이름: BMS_A0h
+  - ID: 160 (0xA0)
+  - 길이: 8 bytes
+  - 송신 노드: VCU
+  --- 신호 목록 ---
+    * 신호: BMS_HVBatCrnt
+      - 위치: 시작 비트 0, 길이 16 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 0.1 + -1000
+      - 단위: A
+      - 범위: -1000 ~ 1000
+      - 코멘트: High Voltage Battery Current High voltage battery current
+
+    * 신호: BMS_HVBatVol
+      - 위치: 시작 비트 16, 길이 16 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 0.1 + 0
+      - 단위: V
+      - 범위: 0 ~ 1000
+      - 코멘트: High Voltage Battery Voltage High
+ voltage battery current voltage
+
+    * 신호: BMS_HVBatSOC
+      - 위치: 시작 비트 32, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 0.4 + 0
+      - 단위: %
+      - 범위: 0 ~ 100
+      - 코멘트: High Voltage Battery State Of 
+Charge High voltage battery
+SOC state
+
+    * 신호: BMS_Sys_Sts
+      - 위치: 시작 비트 40, 길이 3 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 7
+      - 코멘트: 0x0 : Normal
+0x1 : Level 1 Fault(Alarm)
+0x2 : Level 2 Fault(Power limit)
+0x3 : Level 3 Fault
+(Power limit is 0, active shutdown)
+
+    * 신호: BMS_Charge_StsCc2
+      - 위치: 시작 비트 43, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 1
+      - 코멘트: Fast charging connection status 0x
+0x00 : Connect
+0x01 : Disconnect
+
+    * 신호: BMS_Charge_StsCc
+      - 위치: 시작 비트 44, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 1
+      - 코멘트: Slow charging connection status 0x
+0x00 : Connect
+0x01 : Disconnect
+
+    * 신호: BMS_Sys_Flt
+      - 위치: 시작 비트 48, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 255
+      - 코멘트: error code
+
+    * 신호: BMS_HVDisplaySOH
+      - 위치: 시작 비트 56, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Signed
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 단위: %
+      - 범위: 0 ~ 100
+      - 코멘트: Show SOH
+
+
+[메시지] 이름: BMS_1A2h
+  - ID: 418 (0x1A2)
+  - 길이: 8 bytes
+  - 송신 노드: VCU
+  --- 신호 목록 ---
+    * 신호: BMS_WeakUpSig
+      - 위치: 시작 비트 0, 길이 4 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 15
+      - 코멘트: BMS wake-up source
+0x01 : Keyon
+0x02 : A+
+0x04 : CP
+
+    * 신호: BMS_KeyOn
+      - 위치: 시작 비트 16, 길이 8 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 0.1 + 0
+      - 단위: V
+      - 범위: 0 ~ 25.5
+      - 코멘트: Normal voltage
+
+    * 신호: BMS_Req_HvDown
+      - 위치: 시작 비트 40, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 1
+      - 코멘트: BMS requests high voltage power off 
+0x00 : No request
+0x01 : Requests high voltage power off
+
+    * 신호: Bms_SelfChk_Sts
+      - 위치: 시작 비트 43, 길이 3 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 7
+      - 코멘트: BMS self-test status
+0x00 : Self-test in progress
+0x01 : Self-test successful
+0x02 : Self-test failed
+
+    * 신호: Heat_Relay_Sts
+      - 위치: 시작 비트 46, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 1
+      - 코멘트: Heating relay status
+0x00 : Open
+0x01 : Close
+
+    * 신호: Parent_Relay_Sts
+      - 위치: 시작 비트 47, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 1
+      - 코멘트: Main positive relay status
+0x00 : Open 
+0x01 : Close
+
+    * 신호: Precharge_Relay_Sts
+      - 위치: 시작 비트 48, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 1
+      - 코멘트: Precharge relay status
+0x00 : Open
+0x01 : Close
+
+    * 신호: Precharge_Sts
+      - 위치: 시작 비트 49, 길이 2 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 3
+      - 코멘트: Precharge status
+0x00 : Invalid
+0x01 : Precharge in progress
+0x02 : Precharge successful
+0x03 : Precharge failed
+
+    * 신호: Charge_Relay_Sts
+      - 위치: 시작 비트 51, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 1
+      - 코멘트: 0x00 : Open
+0x01 : Close charging relay status
+
+    * 신호: AcDc_Relay_Sts
+      - 위치: 시작 비트 52, 길이 1 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 1
+      - 코멘트: 0x00 : Open
+0x01 : Close Air conditioning
+         relay status
+
+    * 신호: Charge_Sts
+      - 위치: 시작 비트 53, 길이 3 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 7
+      - 코멘트: 0x00 : Non-charging state
+0x01 : Charging
+0x02 : Heating
+0x03 : Heating while charging
+0x04 : Charging completed
+(When charging is completed,
+ a charging failure is detected and
+ charging is completed)
+0x05 : Charging Fault
+
+    * 신호: BMS_Heat_Beat
+      - 위치: 시작 비트 56, 길이 4 bits
+      - Byte Order: Intel (리틀엔디안)
+      - 데이터 타입: Unsigned
+      - 변환 공식: (물리 값) = (CAN 값) * 1 + 0
+      - 범위: 0 ~ 15
+      - 코멘트: Heartbeat signal
+
+
+================================================================================
+분석이 완료되었습니다.
+
+
+dbc 파일 분석한건데 이걸 토대로 제어 명령 보낼 수 있는 파이썬 파일 만들어줘 1km/h 로 가고싶어

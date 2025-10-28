@@ -23,7 +23,7 @@ void PurePursuit::calcSteering(const geometry_msgs::Pose& curr_pose) {
     geometry_msgs::Pose curr_waypoint;
     geometry_msgs::Pose next_waypoint;
 
-    if(this->is_local_path_set && this->flag){
+    if(this->is_local_path_set){
         // LOCAL_PATH_DRIVING: 지역 경로만 사용 (global waypoint 업데이트 안함)
         calcLocalCurrWaypoint(curr_pose);
         calcLocalNextWaypoint(curr_pose);

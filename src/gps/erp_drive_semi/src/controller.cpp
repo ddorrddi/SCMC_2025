@@ -54,6 +54,7 @@ void Controller::waypointDoneCallback(const std_msgs::Int16& signal){
 
 void Controller::localPathCallback(const erp_drive_semi::PathReference& l_path){
     if(this->g_curr_idx < 1080) return;
+    // if(this->g_curr_idx < 75) return;
 
     if(this->start_yaw == -400)
         this->start_yaw = static_cast<int>(this->curr_yaw);
@@ -144,24 +145,26 @@ void Controller::publishControlMsg(){
     if(this->is_erp){
         race::drive_values msg;
         // msg.throttle = this->velocity; // 6.; // 장애물 회피
-        
+
         if (this->is_moving_back) {
             msg.throttle = -this->velocity; // 후진
         } else {
-            msg.throttle = this->velocity * -1; // 전진
+            msg.throttle = this->velocity; // 전진
         }
-        // 주의! deg 단위임
-        msg.steering = -this->steering * (180 / M_PI);
-        // if(msg.throttle < 0)
-        //     msg.steering *= -1;
+
+        // 지역 변수로 rad->deg 변환 (this->steering은 rad 단위 유지)
+        double steering_deg = this->steering * (180.0 / M_PI);
+
+        // CAN 통신 각도 제한 (-30 ~ 30도)
+        steering_deg = std::max(-30.0, std::min(30.0, steering_deg));
 
         if (this->is_moving_back) {
-            msg.steering = this->steering * -1;
+            msg.steering = steering_deg * -1;
         } else {
-            msg.steering = this->steering;
+            msg.steering = steering_deg;
         }
 
-        msg.brake = this->brake;
+        msg.brake = (this->brake < 0.01) ? 0.0 : this->brake;
 
         this->erp_drive_semi_pub.publish(msg);
     }
@@ -182,12 +185,13 @@ void Controller::publishControlMsg(){
         msg.brake = this->brake;
         // ROS_INFO_STREAM("brake : " << msg.brake);
 
-        this->morai_drive_pub.publish(msg);    
+        this->morai_drive_pub.publish(msg);
     }
 }
 
 void Controller::parkingPathCallback(const erp_drive_semi::PathReference& parking_path){
-    if(this->g_curr_idx < 110 or this->g_curr_idx > 230) return;
+    if(this->g_curr_idx < 110 or this->g_curr_idx > 300) return;
+    // if(this->g_curr_idx > 45) return;
 
     this->l_path = parking_path;
     this->l_path_size = parking_path.path.size();

@@ -57,8 +57,8 @@ class DeliveryPlanner:
         self.radius_marker.header.frame_id = "map"
 
         # 상태변수
-        self.STOP_IDX = 2453 # 배달미션 B지점 시작하는 글로벌패스 인덱스
-        self.segment_len = 180 # 배달미션 B구간 2453~2628 차이 : 180
+        self.STOP_IDX = 2120 # 배달미션 B지점 시작하는 글로벌패스 인덱스
+        self.segment_len = 230 # 배달미션 B구간 2453~2628 차이 : 180
         # self.g_path = g_path# 글로벌패스
         self.g_path = [(e.pose.position.x, e.pose.position.y) for e in g_path] # 글로벌패스
         self.curr_idx = None # 현재 글로벌패스 웨이포인트 인덱스

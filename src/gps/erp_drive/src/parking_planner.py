@@ -63,6 +63,8 @@ class ParkingPlanner:
 
         self.curr_pose = None
         self.parking_path_set = False
+        self.curr_idx = 0
+
 
         # === 튜닝 파라미터 ===
         self.ROI_radius = 4.0      # 차량 기준 ROI (m)
@@ -86,6 +88,7 @@ class ParkingPlanner:
 
         rospy.Subscriber("/object_info_labacon", ObjectInfo,  self.obstacle_info_CB, queue_size=1)
         rospy.Subscriber("/current_pose",  Pose,        self.curr_pose_CB,     queue_size=1)
+        rospy.Subscriber("/curr_idx", Int16, self.curr_idx_CB, queue_size=1)
 
     # -------------------- 콜백 --------------------
 
@@ -100,8 +103,15 @@ class ParkingPlanner:
 
         self.publish_sorted_pts_marker()
 
+    def curr_idx_CB(self, msg: Int16):
+
+        self.curr_idx = msg.data
+
     def obstacle_info_CB(self, msg: ObjectInfo):
         if self.curr_pose is None:
+            return
+        
+        if self.curr_idx < 3040:
             return
 
         if not self.parking_slot_found:

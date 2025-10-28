@@ -1,0 +1,32 @@
+<launch>
+    <node name="usb_cam" pkg="usb_cam" type="usb_cam_node" output="screen" >
+        <param name="video_device" value="/dev/maincam"/>
+        <param name="image_width" value="640" />
+        <param name="image_height" value="480" />
+        <param name="pixel_format" value="yuyv" />
+        <param name="camera_frame_id" value="usb_cam" />
+        <param name="io_method" value="mmap"/>
+        <param name="camera_name" value="usb_cam" />
+    </node>
+
+    <!-- <node name="usb_cam_left" pkg="usb_cam" type="usb_cam_node" output="screen" >
+        <param name="video_device" value="/dev/leftcam"/>
+        <param name="image_width" value="640" />
+        <param name="image_height" value="480" />
+        <param name="pixel_format" value="yuyv" />
+        <param name="camera_frame_id" value="usb_cam_left" />
+        <param name="io_method" value="mmap"/>
+        <param name="camera_name" value="usb_cam_left" />
+    </node>
+
+    <node name="usb_cam_right" pkg="usb_cam" type="usb_cam_node" output="screen" >
+        <param name="video_device" value="/dev/rightcam"/>
+        <param name="image_width" value="640" />
+        <param name="image_height" value="480" />
+        <param name="pixel_format" value="yuyv" />
+        <param name="camera_frame_id" value="usb_cam_right" />
+        <param name="io_method" value="mmap"/>
+        <param name="camera_name" value="usb_cam_right" />
+    </node> -->
+    
+</launch> 

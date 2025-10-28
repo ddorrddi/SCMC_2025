@@ -26,22 +26,27 @@ class FusionNode:
         self.bridge = CvBridge()
 
         # 내부 파라미터
-        Fx, Fy = 511, 513
-        Cx, Cy = 324, 241
-
-        # 외부 파라미터
-        self.x, self.y, self.z = 0.0, 0.0, 0.0        # m 단위
-        self.roll, self.pitch, self.yaw = 0.0, 0.0, 0.0  # rad 단위
+        # [Fx, 0, Cx]
+        # [0, Fy, Cy]
+        # [0,  0,  1]
+        Fx, Fy = 651.668905, 652.129398
+        Cx, Cy = 327.203220, 242.344293
 
         # 카메라 해상도
         self.img_width = 640
         self.img_height = 480
 
-        # 초기 R, T
-        self.R, self.T = Fusion.make_extrinsics(self.x, self.y, self.z, self.roll, self.pitch, self.yaw)
+        # 외부 파라미터
+        self.TransformMat = np.array([
+[ 0.,       -1.,        0.,        0.      ],
+ [-0.006981, -0.,       -0.999976,  0.408035],
+ [ 0.999976,  0.,       -0.006981,  0.282855],
+ [ 0.,        0.,        0.,        1.      ]
+                                      ]).reshape(4,4)
+
 
         # Fusion 객체
-        self.fusion = Fusion(Fx, Fy, Cx, Cy, self.R, self.T, self.img_width, self.img_height)
+        self.fusion = Fusion(Fx, Fy, Cx, Cy, self.TransformMat, self.img_width, self.img_height)
 
         # 이미지와 포인트 초기화
         self.cv_image = None
@@ -120,23 +125,12 @@ class FusionNode:
         self.dr_srv = Server(FusionExtrinsicsConfig, self.reconfigure_callback)
 
     def reconfigure_callback(self, config, level):
-        # 동적 재구성 콜백
-        self.x = config.x
-        self.y = config.y
-        self.z = config.z
-        self.roll = config.roll_deg * np.pi / 180.0
-        self.pitch = config.pitch_deg * np.pi / 180.0
-        self.yaw = config.yaw_deg * np.pi / 180.0
         self.cloud_stride = config.cloud_stride
         self.max_projected_points = config.max_projected_points
         self.r_cut = config.r_cut
         self.k_mad = config.k_mad
         self.prev_gate = config.prev_gate
         self.max_range = config.max_range
-        
-        # Extrinsics 업데이트
-        self.R, self.T = Fusion.make_extrinsics(self.x, self.y, self.z, self.roll, self.pitch, self.yaw)
-        self.fusion.update_extrinsics(self.R, self.T)
 
         return config
 

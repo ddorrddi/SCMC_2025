@@ -10,3 +10,15 @@ rosbag record -O 0921_lanenet1.bag /usb_cam/image_raw
 rosbag record -O 0921_park.bag /velodyne_points
 시작하고 0으로 찍\고 근처 안찾는
 + 시작하자마자 못찾는
+
+
+# 1. CAN 인터페이스 활성화
+sudo ip link set can0 up type can bitrate 500000
+
+# 2. GPS RTK Fix 확인
+rostopic echo /ublox/fix | grep status
+
+# 3. 토픽 확인
+rostopic hz /current_pose
+rostopic echo /control_value
+candump can0

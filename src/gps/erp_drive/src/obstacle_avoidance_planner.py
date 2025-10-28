@@ -44,7 +44,7 @@ class ObstacleAvoidancePlanner:
         self.decel_request_pub = rospy.Publisher('/deceleration_request', Int16, queue_size=1)
         
         #dh
-        self.override_radius = 1.0
+        self.override_radius = 0.7
         self.last_ccw = 0
         ###
         self.rviz_offset_x, self.rviz_offset_y = rviz_offset_x, rviz_offset_y
@@ -78,12 +78,13 @@ class ObstacleAvoidancePlanner:
         self.rviz_curr_waypoint_pub = rospy.Publisher('/rviz_curr_waypoint', PointStamped, queue_size=1)
 
         self.blocked_idx = -1
-        self.rel_obstalce_info = None 
+        self.rel_obstalce_info = None
         self.obstacle_info = None
         self.avoidance_in_progress = False
         self.is_local_waypoint_set = False
-        
+
         self.target_x, self.target_y = None, None
+        self.is_big_obstacle = False  # 대형/소형 구분 플래그
 
         self.obstacle_makers_pub = rospy.Publisher('/obstacle_marker', MarkerArray, queue_size=1)
         
@@ -356,16 +357,28 @@ class ObstacleAvoidancePlanner:
             self.curr_pose.position.y - target_y
         )
 
-        rospy.loginfo(f"[Confirm] Dist to Target: {dist_to_target:.2f}m / Success Radius: {const.AVOIDANCE_SUCCESS_RAIDUS}m")
+        # 대형/소형에 따라 다른 SUCCESS 거리 적용
+        if self.is_big_obstacle:
+            success_radius = 2.5  # 대형 장애물 SUCCESS 거리
+            rospy.loginfo(f"[BIG Confirm] Dist: {dist_to_target:.2f}m / Success Radius: {success_radius}m")
+        else:
+            success_radius = const.AVOIDANCE_SUCCESS_RAIDUS  # 소형 장애물 SUCCESS 거리
+            rospy.loginfo(f"[SMALL Confirm] Dist: {dist_to_target:.2f}m / Success Radius: {success_radius}m")
 
-        if dist_to_target > const.AVOIDANCE_SUCCESS_RAIDUS:
+        if dist_to_target > success_radius:
             return False
-        
+
         self.decel_request_pub.publish(Int16(data=0))
-        
+
         signal = Int16(data=1)
         self.local_path_done_signal_pub.publish(signal)
-        rospy.loginfo("성공")
+
+        if self.is_big_obstacle:
+            rospy.logwarn("[BIG 장애물 회피 성공!]")
+            self.is_big_obstacle = False
+        else:
+            rospy.loginfo("[소형 장애물 회피 성공]")
+
         self.is_local_waypoint_set = False
         self.target_x, self.target_y = None, None
 
@@ -373,12 +386,12 @@ class ObstacleAvoidancePlanner:
 
     def is_obst_on_path (self):
         # 인덱스 구간에 따라 감지 거리 설정
-        if 850 <= self.g_curr_idx <= 1000:
+        if 830 <= self.g_curr_idx <= 1000:
             # 대형 장애물 구간
             roi_ld = 10.0
-        elif 3160 <= self.g_curr_idx <= 3470:
+        elif 2850 <= self.g_curr_idx <= 2940:
             # 소형 장애물 구간
-            roi_ld = 6.0
+            roi_ld = 5.0
         else:
             # 기본 구간
             roi_ld = 10.0
@@ -485,18 +498,19 @@ class ObstacleAvoidancePlanner:
         curr_y = self.curr_pose.position.y
         s0, l0 = cartesian_to_frenet(curr_x, curr_y, original_ref_path, s_list)
 
-        lane_offset = 0.82
+        lane_offset = 0.3
 
         rospy.loginfo(f"[BIG??]: {is_big}")
 
         #  if 710 <= self.g_curr_idx <= 930 and is_big:
 
-        if 850 <= self.g_curr_idx <= 1000 and is_big:
+        if 830 <= self.g_curr_idx <= 1050 and is_big:
             # 목표 차선을 변경합니다.
             self.curr_lane = Lane.TWO if self.curr_lane == Lane.ONE else Lane.ONE
             self.avoidance_in_progress = True
+            self.is_big_obstacle = True  # 대형 장애물 플래그 설정
 
-            target_lookahead = 40 # 50 * 0.2m = 10m 앞을 목표로 설정 (튜닝 필요)
+            target_lookahead = 30 # 50 * 0.2m = 10m 앞을 목표로 설정 (튜닝 필요)
             target_idx = min(self.g_curr_idx + target_lookahead, len(self.g_path[self.curr_lane]) - 1)
             
             target_pose = self.g_path[self.curr_lane][target_idx].pose
@@ -505,7 +519,7 @@ class ObstacleAvoidancePlanner:
 
             self.decel_request_pub.publish(Int16(data=1))
 
-            rospy.loginfo(f"단순 차선 변경 완료 목표 지점 설정: ({self.target_x:.2f}, {self.target_y:.2f})")
+            # rospy.loginfo(f"단순 차선 변경 완료 목표 지점 설정: ({self.target_x:.2f}, {self.target_y:.2f})")
 
             target_marker = Marker()
             target_marker.header.frame_id = 'map'
@@ -534,9 +548,10 @@ class ObstacleAvoidancePlanner:
 
             return
         
-        elif 3160 <= self.g_curr_idx <= 3260:
+        elif 2850 <= self.g_curr_idx <= 2940:
             # 목표 차선 변경 없이, 현재 차선 내에서 회피합니다.
             # self.curr_lane은 변경하지 않습니다.
+            self.is_big_obstacle = False  # 소형 장애물 플래그 설정
             pass # 특별히 할 작업 없음
         
         # [조건] 회피 구간 밖 - 회피하지 않음

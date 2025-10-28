@@ -53,7 +53,7 @@ public:
 
     // 상수 값
     const int LOOP_RATE = 30;
-    const double WHEEL_BASE = 1.04;
+    const double WHEEL_BASE = 1.15;
 
     // 속도 | rosparam 으로 관리될 값
     double velocity;

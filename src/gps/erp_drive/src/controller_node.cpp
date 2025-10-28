@@ -75,9 +75,12 @@ int main(int argc, char** argv) {
                     control.velocity = control.optimal_throttle.calcTanhVelocity(control.curr_pose);
 
                     // PARKING 모드: 인덱스 3450부터 속도 5로 제한
-                    if(control.g_curr_idx >= 3450 && !control.go_to_finish){
+                    if(control.g_curr_idx >= 3040 && !control.go_to_finish){
                         control.velocity = std::min(control.velocity, 5.0);
                     }
+
+
+
                     control.brake = (control.velocity < control.speed_now) ? 0.15 : 0.0;
 
                     const auto& event_type = control.optimal_throttle.eventPlaceInfoManager.getCurrEventPlaceInfo().type;
@@ -91,7 +94,7 @@ int main(int argc, char** argv) {
 
                             if (is_red_light) {
                                 ROS_INFO("[TRAFFIC LIGHT] RED LIGHT - Vehicle stopping");
-                                control.brake = 1.0;
+                                control.brake = 0.3;
                             } else {
                                 ROS_INFO("[TRAFFIC LIGHT] GREEN LIGHT - Vehicle proceeding");
                                 control.brake = 0.0;
@@ -121,12 +124,20 @@ int main(int argc, char** argv) {
                         }else if(elapsed < ros::Duration(3.5)){
                             ROS_INFO("delivery_stop : stop");
                             control.velocity = 0.0;
-                            control.brake = 1.0;
+                            control.brake = 0.5;
                         }else{
                             ROS_INFO("delivery_stop : go");
                             control.brake = 0.0;
                             control.is_delivery_done = false;
                         }
+                    }
+
+                    if(830 < control.g_curr_idx && control.g_curr_idx < 1050) {
+                        control.velocity = 10.0;
+                    }
+
+                    if(2570 < control.g_curr_idx && control.g_curr_idx < 2940) {
+                        control.velocity = 10.0;
                     }
 
                     if (control.is_deceleration_requested) {
@@ -170,7 +181,7 @@ int main(int argc, char** argv) {
                     control.brake = 0.0;
                 } else {
                     control.velocity = 0.0;
-                    control.brake = 1.0;
+                    control.brake = 0.5;
                     control.steering = 0.0;
                     control.is_moving_back = true;
                     control.is_parking_stop_done = false;
@@ -201,7 +212,7 @@ int main(int argc, char** argv) {
 
                 if(hold_elapsed < ros::Duration(3.0)){
                     control.velocity = 0.0;
-                    control.brake = 1.0;
+                    control.brake = 0.5;
                     control.is_moving_back = false;
                     control.steering = 0.0;
                     control.publishControlMsg();
@@ -212,7 +223,7 @@ int main(int argc, char** argv) {
                     control.publishControlMsg();
                 } else {
                     control.velocity = 0.0;
-                    control.brake = 1.0;
+                    control.brake = 0.5;
                     control.is_moving_back = false;
                     control.steering = 0.0;
                 }
@@ -230,7 +241,7 @@ int main(int argc, char** argv) {
         if(control.is_finish){
             ROS_INFO("FINISH");
             control.velocity = 0.;
-            control.brake = 1.;
+            control.brake = 0.3;
             control.publishControlMsg();
         }
 

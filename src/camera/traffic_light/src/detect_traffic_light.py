@@ -8,7 +8,7 @@ import cv2
 from ultralytics import YOLO
 from collections import defaultdict
 
-CONFIDENCE = 0.5
+CONFIDENCE = 0.4
 
 # weights_path = '/home/foscar/바탕화면/changyeop_yolo/model/09_09_traffic_light_8n_20epoch.pt'
 # weights_path = '/home/foscar/isc  c_2024/src/camera/traffic_light/weight/best (1).pt'
@@ -99,7 +99,7 @@ def preprosses_label(results, cv_image):
         label = f"{class_name}: {class_confidence:.2f}"
         cv2.putText(cv_image, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
         
-        print("class name : ", class_name)
+        # print("class name : ", class_name)
         return class_name, cv_image
     else:
         # 탐지된 객체가 있지만, 그룹화 로직에서 선택되지 않은 경우, 초록색 박스가 그려진 이미지를 반환
