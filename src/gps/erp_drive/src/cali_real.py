@@ -86,7 +86,7 @@ def getCameraMat(params_cam):
 class LiDARToCameraTransform:
     def __init__(self, params_cam, params_lidar):
         self.scan_sub = rospy.Subscriber("/velodyne_points", PointCloud2, self.scan_callback)
-        self.image_sub = rospy.Subscriber("/usb_cam/image_raw", Image, self.img_callback)
+        self.image_sub = rospy.Subscriber("/usb_cam_left/image_raw", Image, self.img_callback)
         self.image_pub = rospy.Publisher("/lidar_camera_projection", Image, queue_size=1)
         self.bridge = CvBridge()
         self.pc_np = None

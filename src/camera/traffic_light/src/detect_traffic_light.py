@@ -12,7 +12,7 @@ CONFIDENCE = 0.4
 
 # weights_path = '/home/foscar/바탕화면/changyeop_yolo/model/09_09_traffic_light_8n_20epoch.pt'
 # weights_path = '/home/foscar/isc  c_2024/src/camera/traffic_light/weight/best (1).pt'
-weights_path = '/home/foscar/SCMC_2025_Test/src/camera/traffic_light/weight/1027_40epoch.pt'
+weights_path = '/home/foscar/SCMC_2025/src/camera/traffic_light/weight/1027_40epoch.pt'
 model = YOLO(weights_path)
 bridge = CvBridge()
 
@@ -29,7 +29,7 @@ def image_callback(msg):
         rospy.logerr(f"CvBridge Error: {e}")
         return
 
-    results = model.predict(cv_image, conf=CONFIDENCE)
+    results = model.predict(cv_image, conf=CONFIDENCE, verbose=False)
     results = results[0]
     
     # (수정) preprosses_label 함수가 바운딩 박스가 그려진 이미지를 반환하도록 수정

@@ -76,7 +76,6 @@ void Controller::waypointDoneCallback(const std_msgs::Int16& signal){
 void Controller::localPathCallback(const erp_drive_semi::PathReference& l_path){
     // 유턴 구간 범위 체크 및 이미 유턴 완료했으면 무시
     if(this->g_curr_idx < 1000 || this->uturn_done) return;
-    // if(this->g_curr_idx < 75) return;
 
     // 로컬 경로가 너무 짧으면 무시 (노이즈 방지)
     if(l_path.path.size() < 5) {
@@ -92,11 +91,6 @@ void Controller::localPathCallback(const erp_drive_semi::PathReference& l_path){
     this->is_local_path_set = true;
     this->current_state = VehicleState::LOCAL_PATH_DRIVING;
     ROS_INFO_STREAM("[Controller] Switching to LOCAL_PATH_DRIVING (path size: " << l_path.path.size() << ")");
-    // if(this->g_curr_idx < 1500){
-    //     this->current_state = VehicleState::LOCAL_PATH_DRIVING;
-    // } else {
-    //     this->current_state = VehicleState::GLOBAL_PATH_DRIVING;
-    // }
 }
 
 void Controller::imuCallback(const sensor_msgs::Imu& imu_data){
@@ -236,7 +230,6 @@ void Controller::publishControlMsg(){
 
 void Controller::parkingPathCallback(const erp_drive_semi::PathReference& parking_path){
     if(this->g_curr_idx < 110 or this->g_curr_idx > 300) return;
-    // if(this->g_curr_idx > 45) return;
 
     this->l_path = parking_path;
     this->l_path_size = parking_path.path.size();

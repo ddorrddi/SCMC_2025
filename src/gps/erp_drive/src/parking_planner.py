@@ -22,7 +22,11 @@ class ParkingPlanner:
         self.match_gate = 0.30     # 트랙 매칭 허용 거리 (m)
 
         # === 빈 공간 판정 파라미터 ===
-        self.benchmark_coords = np.array([935537.090, 1915866.639], dtype=float)  # 앵커 좌표(기본 0,0)
+        self.benchmark_coords = np.array([935545.1301428889, 1915881.503757789], dtype=float)  # 앵커 좌표
+
+        # self.benchmark_coords = np.array([935562.8970950138, 1915800.5427482247], dtype=float)  # 앵커 좌표
+
+
 
         # === 장애물 인지 및 트래킹 ===
         self.tracks = []
@@ -43,7 +47,7 @@ class ParkingPlanner:
 
         # === 주차 경로 생성 파라미터 ===
         self.resolution = 0.1      # 경로 해상도 (m)
-        self.path_delay_sec = 3.5 # 경로 발행 지연 시간 (s) -> 주차 정지 후 약간의 시간이 지난 후 경로 발행
+        self.path_delay_sec = 14.0 # 경로 발행 지연 시간 (s) -> 주차 정지 후 약간의 시간이 지난 후 경로 발행
         self.path_timer = None
         self.flip_arccos = False   # arccos 함수 상하 반전 여부
         self.parking_path = PathReference()
@@ -67,14 +71,15 @@ class ParkingPlanner:
 
 
         # === 튜닝 파라미터 ===
-        self.ROI_radius = 4.0      # 차량 기준 ROI (m)
+        self.ROI_radius = 3.0      # 차량 기준 ROI (m)
         self.empty_gap = 4.0       # 인접 라바콘 사이 거리 4m 이상 → 빈 공간
         self.stable_k   = 1        # count 임계값 (>= 이면 안정 좌표 편입)   ->   근데 이건 나중에 실제 라이다 돌리면서 기준 잡아야함
         self.decay_miss = 10       # 미관측 허용 프레임(지나면 트랙 삭제)   ->  이거도 나중에 실제 라이다 돌리면서 기준 잡아야함
-        self.parking_radius = 4.0  # 주차 좌표 생성 반지름 (m)
-        self.parking_theta = 155.0 * math.pi / 180.0 # 주차 좌표 생성 각도 (rad)
+        self.parking_radius = 3.0  # 주차 좌표 생성 반지름 (m)
+        self.parking_theta = 161.0 * math.pi / 180.0 # 주차 좌표 생성 각도 (rad)
         self.Parking_Stop_Radius = 2.2     # 정지 반경 (m)
-        self.Parking_Success_Radius = 1.2  # 주차 성공 반경 (m) 
+        self.Parking_Success_Radius = 0.5  # 주차 성공 반경 (m)
+        self.Return_Success_Radius = 2.0
 
         # === ROS Pub/Sub ===
         self.parking_stop_done_pub = rospy.Publisher("/parking_stop_done", Int16,         queue_size=1)
@@ -82,6 +87,7 @@ class ParkingPlanner:
         self.parking_end_pub       = rospy.Publisher("/parking_end",       Int16,         queue_size=1)
         self.parking_path_pub      = rospy.Publisher("/parking_path",      PathReference, queue_size=1)
         self.return_path_pub       = rospy.Publisher("/return_path",       PathReference, queue_size=1)
+        self.rviz_parking_path_start_point_pub = rospy.Publisher("/rviz_parking_start_point", PoseStamped,          queue_size=1)
         self.rviz_parking_path_pub = rospy.Publisher("/rviz_parking_path", Path,          queue_size=1)
         self.rviz_return_path_pub  = rospy.Publisher("/rviz_return_path",  Path,          queue_size=1)
         self.sorted_pts_marker_pub = rospy.Publisher("/sorted_pts_marker", Marker,        queue_size=1)
@@ -110,8 +116,8 @@ class ParkingPlanner:
     def obstacle_info_CB(self, msg: ObjectInfo):
         if self.curr_pose is None:
             return
-        
-        if self.curr_idx < 3040:
+
+        if self.curr_idx < 3070: # 3040->3070 근데 3070이면 좀 늦을거 같음
             return
 
         if not self.parking_slot_found:
@@ -326,6 +332,7 @@ class ParkingPlanner:
         if self.parking_in_progress and not self.parking_path_is_pub:
             self.parking_path_pub.publish(self.parking_path)
             self.rviz_parking_path_pub.publish(self.rviz_parking_path)
+            self.rviz_parking_path_start_point_pub.publish(self.rviz_parking_path.poses[0])
             self.parking_path_is_pub = True
             rospy.loginfo(f"Parking path published!!!!!!")
 
@@ -390,19 +397,11 @@ class ParkingPlanner:
     # -------------------- raw path 생성 --------------------
 
     def make_raw_path(self, n=800, flip=False, ext_length=4.0, ext_points=None):
-        """
-        arccos 기반 경로 생성 후, 경로의 끝 방향으로 직진 구간을 이어 붙임.
-        - n: 원래 샘플 포인트 수
-        - flip: 원래대로 y를 뒤집음
-        - ext_length: 마지막에 이어붙일 직진 길이 (meters)
-        - ext_points: 직진 구간에 샘플할 포인트 수 (None이면 n*0.05)
-        반환: numpy.ndarray shape (M,2)
-        """
         import numpy as np
 
         # 안전한 시작/목표 추출 (네가 올려준 코드 가정)
-        start_x = (float(self.curr_pose.position.x)*2.0 + float(self.parking_start_coords[0]))/3.0
-        start_y = (float(self.curr_pose.position.y)*2.0 + float(self.parking_start_coords[1]))/3.0
+        start_x = (float(self.curr_pose.position.x)*4.0 + float(self.parking_start_coords[0]))/5.0
+        start_y = (float(self.curr_pose.position.y)*4.0 + float(self.parking_start_coords[1]))/5.0
         goal_x  = float(self.parking_coords[0])
         goal_y  = float(self.parking_coords[1])
 
@@ -565,7 +564,7 @@ class ParkingPlanner:
         end_x, end_y = float(last_element.pose.position.x), float(last_element.pose.position.y)
         px, py = float(self.curr_pose.position.x), float(self.curr_pose.position.y)
 
-        if math.hypot(px - end_x, py - end_y) <= self.Parking_Success_Radius:
+        if math.hypot(px - end_x, py - end_y) <= self.Return_Success_Radius:
             self.parking_end = True
             self.parking_end_pub.publish(1 if self.parking_end else 0)
             if self.parking_end:

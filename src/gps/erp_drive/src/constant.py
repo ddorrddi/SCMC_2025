@@ -49,7 +49,7 @@ const = Constant()
 const.AVOIDANCE_SUCCESS_RAIDUS = 1.0   #1.75 default
 # const.AVOIDANCE_SWITCH_RADIUS = 0.5
 # const.OBSTACLE_RAIDUS = 2.0 >> obst on path에서 따로 관리
-const.DELIVERY_SUCCESS_RADIUS = 0.5
+const.DELIVERY_SUCCESS_RADIUS = 1.5 # 원래 0.5에서 1.5로 수정 -> 엘카 기준으로 맞춘 좌표계라 erp기준으로 1m 늘림
 # test
 const.BLOCK_CHECK_LD = 8.0
 const.LANE_WIDTH = 3.5# 원래 : 3.5

@@ -75,11 +75,9 @@ int main(int argc, char** argv) {
                     control.velocity = control.optimal_throttle.calcTanhVelocity(control.curr_pose);
 
                     // PARKING 모드: 인덱스 3450부터 속도 5로 제한
-                    if(control.g_curr_idx >= 3040 && !control.go_to_finish){
-                        control.velocity = std::min(control.velocity, 5.0);
+                    if(control.g_curr_idx >= 3050 && !control.go_to_finish){
+                        control.velocity = std::min(control.velocity, 3.0);
                     }
-
-
 
                     control.brake = (control.velocity < control.speed_now) ? 0.15 : 0.0;
 
@@ -121,7 +119,7 @@ int main(int argc, char** argv) {
                             double ratio = 1.0 - (elapsed.toSec() / 0.5);
                             control.velocity = delivery_B_Original_Velocity * ratio;
                             control.brake = 0.0;
-                        }else if(elapsed < ros::Duration(3.5)){
+                        }else if(elapsed < ros::Duration(3.6)){
                             ROS_INFO("delivery_stop : stop");
                             control.velocity = 0.0;
                             control.brake = 0.5;
@@ -132,11 +130,18 @@ int main(int argc, char** argv) {
                         }
                     }
 
-                    if(830 < control.g_curr_idx && control.g_curr_idx < 1050) {
+                    // 대형 장애물 속도 감소
+                    if(820 < control.g_curr_idx && control.g_curr_idx < 1050) {
                         control.velocity = 10.0;
                     }
 
-                    if(2570 < control.g_curr_idx && control.g_curr_idx < 2940) {
+                    // 배달 B 구간 속도 감소
+                    if(2110 < control.g_curr_idx && control.g_curr_idx < 2320) {
+                        control.velocity = 5.0;
+                    }
+                    
+                    // 주차 전 커브 감소
+                    if(2570 < control.g_curr_idx && control.g_curr_idx < 3050) {
                         control.velocity = 10.0;
                     }
 
@@ -175,13 +180,18 @@ int main(int argc, char** argv) {
 
                 stop_elapsed = ros::Time::now() - parking_stop_start_time;
 
-                if(stop_elapsed < ros::Duration(3.0)){
-                    double ratio = 1.0 - (stop_elapsed.toSec() / 3.0);
+                if(stop_elapsed < ros::Duration(5.0)){
+                    control.velocity = 3.0;
+                    control.brake = 0.0;
+                } 
+                else if(stop_elapsed < ros::Duration(14.5)){
+                    double ratio = 1.0 - (stop_elapsed.toSec() / 10.0); // 이게 문제였음 10초에 정지를 해버리는데 14.5초까지 그냥 기다리는 꼴이됨
                     control.velocity = original_velocity_before_parking * ratio;
                     control.brake = 0.0;
-                } else {
+                }
+                else { //여기 brake도 기존 0.5인데 0.5일 이유가 전혀 없어보여서 1.0으로 변경
                     control.velocity = 0.0;
-                    control.brake = 0.5;
+                    control.brake = 1.0;
                     control.steering = 0.0;
                     control.is_moving_back = true;
                     control.is_parking_stop_done = false;
@@ -216,16 +226,24 @@ int main(int argc, char** argv) {
                     control.is_moving_back = false;
                     control.steering = 0.0;
                     control.publishControlMsg();
-                } else if(hold_elapsed >= ros::Duration(3.0) && hold_elapsed < ros::Duration(4.0)){
+                } else if(hold_elapsed >= ros::Duration(2.9) && hold_elapsed < ros::Duration(4.2)){
                     control.velocity = 5.0;
                     control.brake = 0.0;
+                    control.is_moving_back = false;
                     control.steering = 30.0;
                     control.publishControlMsg();
                 } else {
                     control.velocity = 0.0;
                     control.brake = 0.5;
                     control.is_moving_back = false;
-                    control.steering = 0.0;
+                    control.steering = 30.0;
+                    control.publishControlMsg();
+
+                    // return path가 이미 수신된 경우 즉시 상태 전환
+                    if(control.is_local_path_set){
+                        ROS_INFO("[Parking Logic] Return path received. Transitioning to LOCAL_PATH_DRIVING.");
+                        control.current_state = VehicleState::LOCAL_PATH_DRIVING;
+                    }
                 }
                 break;
         }

@@ -27,7 +27,7 @@ class WaypointMaker:
 
         # 안정성 개선을 위한 추가 변수
         self.no_cone_counter = 0  # 콘이 없는 프레임 카운터
-        self.no_cone_threshold = 10  # 10프레임(약 0.33초) 연속 미감지 시 완료
+        self.no_cone_threshold = 5  # 10프레임(약 0.33초) 연속 미감지 시 완료
         self.min_detection_count = 10
         rospy.init_node('waypoint_maker', anonymous=True)
         self.cone_sub = rospy.Subscriber("/obstacle_info_semi", ObjectInfo, self.traffic_cone_callback)
@@ -46,9 +46,6 @@ class WaypointMaker:
         if self.g_curr_idx < 1000 or self.g_curr_idx > 1200:
             return  
         
-        # if self.g_curr_idx < 75:
-        #     return
-        
         self.filter_right_cones(msg)
         self.generate_waypoint_info()
         self.visualize_cones()
@@ -62,7 +59,7 @@ class WaypointMaker:
             cone_x = msg.centerX[i] + 1.25
             cone_y = msg.centerY[i]
 
-            if (cone_y < 0) and (cone_x < 5.0):
+            if (cone_y < 0) and (-1.2 < cone_x < 7.0):
                 all_right_objects.append({'x': cone_x, 'y': cone_y})
 
                 if cone_x > 0:
@@ -115,7 +112,19 @@ class WaypointMaker:
             control_x.append(cone['x'])
             control_y.append(cone['y'] + LEFT_OFFSET_DISTANCE)
 
-        if len(control_x) < 3:
+        if 0 < len(control_x) < 3:
+            # 콘이 적으면 직진 방향으로 경로 연장 (유턴 끝 안쪽 파고들기 방지)
+            if len(control_x) >= 2:
+                # 마지막 2개 콘의 방향으로 5m 연장
+                dx = control_x[-1] - control_x[-2]
+                dy = control_y[-1] - control_y[-2]
+                control_x.append(control_x[-1] + dx * 2)
+                control_y.append(control_y[-1] + dy * 2)
+            elif len(control_x) == 1:
+                # 콘 1개면 전방으로 5m 연장
+                control_x.append(control_x[-1] + 5.0)
+                control_y.append(control_y[-1])
+
             self.waypoint_msg.cnt = len(control_x)
             self.waypoint_msg.x_arr = control_x
             self.waypoint_msg.y_arr = control_y

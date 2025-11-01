@@ -28,7 +28,7 @@ import rospy
 from tabulate import tabulate 
 
 class Planner(object):
-    def __init__(self, file_name):
+    def __init__(self, file_name, deli_num):
         rospy.init_node('planner', argv=file_name)
         self.rate = rospy.Rate(30)
         
@@ -37,7 +37,10 @@ class Planner(object):
         self.g_path_planner.set_g_path(file_name)
 
         self.obstacle_avoidance_planner = ObstacleAvoidancePlanner(self.g_path_planner.g_path, self.g_path_planner.rviz_offset_x, self.g_path_planner.rviz_offset_y)
-        self.delivery_planner = DeliveryPlanner(self.g_path_planner.g_path[Lane.ONE], self.g_path_planner.rviz_offset_x, self.g_path_planner.rviz_offset_y)
+        self.delivery_planner = DeliveryPlanner(self.g_path_planner.g_path[Lane.ONE], 
+                                                self.g_path_planner.rviz_offset_x, 
+                                                self.g_path_planner.rviz_offset_y,
+                                                int(deli_num))
         self.parking_planner = ParkingPlanner(self.g_path_planner.rviz_offset_x, self.g_path_planner.rviz_offset_y)
 
         self.rviz_curr_pose = PoseStamped()
@@ -76,7 +79,7 @@ class Planner(object):
 
 
 if __name__ == '__main__':
-    planner = Planner(sys.argv[1])
+    planner = Planner(sys.argv[1], sys.argv[2])
     
     while not rospy.is_shutdown():
         if planner.g_path_planner.is_path_set:

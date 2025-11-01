@@ -34,7 +34,7 @@ void PurePursuit::calcSteering(const geometry_msgs::Pose& curr_pose) {
         calcLocalNextWaypoint(curr_pose);
 
         curr_waypoint = this->l_path.path.at(this->l_curr_idx).pose;
-        next_waypoint = this->l_path.path.at(this->l_next_idx).pose;    
+        next_waypoint = this->l_path.path.at(this->l_next_idx).pose;
     }
 
     else if(this->is_delivery_path_set){
@@ -44,11 +44,11 @@ void PurePursuit::calcSteering(const geometry_msgs::Pose& curr_pose) {
         calcDeliveryNextWaypoint(curr_pose);
 
         curr_waypoint = this->delivery_path.path.at(this->delivery_curr_idx).pose;
-        next_waypoint = this->delivery_path.path.at(this->delivery_next_idx).pose;    
+        next_waypoint = this->delivery_path.path.at(this->delivery_next_idx).pose;
     }
-    
+
     else {
-        // ROS_INFO("is_global_path_set"); 
+        // ROS_INFO("is_global_path_set");
         curr_waypoint = this->g_path.path.at(this->g_curr_idx).pose;
         next_waypoint = this->g_path.path.at(this->g_next_idx).pose;
     }

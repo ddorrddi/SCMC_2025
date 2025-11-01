@@ -46,7 +46,7 @@ class SlideWindow:
         nonzeroy = np.array(nonzero[0])  # y 좌표 배열로 변환
         nonzerox = np.array(nonzero[1])  # x 좌표 배열로 변환
         margin = 40  # 윈도우 마진 설정
-        minpix = 0  # 최소 픽셀 수 설정
+        minpix = 15  # 최소 픽셀 수 설정
         left_lane_inds = []  # 왼쪽 차선 인덱스 초기화
         right_lane_inds = []  # 오른쪽 차선 인덱스 초기화
 
@@ -72,9 +72,9 @@ class SlideWindow:
         win_h1 = height - 60  # 윈도우 높이 1
         win_h2 = height  # 윈도우 높이 2
         win_l_w_l = 180 - 140  # 왼쪽 윈도우 왼쪽 경계
-        win_l_w_r = 180 + 140  # 왼쪽 윈도우 오른쪽 경계
+        win_l_w_r = 180 + 120  # 왼쪽 윈도우 오른쪽 경계
         win_r_w_l = 480 - 140  # 오른쪽 윈도우 왼쪽 경계 (넓게)
-        win_r_w_r = 480 + 140  # 오른쪽 윈도우 오른쪽 경계 (넓게)
+        win_r_w_r = 480 + 120  # 오른쪽 윈도우 오른쪽 경계 (넓게)
 
         circle_height = 100  # 원 높이 설정
         
@@ -99,6 +99,8 @@ class SlideWindow:
 
         y_current = height - 1  # 현재 y 위치 초기화
         x_current = None  # 현재 x 위치 초기화
+        left_x = 180  # 초기값 설정
+        right_x = 480  # 초기값 설정
 
         # force_line 파라미터로 강제 선택
         if force_line == 'left' and len(good_left_inds) > 0:

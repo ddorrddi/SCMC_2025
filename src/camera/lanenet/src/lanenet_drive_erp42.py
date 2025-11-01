@@ -88,7 +88,7 @@ class LanenetDetection:
         self.last_x_location = 320
 
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        self.model_path = '/home/foscar/SCMC_2025_Test/src/camera/lanenet/src/lanenet_.model'
+        self.model_path = '/home/foscar/SCMC_2025/src/camera/lanenet/src/lanenet_.model'
         self.LaneNet_model = Lanenet(2, 4)
         self.LaneNet_model.load_state_dict(torch.load(self.model_path, map_location=torch.device(self.device)))
         self.LaneNet_model.to(self.device)
@@ -149,12 +149,12 @@ class LanenetDetection:
                 show_img = self.inference(self.image)
                 img_frame = show_img.copy()
                 height, width, channel = img_frame.shape
-                img_roi = img_frame[300:500, 0:]
+                img_roi = img_frame[250:450, 0:]
                 img_filtered = color_filter(img_roi)
                 height, width, channel = img_filtered.shape
 
                 # Bird's Eye View 변환
-                left_margin, top_margin = 195, 44
+                left_margin, top_margin = 200, 44
                 src_points = np.float32([[0, 190], [left_margin, top_margin], [width - left_margin, top_margin], [width, 190]])
                 # dst_points 간격을 좁혀서 차선이 더 벌어지게 (width//5 ~ width//5*4)
                 dst_points = np.float32([[width//5, 190], [width//5, 0], [width//5*4, 0], [width//5*4, 190]])
@@ -218,7 +218,7 @@ class LanenetDetection:
                         self.publishCtrlCmd(0, -radians(angle), 0.3)
                         continue # 다음 루프로 넘어가기
 
-                    # 동적 장애물 미션 완료 후 정적 시퀀스로 전환
+                    # 동적 장애물 미션 완료 후 정적 시퀀스로 전환           
                     if self.dynamic_stop_flag and len(self.obstacle_list_dynamic) == 0:
                         print("동적 회피 완료!")
                         time.sleep(2)
@@ -240,7 +240,7 @@ class LanenetDetection:
                         # 정면 장애물 감지 (두 번째 오른쪽 장애물)
                         obstacle_to_avoid = None
                         for obs in self.obstacle_list_static:
-                            if 2.0 < obs.x < 6.0 and -0.7 < obs.y < 0.7:
+                            if 1.8 < obs.x < 6.0 and -0.7 < obs.y < 0.7:
                                 obstacle_to_avoid = obs
                                 break
 
@@ -252,15 +252,16 @@ class LanenetDetection:
 
                     # --- 1단계: 왼쪽으로 회피 ---
                     elif self.avoid_stage == 2:
+                        
                         motor_msg = 5
-                        angle = 10  # 왼쪽으로 고정 조향각 (음수 = 왼쪽)
+                        angle = -12.5  # 왼쪽으로 고정 조향각 (음수 = 왼쪽)
                         print(f"[DEBUG] Avoid Stage 2: Moving left with fixed angle={angle}")
 
                         if not hasattr(self, 'stage1_start_time'):
                             self.stage1_start_time = time.time()
 
                         # 시간 경과로 Stage 3 전환
-                        if (time.time() - self.stage1_start_time) > 1.0:
+                        if (time.time() - self.stage1_start_time) > 1.5:
                             print("Stage 2: 왼쪽 회피 완료 → Stage 3 진입")
                             self.avoid_stage = 3
                             self.stage1_start_time = None
@@ -348,9 +349,24 @@ class LanenetDetection:
         gt_image = torch.tensor(gt_image, dtype=torch.float).permute(2, 0, 1)
         gt_image = gt_image.to(self.device)
         binary_final_logits, _ = self.LaneNet_model(gt_image.unsqueeze(0))
-        binary_img = torch.argmax(binary_final_logits.cpu(), dim=1).squeeze().numpy().astype(np.uint8)
+
+        # 신뢰도 필터링: softmax로 확률 계산 후 임계값 적용
+        binary_probs = torch.softmax(binary_final_logits, dim=1)
+        lane_confidence = binary_probs[0, 1, :, :].detach().cpu().numpy()  # 차선 클래스 확률
+
+        # 신뢰도 맵 시각화 (0~1 확률을 0~255로 변환)
+        confidence_vis = (lane_confidence * 255).astype(np.uint8)
+        confidence_colormap = cv2.applyColorMap(confidence_vis, cv2.COLORMAP_JET)
+        confidence_colormap = cv2.resize(confidence_colormap, (org_shape[1], org_shape[0]))
+        cv2.imshow('lane_confidence', confidence_colormap)
+
+        # 임계값 0.9 이상만 차선으로 인식 (조정 가능: 0.5~0.8)
+        confidence_threshold = 0.7
+        binary_img = (lane_confidence > confidence_threshold).astype(np.uint8) * 255
+
+        # 모폴로지 Opening으로 작은 노이즈 제거
+
         binary_img[0:65,:] = 0
-        binary_img[binary_img>0] = 255
         frame = cv2.cvtColor(binary_img, cv2.COLOR_GRAY2BGR)
         return cv2.resize(frame, (org_shape[1], org_shape[0]))
 

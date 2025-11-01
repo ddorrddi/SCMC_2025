@@ -91,6 +91,9 @@ public:
     ros::Publisher morai_drive_pub;
     void publishControlMsg();
 
+    // 방향 전환 트리거 Publisher
+    ros::Publisher reverse_direction_trigger_pub;
+
 
 
     // global path 및 Subscriber

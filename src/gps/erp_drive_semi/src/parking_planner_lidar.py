@@ -43,7 +43,7 @@ class ParkingPlanner:
         self.current_pose = None
         self.final_destination_global = None
         self.reverse_start_global = None  # 후진 시작점 (주차 완료 지점)
-        self.completion_threshold = 0.6  # 30cm 이내로 들어오면 도착으로 간주
+        self.completion_threshold = 0.7  # 30cm 이내로 들어오면 도착으로 간주
         self.reverse_completion_threshold = 2.0  # 후진은 40cm 이내
 
         self.parking_mission_complete = False
@@ -65,9 +65,9 @@ class ParkingPlanner:
         """parking_1.txt ~ parking_6.txt 모든 경로 로드"""
         rospy.loginfo("Loading all parking paths...")
 
-        base_path = '/home/ivsp/SCMC_2025/src/gps/erp_drive_semi/paths/'
+        base_path = '/home/foscar/SCMC_2025/src/gps/erp_drive_semi/paths/'
 
-        for i in range(1, 3):
+        for i in range(1, 7):
             path_file = f'{base_path}s{i}.txt'
             try:
                 parking_path = PathReference()

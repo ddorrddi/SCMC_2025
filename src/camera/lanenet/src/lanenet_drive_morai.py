@@ -93,7 +93,7 @@ class LanenetDetection:
         self.last_x_location = 320
 
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        self.model_path = '/home/ivsp/SCMC_2025/src/camera/lanenet/src/lanenet_.model'
+        self.model_path = '/home/foscar/SCMC_2025/src/camera/lanenet/src/lanenet_.model'
         self.LaneNet_model = Lanenet(2, 4)
         self.LaneNet_model.load_state_dict(torch.load(self.model_path, map_location=torch.device(self.device)))
         self.LaneNet_model.to(self.device)
@@ -158,7 +158,7 @@ class LanenetDetection:
                 height, width, channel = img_filtered.shape
 
                 # Bird's Eye View 변환
-                left_margin, top_margin = 195, 44
+                left_margin, top_margin = 200, 44
                 src_points = np.float32([[0, 190], [left_margin, top_margin], [width - left_margin, top_margin], [width, 190]])
                 # dst_points 간격을 좁혀서 차선이 더 벌어지게 (width//5 ~ width//5*4)
                 dst_points = np.float32([[width//5, 190], [width//5, 0], [width//5*4, 0], [width//5*4, 190]])
@@ -344,9 +344,26 @@ class LanenetDetection:
         gt_image = torch.tensor(gt_image, dtype=torch.float).permute(2, 0, 1)
         gt_image = gt_image.to(self.device)
         binary_final_logits, _ = self.LaneNet_model(gt_image.unsqueeze(0))
-        binary_img = torch.argmax(binary_final_logits.cpu(), dim=1).squeeze().numpy().astype(np.uint8)
+
+        # 신뢰도 필터링: softmax로 확률 계산 후 임계값 적용
+        binary_probs = torch.softmax(binary_final_logits, dim=1)
+        lane_confidence = binary_probs[0, 1, :, :].detach().cpu().numpy()  # 차선 클래스 확률
+
+        # 신뢰도 맵 시각화 (0~1 확률을 0~255로 변환)
+        confidence_vis = (lane_confidence * 255).astype(np.uint8)
+        confidence_colormap = cv2.applyColorMap(confidence_vis, cv2.COLORMAP_JET)
+        confidence_colormap = cv2.resize(confidence_colormap, (org_shape[1], org_shape[0]))
+        cv2.imshow('lane_confidence', confidence_colormap)
+
+        # 임계값 0.7 이상만 차선으로 인식 (조정 가능: 0.5~0.8)
+        confidence_threshold = 0.9
+        binary_img = (lane_confidence > confidence_threshold).astype(np.uint8) * 255
+
+        # 모폴로지 Opening으로 작은 노이즈 제거
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+        binary_img = cv2.morphologyEx(binary_img, cv2.MORPH_OPEN, kernel)
+
         binary_img[0:65,:] = 0
-        binary_img[binary_img>0] = 255
         frame = cv2.cvtColor(binary_img, cv2.COLOR_GRAY2BGR)
         return cv2.resize(frame, (org_shape[1], org_shape[0]))
 

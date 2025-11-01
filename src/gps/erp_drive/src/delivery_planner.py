@@ -43,7 +43,7 @@ from collections import Counter
 
 
 class DeliveryPlanner:
-    def __init__(self, g_path: PathReference, rviz_offset_x: float, rviz_offset_y: float):
+    def __init__(self, g_path: PathReference, rviz_offset_x: float, rviz_offset_y: float, deli_num: int):
         # 파라미터 (조절해야됨)
         self.threshold = 0.95 # IOU 신뢰도 임계값
         self.min_queue_size = 30 # 목적지 좌표 신뢰도를 위한 큐 사이즈 (10Hz기준 20이면 2초간의 정보) !!메시지 드랍시 보완 로직이 없음!!
@@ -63,9 +63,12 @@ class DeliveryPlanner:
         self.g_path = [(e.pose.position.x, e.pose.position.y) for e in g_path] # 글로벌패스
         self.curr_idx = None # 현재 글로벌패스 웨이포인트 인덱스
         self.curr_pose = None # 현재 Pose
-        self.delivery_target_num = None # 배달 타겟 번호
+        
+        self.delivery_target_num = None if deli_num == 0 else deli_num # 배달 타겟 번호
+        rospy.loginfo(self.delivery_target_num)
+
         self.sign_coords = None # 목적지 좌표 (x,y,z)
-        self.delivery_in_progress = False # 배달 진행중인가 플래그
+        self.delivery_in_progress = True # 배달 진행중인가 플래그
         self.delivery_done = False # 배달 목적지 좌표에 도착했는가 플래그
         self.delivery_done_once = False # delivery_done 한번만 pub하기 위한 flag
         self.delivery_end = False # 배달미션이 끝났는가 플래그
@@ -117,13 +120,10 @@ class DeliveryPlanner:
 
     def center_point_CB(self, pt_msg: PointStamped):
         # 유효성 체크 (테스트할때 유의할것!)
-        if self.delivery_in_progress: # 배달미션이 진행중이면 pass
-            return
         if self.curr_idx is None or self.curr_pose is None: # 현재 idx와 Pose가 세팅돼있지 않으면 pass
             return
         if not (self.STOP_IDX <= self.curr_idx <= self.STOP_IDX + self.segment_len): # 배달 B구간이 아니면 pass
             return
-
         # 메시지로 넘어온 목적지 좌표(라이다 좌표계)를 글로벌좌표계로 고치기
         ori = [self.curr_pose.orientation.x, self.curr_pose.orientation.y,
                self.curr_pose.orientation.z, self.curr_pose.orientation.w]
@@ -153,7 +153,6 @@ class DeliveryPlanner:
         self.sign_coords = (final_pt[0], final_pt[1], final_pt[2])
         rospy.loginfo(f"표지판 좌표 생성 : {self.sign_coords}")
         self.publish_marker()
-        self.delivery_in_progress = True
         self.get_stop_coords()
 
     # 가장 가까운 이론상의 표지판 좌표 추출
@@ -185,12 +184,12 @@ class DeliveryPlanner:
         self.publish_stop_marker()
 
     def delivery_sign_CB(self, msg:DetectYolo):
-        # print(self.delivery_target_num)
-        # print(self.sign_queue)
 
         # 유효성 검사
         if self.delivery_target_num is not None: # 타겟이 정해졌으면 pass
+            self.delivery_target_num_pub.publish(String(str(self.delivery_target_num)))
             return
+
         if self.curr_idx is None or self.delivery_done: # curr_idx가 없거나 배달미션이 끝났다면 pass
             return
         if (self.STOP_IDX <= self.curr_idx <= self.STOP_IDX + self.segment_len): # 배달 A구간이 아니면 pass
@@ -209,7 +208,7 @@ class DeliveryPlanner:
             except ValueError:
                 pass  # 숫자로 변환 안되면 스킵
 
-        rospy.loginfo(f"queue : {self.result_queue}")
+        # rospy.loginfo(f"queue : {self.result_queue}")
         # 큐에 충분히 쌓였으면 target 확정
         if len(self.sign_queue) >= self.min_queue_size:
             self.delivery_target_num = Counter(self.sign_queue).most_common(1)[0][0]

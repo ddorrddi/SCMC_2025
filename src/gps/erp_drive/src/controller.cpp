@@ -19,6 +19,9 @@ Controller::Controller(char control_target):
         this->curr_waypoint_pub = nh.advertise<std_msgs::Int16>("/curr_idx", 1);
         this->curr_point_pub = nh.advertise<geometry_msgs::PointStamped>("/curr_waypoint", 1);
 
+        // 방향 전환 트리거 Publisher
+        this->reverse_direction_trigger_pub = nh.advertise<std_msgs::Int16>("/reverse_direction_trigger", 1);
+
         this->speed_sub = nh.subscribe("/gps_velocity", 1, &Controller::speedCallback, this);
 
         this->g_path_sub = nh.subscribe("/global_path", 1, &Controller::globalPathCallback, this);
@@ -102,6 +105,13 @@ void Controller::parkingPathCallback(const erp_drive::PathReference& parking_pat
     this->is_local_path_set = true;
     this->l_curr_idx = 0;
 
+    // 방향 전환 트리거 발행 (전진 → 후진)
+    std_msgs::Int16 trigger_msg;
+    trigger_msg.data = 1;
+    this->reverse_direction_trigger_pub.publish(trigger_msg);
+
+    ROS_INFO("[Controller] Published reverse direction trigger (forward → reverse)");
+
     this->current_state = VehicleState::PARKING_REVERSING;
 }
 
@@ -113,6 +123,7 @@ void Controller::parkingDoneCallback(const std_msgs::Int16& signal){
             this->parking_done_once = false;
             this->is_local_path_set = false;
             this->l_curr_idx = 0;
+
             this->current_state = VehicleState::PARKING_DONE;
         }
         else{
@@ -130,7 +141,11 @@ void Controller::returnPathCallback(const erp_drive::PathReference& return_path)
     this->is_local_path_set = true;
     this->l_curr_idx = 0;
 
-    this->current_state = VehicleState::LOCAL_PATH_DRIVING;
+    // 방향 전환 트리거 발행 (후진 → 전진)
+    std_msgs::Int16 trigger_msg;
+    trigger_msg.data = 1;
+    this->reverse_direction_trigger_pub.publish(trigger_msg);
+    ROS_INFO("[Controller] Published reverse direction trigger (reverse → forward)");
 }
 
 void Controller::parkingEndCallback(const std_msgs::Int16& signal){
@@ -141,6 +156,7 @@ void Controller::parkingEndCallback(const std_msgs::Int16& signal){
             this->parking_end_once = false;
             this->is_local_path_set = false;
             this->l_curr_idx = 0;
+
             this->current_state = VehicleState::GLOBAL_PATH_DRIVING;
         }
     }
@@ -155,6 +171,7 @@ void Controller::imuCallback(const sensor_msgs::Imu& imu_data){
         this->imu.orientation.x,
         this->imu.orientation.y,
         this->imu.orientation.z,
+
         this->imu.orientation.w
     );
 
@@ -181,6 +198,7 @@ void Controller::trafficLightStatusCallback(const std_msgs::String& msg){
 }
 
 void Controller::currentPoseCallback(const geometry_msgs::Pose& curr_pose){
+    // 항상 원본 pose 사용
     this->curr_pose = curr_pose;
     this->is_pose_set = true;
 }
@@ -272,19 +290,22 @@ void Controller::flowControl(const geometry_msgs::Pose& curr_pose){
         }
     }
 
-    // optimal_throttle.DISTANCE (15m) 밖 부터 체크 시작 
-    else if(dist < this->optimal_throttle.DISTANCE){
+    // Start deceleration 50 waypoints before stop point (index-based)
+    else if(stop_idx - 50 <= this->g_curr_idx && this->g_curr_idx < stop_idx){
         switch(this->optimal_throttle.eventPlaceInfoManager.getCurrEventPlaceInfo().type){
         case EventType::STOP_TRAFFIC:
+            ROS_INFO("[TRAFFIC LIGHT] Approaching traffic light (idx: %d/%d) - starting deceleration", this->g_curr_idx, stop_idx);
             this->optimal_throttle.shouldDecel = true;
             break;
 
         case EventType::STOP_LINE:
+            ROS_INFO("[STOP_LINE] Approaching stop line (idx: %d/%d) - starting deceleration", this->g_curr_idx, stop_idx);
             this->timer.resetTimer(3);
             this->optimal_throttle.shouldDecel = true;
             break;
 
         case EventType::STOP_DELIVERY_A:
+            ROS_INFO("[DELIVERY] Approaching delivery zone (idx: %d/%d) - starting deceleration", this->g_curr_idx, stop_idx);
             this->timer.resetTimer(5);
             this->optimal_throttle.shouldDecel = true;
             break;
@@ -468,8 +489,10 @@ void Controller::publishControlMsg(){
 
         if (this->is_moving_back) {
             msg.steering = steering_deg * -1;
+            // ROS_INFO("!!!!!!!!!!!!!!!!악");
         } else {
             msg.steering = steering_deg;
+            // ROS_INFO("악!!!!!!!!!!!!!!!!");
         }
 
         msg.brake = (this->brake < 0.01) ? 0.0 : this->brake;

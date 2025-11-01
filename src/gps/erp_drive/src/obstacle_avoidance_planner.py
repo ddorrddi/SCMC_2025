@@ -459,7 +459,7 @@ class ObstacleAvoidancePlanner:
 
         # 대형인 경우
         if blocked_left and blocked_right:
-            rospy.loginfo('left mid right')
+            # rospy.loginfo('left mid right')
             self.blocked_idx = min(blocked_left_idx, blocked_mid_idx, blocked_right_idx)
             self.blocked_idx += max(blocked_left_idx, blocked_mid_idx, blocked_right_idx)
             self.blocked_idx //= 2
@@ -469,13 +469,13 @@ class ObstacleAvoidancePlanner:
 
         # 소형인 경우
         if blocked_left:
-            rospy.loginfo('left mid')
+            # rospy.loginfo('left mid')
             self.blocked_idx = blocked_left_idx
             return True, False, 1
 
         # 소형인 경우
         if blocked_right:
-            rospy.loginfo('mid right')
+            # rospy.loginfo('mid right')
             self.blocked_idx = blocked_right_idx
             return True, False, -1
         
@@ -491,7 +491,7 @@ class ObstacleAvoidancePlanner:
         # 2. '기준 경로'를 바탕으로 Frenet 좌표계 관련 값들을 계산합니다.
         s_list, yaw_list = compute_s_and_yaw(original_ref_path)
 
-        rospy.loginfo(f"[회피 경로 생성] ccw: {ccw}, is_big: {is_big}, blocked_idx: {self.blocked_idx}")
+        # rospy.loginfo(f"[회피 경로 생성] ccw: {ccw}, is_big: {is_big}, blocked_idx: {self.blocked_idx}")
 
         # 3. 차량의 현재 위치도 '기준 경로'에 맞춰 변환합니다.
         curr_x = self.curr_pose.position.x
@@ -500,7 +500,7 @@ class ObstacleAvoidancePlanner:
 
         lane_offset = 0.3
 
-        rospy.loginfo(f"[BIG??]: {is_big}")
+        # rospy.loginfo(f"[BIG??]: {is_big}")
 
         #  if 710 <= self.g_curr_idx <= 930 and is_big:
 
@@ -556,7 +556,7 @@ class ObstacleAvoidancePlanner:
         
         # [조건] 회피 구간 밖 - 회피하지 않음
         else:
-            rospy.loginfo("회피 구간 밖 - 장애물 감지되었지만 회피하지 않음")
+            # rospy.loginfo("회피 구간 밖 - 장애물 감지되었지만 회피하지 않음")
             return
         
         # 회피 목표 지점 계산

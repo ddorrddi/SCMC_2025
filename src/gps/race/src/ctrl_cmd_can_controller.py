@@ -12,6 +12,7 @@ ID_AD_CONTROL_FLAG = 0x501
 ID_AD_CONTROL_STEERING = 0x502
 ID_AD_CONTROL_BRAKE = 0x503
 ID_AD_CONTROL_ACCELERATE = 0x504
+ID_AD_CONTROL_BODY = 0x506
 
 # --- 글로벌 변수 ---
 msg_counter = 0
@@ -89,6 +90,34 @@ def create_ad_accelerate_msg(speed_kph, gear):
         arbitration_id=ID_AD_CONTROL_ACCELERATE, data=data, is_extended_id=False
     )
 
+def create_ad_body_msg(headlight_on=True, left_turn=False, right_turn=False, horn=False, brake_light=False):
+    """차량 바디 제어 메시지 생성 (헤드라이트, 방향지시등, 경적, 브레이크등)"""
+    data = [0] * 8
+
+    # 비트 0: 좌회전등
+    # 비트 1: 우회전등
+    # 비트 2: 경적
+    # 비트 3: 헤드라이트
+    # 비트 4-7: 메시지 카운터
+    data[0] = 0x00
+    if left_turn:
+        data[0] |= 0x01
+    if right_turn:
+        data[0] |= 0x02
+    if horn:
+        data[0] |= 0x04
+    if headlight_on:
+        data[0] |= 0x08
+    data[0] |= (msg_counter << 4)
+
+    # 비트 8 (byte 1): 브레이크등
+    if brake_light:
+        data[1] |= 0x01
+
+    return can.Message(
+        arbitration_id=ID_AD_CONTROL_BODY, data=data, is_extended_id=False
+    )
+
 # --- ROS 콜백 함수 ---
 
 def control_value_callback(msg):
@@ -146,6 +175,10 @@ def send_can_messages():
             # 4. 가속/기어 메시지 전송
             accel_msg = create_ad_accelerate_msg(speed_kph=current_velocity, gear=gear)
             bus.send(accel_msg)
+
+            # 5. 바디 제어 메시지 전송 (헤드라이트 항상 켜기)
+            body_msg = create_ad_body_msg(headlight_on=True)
+            bus.send(body_msg)
 
         except can.CanError as e:
             rospy.logerr("CAN 에러 발생: %s", e)

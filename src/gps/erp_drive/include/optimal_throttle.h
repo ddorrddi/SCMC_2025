@@ -101,7 +101,7 @@ private:
 
         // EventPlaceInfo(END_NUM, EventType::STOP_LINE),
 
-        // 배달 A 
+        //배달 A 
         EventPlaceInfo(310, EventType::STOP_DELIVERY_A),
 
         // traffic 1

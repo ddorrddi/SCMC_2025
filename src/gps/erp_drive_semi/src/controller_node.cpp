@@ -59,11 +59,9 @@ int main(int argc, char** argv) {
                     } else if (1000 < control.g_curr_idx && !control.uturn_done) {
                         control.brake = 0.0;
                         control.velocity = 10.0;
-                        ROS_WARN("111111111111111111");
                     } else {
                         control.brake = 0.0;
                         control.velocity = control.global_velocity;
-                        ROS_WARN("2222222222222222");
                     }
 
                     if (500 < control.g_curr_idx && control.g_curr_idx < 600) {
